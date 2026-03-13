@@ -116,6 +116,7 @@ app.registerExtension({
 
         const thisNodeName = nodeData.name // 存储当前的节点名称
         let nodeTextAreaList = [] // 按顺序载入element，name="positive" || "lora_str" || "temp_str"
+        let nodeWidgetList = [] // ✅ 新增：保存widget引用，用于同步更新widget.value
         const thisNodeSeed = generateUUID(); // 随机唯一种子ID
 
         if (nodeData.name === "WeiLinPromptUI" || nodeData.name === "WeiLinPromptUIWithoutLora") {
@@ -133,22 +134,27 @@ app.registerExtension({
             let thisInputElement = widgetItem.element
             // thisInputElement.readOnly = true
             nodeTextAreaList[0] = thisInputElement
+            nodeWidgetList[0] = widgetItem // ✅ 保存widget引用
           } else if (widgetItem.name == "lora_str") {
             let thisInputElement = widgetItem.element
             thisInputElement.readOnly = true
             nodeTextAreaList[1] = thisInputElement
+            nodeWidgetList[1] = widgetItem // ✅ 保存widget引用
           } else if (widgetItem.name == "temp_str") {
             let thisInputElement = widgetItem.element
             thisInputElement.readOnly = true
             nodeTextAreaList[2] = thisInputElement
+            nodeWidgetList[2] = widgetItem // ✅ 保存widget引用
           } else if (widgetItem.name == "temp_lora_str") {
             let thisInputElement = widgetItem.element
             thisInputElement.readOnly = true
             nodeTextAreaList[3] = thisInputElement
+            nodeWidgetList[3] = widgetItem // ✅ 保存widget引用
           } else if (widgetItem.name == "random_template") {
             let thisInputElement = widgetItem.element
             thisInputElement.readOnly = true
             nodeTextAreaList[4] = thisInputElement
+            nodeWidgetList[4] = widgetItem // ✅ 保存widget引用
           }
         }
 
@@ -313,27 +319,35 @@ app.registerExtension({
             const jsonReponse = JSON.parse(event.data.data)
             // console.log(jsonReponse)
             nodeTextAreaList[0].value = jsonReponse.prompt;
+            // ✅ 修复：同时更新widget.value，确保序列化时获取最新值
+            if (nodeWidgetList[0]) nodeWidgetList[0].value = jsonReponse.prompt;
 
             if (nodeData.name === "WeiLinPromptUI") {
               // console.log(jsonReponse.lora.length)
               if (jsonReponse.lora && jsonReponse.lora.length > 0 && jsonReponse.lora != "") {
                 nodeTextAreaList[1].value = JSON.stringify(jsonReponse.lora);
+                if (nodeWidgetList[1]) nodeWidgetList[1].value = JSON.stringify(jsonReponse.lora);
               } else {
                 nodeTextAreaList[1].value = "";
+                if (nodeWidgetList[1]) nodeWidgetList[1].value = "";
               }
             }
 
             if (jsonReponse.temp_prompt && jsonReponse.temp_prompt != "") {
               nodeTextAreaList[2].value = JSON.stringify(jsonReponse.temp_prompt);
+              if (nodeWidgetList[2]) nodeWidgetList[2].value = JSON.stringify(jsonReponse.temp_prompt);
             }else {
               nodeTextAreaList[2].value = "";
+              if (nodeWidgetList[2]) nodeWidgetList[2].value = "";
             }
 
             if (nodeData.name === "WeiLinPromptUI") {
               if (jsonReponse.temp_lora && jsonReponse.temp_lora != "") {
                 nodeTextAreaList[3].value = JSON.stringify(jsonReponse.temp_lora);
+                if (nodeWidgetList[3]) nodeWidgetList[3].value = JSON.stringify(jsonReponse.temp_lora);
               }else {
                 nodeTextAreaList[3].value = "";
+                if (nodeWidgetList[3]) nodeWidgetList[3].value = "";
               }
             }
 
@@ -381,14 +395,18 @@ app.registerExtension({
               // console.log(jsonReponse.lora.length)
               if (jsonReponse.lora && jsonReponse.lora.length > 0 && jsonReponse.lora != "") {
                 nodeTextAreaList[1].value = JSON.stringify(jsonReponse.lora);
+                if (nodeWidgetList[1]) nodeWidgetList[1].value = JSON.stringify(jsonReponse.lora);
               } else {
                 nodeTextAreaList[1].value = "";
+                if (nodeWidgetList[1]) nodeWidgetList[1].value = "";
               }
 
               if (jsonReponse.temp_lora && jsonReponse.temp_lora != "") {
                 nodeTextAreaList[3].value = JSON.stringify(jsonReponse.temp_lora);
+                if (nodeWidgetList[3]) nodeWidgetList[3].value = JSON.stringify(jsonReponse.temp_lora);
               }else{
                 nodeTextAreaList[3].value = "";
+                if (nodeWidgetList[3]) nodeWidgetList[3].value = "";
               }
 
               if (nodeTextAreaList[3].value.length > 0) {
@@ -405,19 +423,24 @@ app.registerExtension({
             if (nodeData.name === "WeiLinPromptUIOnlyLoraStack") {
               if (jsonReponse.lora && jsonReponse.lora.length > 0 && jsonReponse.lora != "") {
                 nodeTextAreaList[1].value = JSON.stringify(jsonReponse.lora);
+                if (nodeWidgetList[1]) nodeWidgetList[1].value = JSON.stringify(jsonReponse.lora);
               } else {
                 nodeTextAreaList[1].value = "";
+                if (nodeWidgetList[1]) nodeWidgetList[1].value = "";
               }
               if (jsonReponse.temp_lora && jsonReponse.temp_lora != "") {
                 nodeTextAreaList[3].value = JSON.stringify(jsonReponse.temp_lora);
+                if (nodeWidgetList[3]) nodeWidgetList[3].value = JSON.stringify(jsonReponse.temp_lora);
               }else{
                 nodeTextAreaList[3].value = "";
+                if (nodeWidgetList[3]) nodeWidgetList[3].value = "";
               }
             }
           }else if (event.data.type === "weilin_prompt_ui_selectLora_stack_node_"+thisNodeSeed) {
             addLora(thisNodeSeed,event.data.lora)
           }else if (event.data.type === "weilin_prompt_ui_update_template_"+randomID) {
             nodeTextAreaList[4].value = event.data.data
+            if (nodeWidgetList[4]) nodeWidgetList[4].value = event.data.data
           }else if (event.data.type === "weilin_prompt_ui_get_template_"+randomID) {
             window.parent.postMessage({ type: 'weilin_prompt_ui_get_template_response', id: randomID, data: nodeTextAreaList[4].value }, '*')
           }else if (event.data.type === "weilin_prompt_ui_get_template_go_random_"+randomID) {
@@ -433,14 +456,16 @@ app.registerExtension({
 			const onExecuted = nodeType.prototype.onExecuted;
 			nodeType.prototype.onExecuted = function (message) {
 				onExecuted?.apply(this, arguments);
-        const positiveWidget = this.widgets.find(w => w.name === "positive");
-        if (positiveWidget && message.positive) {
-          positiveWidget.element.value = message.positive;
-          // 触发input事件以更新全局状态
-          const event = new Event('input', { bubbles: true });
-          positiveWidget.element.dispatchEvent(event);
-        }
-        // console.log(message.positive)
+				// ✅ 修复：禁用 onExecuted 中的覆盖逻辑
+				// 前端已经通过 postMessageToWindowsPrompt 同步数据到节点
+				// 不再需要用后端返回的旧值覆盖前端
+				// if (!message) return;
+        // const positiveWidget = this.widgets.find(w => w.name === "positive");
+        // if (positiveWidget && message.positive) {
+        //   positiveWidget.element.value = message.positive;
+        //   const event = new Event('input', { bubbles: true });
+        //   positiveWidget.element.dispatchEvent(event);
+        // }
 			};
     }
   },
