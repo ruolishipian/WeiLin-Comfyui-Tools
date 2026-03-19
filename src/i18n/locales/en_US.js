@@ -5,8 +5,8 @@ export default {
     delete: 'Delete',
     newline: 'New Line',
     tab: 'Tab',
-    windowTitle: `WeiLin Prompt UI Window ${ version }`,
-    windowTitleGlobal: `WeiLin Global Prompt UI Window ${ version }`,
+    windowTitle: `WeiLin Prompt UI Window ${version}`,
+    windowTitleGlobal: `WeiLin Global Prompt UI Window ${version}`,
     translate: 'Translate',
     translatePlaceholder: 'Please enter the text to be translated',
     weight: 'Weight',
@@ -16,7 +16,7 @@ export default {
 
     hiddenHint: 'Double-click to show',
     tagTips:
-      'Double-click the left mouse button to mask the Tag<br>click the Tag to edit<br>and drag the Tag to drag',
+      'Double-click the left mouse button to mask the Tag\nclick the Tag to edit\nand drag the Tag to drag',
     oneClickRandomTag: 'one Click Random Tag',
     oneClickCleanAll: 'one Click Clean All',
     oneClickClearDisabled: 'Clear All Disabled',
@@ -315,7 +315,8 @@ export default {
   loraManager: {
     windowTitle: 'Lora Manager',
     modelWeight: 'Model Weight',
-    textEncoderWeight: 'Text Encoder Weight',
+    textEncoderWeight: 'CLIP Weight',
+    triggerWeight: 'Trigger Weight',
     all: 'All',
     root: 'Root',
     refresh: 'Refresh',

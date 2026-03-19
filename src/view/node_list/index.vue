@@ -31,29 +31,29 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
-import { useI18n } from 'vue-i18n'
+  import { onMounted, ref } from 'vue'
+  import { useI18n } from 'vue-i18n'
 
-const prefix = 'weilin_prompt_ui_'
-const { t } = useI18n()
+  const prefix = 'weilin_prompt_ui_'
+  const { t } = useI18n()
 
-const nodeLists = ref([])
+  const nodeLists = ref([])
 
-// 监听来自Lora管理器的消息
-window.addEventListener('message', (event) => {
-  if (event.data.type === 'weilin_prompt_ui_update_node_list_info') {
-    nodeLists.value = event.data.nodeList
-    // console.log(nodeLists.value)
+  // 监听来自Lora管理器的消息
+  window.addEventListener('message', (event) => {
+    if (event.data.type === 'weilin_prompt_ui_update_node_list_info') {
+      nodeLists.value = event.data.nodeList
+      // console.log(nodeLists.value)
+    }
+  })
+
+  const openPromptUI = (seed) => {
+    window.postMessage({ type: 'weilin_prompt_ui_prompt_open_node_wit_seed', seed: seed }, '*')
   }
-})
 
-const openPromptUI = (seed) => {
-  window.postMessage({ type: 'weilin_prompt_ui_prompt_open_node_wit_seed', seed: seed }, '*')
-}
-
-onMounted(() => {
-  window.postMessage({ type: 'weilin_prompt_ui_prompt_get_node_list_info' }, '*')
-})
+  onMounted(() => {
+    window.postMessage({ type: 'weilin_prompt_ui_prompt_get_node_list_info' }, '*')
+  })
 </script>
 
 <style scoped>

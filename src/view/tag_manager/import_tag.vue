@@ -134,11 +134,11 @@
             <h4>{{ parseSQL(subGroupSql).text }}</h4>
             <div class="tag-group-container">
               <div
-                v-for="(tag, index) in tagGroups"
+                v-for="(tagItem, index) in tagGroups"
                 :key="index"
                 style="display: flex; flex-direction: column; align-items: center"
               >
-                <p>{{ parseSQL(tag).text }} - {{ parseSQL(tag).desc }}</p>
+                <p>{{ parseSQL(tagItem).text }} - {{ parseSQL(tagItem).desc }}</p>
                 <div style="display: flex; align-items: center">
                   <div v-if="editingIndex === index">
                     <input v-model="editText" placeholder="Tag" />
@@ -176,431 +176,431 @@
 </template>
 
 <script setup>
-import Dialog from '@/components/Dialog.vue'
-import { ref, watch } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { uuidv7 } from 'uuidv7'
-import message from '@/utils/message'
-import TagGroupSelectDialog from './tag_group_select.vue'
-import yaml from 'js-yaml'
-import { tagsApi } from '@/api/tags'
+  import Dialog from '@/components/Dialog.vue'
+  import { ref, watch } from 'vue'
+  import { useI18n } from 'vue-i18n'
+  import { uuidv7 } from 'uuidv7'
+  import message from '@/utils/message'
+  import TagGroupSelectDialog from './tag_group_select.vue'
+  import yaml from 'js-yaml'
+  import { tagsApi } from '@/api/tags'
 
-const { t } = useI18n()
+  const { t } = useI18n()
 
-const dialogVisible = ref(false)
+  const dialogVisible = ref(false)
 
-const tag = ref('')
-const chinese = ref('')
-const sql = ref('')
-const groupSql = ref('')
-const subGroupSql = ref('')
-const groupName = ref('')
-const subGroupName = ref('')
-const mainClassUUID = ref('')
-const subGroupUUID = ref('')
-const tagGroups = ref([])
-const editingIndex = ref(-1)
-const editText = ref('')
-const editDesc = ref('')
-const fileInput = ref(null)
-const jsonFileInput = ref(null)
-const txtFileInput = ref(null)
-const isSelectGroup = ref(false)
-const outPutName = ref('')
+  const tag = ref('')
+  const chinese = ref('')
+  const sql = ref('')
+  const groupSql = ref('')
+  const subGroupSql = ref('')
+  const groupName = ref('')
+  const subGroupName = ref('')
+  const mainClassUUID = ref('')
+  const subGroupUUID = ref('')
+  const tagGroups = ref([])
+  const editingIndex = ref(-1)
+  const editText = ref('')
+  const editDesc = ref('')
+  const fileInput = ref(null)
+  const jsonFileInput = ref(null)
+  const txtFileInput = ref(null)
+  const isSelectGroup = ref(false)
+  const outPutName = ref('')
 
-// 在script setup部分添加ref和函数
-const yamlFileInput = ref(null)
+  // 在script setup部分添加ref和函数
+  const yamlFileInput = ref(null)
 
-function triggerYAMLUpload() {
-  if (groupSql.value.length <= 0 || subGroupSql.value.length <= 0) {
-    message({ type: 'warn', str: 'importDialog.pleaseFullRequest' })
-    return
-  }
-  yamlFileInput.value.click()
-}
-
-function cleanAll() {
-  tag.value = ''
-  chinese.value = ''
-  sql.value = ''
-  groupSql.value = ''
-  subGroupSql.value = ''
-  groupName.value = ''
-  subGroupName.value = ''
-  mainClassUUID.value = ''
-  subGroupUUID.value = ''
-  tagGroups.value = []
-  editingIndex.value = -1
-  editText.value = ''
-  editDesc.value = ''
-  isSelectGroup.value = false
-}
-
-function handleTXTUpload(event) {
-  const file = event.target.files[0]
-  if (file) {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const content = e.target.result
-      const lines = content.split('\n').filter((line) => line.trim())
-      let i = 0
-      lines.forEach((line) => {
-        const [text, desc] = line.split(',')
-        if (text && desc) {
-          const escapedText = text.trim().replace(/'/g, "''")
-          const escapedDesc = desc.trim().replace(/'/g, "''")
-          const result = uuidv7()
-          i = i + 1
-          const time = parseInt(new Date().getTime() / 1000, 10) + i
-          const sql = `INSERT OR REPLACE INTO "tag_tags" ("text", "desc", "color", "create_time", "g_uuid", "t_uuid") VALUES ('${ escapedText }', '${ escapedDesc }', 'rgba(255, 123, 2, .4)', ${ time }, '${ subGroupUUID.value }', '${ result }');`
-          tagGroups.value.push(sql)
-        }
-      })
+  function triggerYAMLUpload() {
+    if (groupSql.value.length <= 0 || subGroupSql.value.length <= 0) {
+      message({ type: 'warn', str: 'importDialog.pleaseFullRequest' })
+      return
     }
-    reader.readAsText(file)
+    yamlFileInput.value.click()
   }
-  event.target.value = ''
-}
 
-function handleJSONUpload(event) {
-  const file = event.target.files[0]
-  if (file) {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      try {
-        const jsonData = JSON.parse(e.target.result)
+  function cleanAll() {
+    tag.value = ''
+    chinese.value = ''
+    sql.value = ''
+    groupSql.value = ''
+    subGroupSql.value = ''
+    groupName.value = ''
+    subGroupName.value = ''
+    mainClassUUID.value = ''
+    subGroupUUID.value = ''
+    tagGroups.value = []
+    editingIndex.value = -1
+    editText.value = ''
+    editDesc.value = ''
+    isSelectGroup.value = false
+  }
+
+  function handleTXTUpload(event) {
+    const file = event.target.files[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const content = e.target.result
+        const lines = content.split('\n').filter((line) => line.trim())
         let i = 0
-        Object.entries(jsonData).forEach(([text, desc]) => {
-          const escapedText = text.replace(/'/g, "''")
-          const escapedDesc = desc.replace(/'/g, "''")
-          const result = uuidv7()
-          i = i + 1
-          const time = parseInt(new Date().getTime() / 1000, 10) + i
-          const sql = `INSERT OR REPLACE INTO "tag_tags" ("text", "desc", "color", "create_time", "g_uuid", "t_uuid") VALUES ('${ escapedText }', '${ escapedDesc }', 'rgba(255, 123, 2, .4)', ${ time }, '${ subGroupUUID.value }', '${ result }');`
-          tagGroups.value.push(sql)
-        })
-      } catch (error) {
-        message({ type: 'warn', str: 'message.jsonErrorMesg' })
-      }
-    }
-    reader.readAsText(file)
-  }
-  event.target.value = ''
-}
-
-function handleYAMLUpload(event) {
-  const file = event.target.files[0]
-  if (file) {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      try {
-        const yamlData = yaml.load(e.target.result)
-        let i = 0
-        Object.entries(yamlData).forEach(([text, desc]) => {
-          const escapedText = text.replace(/'/g, "''")
-          const escapedDesc = String(desc).replace(/'/g, "''")
-          const result = uuidv7()
-          i = i + 1
-          const time = parseInt(new Date().getTime() / 1000, 10) + i
-          const sql = `INSERT OR REPLACE INTO "tag_tags" ("text", "desc", "color", "create_time", "g_uuid", "t_uuid") VALUES ('${ escapedText }', '${ escapedDesc }', 'rgba(255, 123, 2, .4)', ${ time }, '${ subGroupUUID.value }', '${ result }');`
-          tagGroups.value.push(sql)
-        })
-      } catch (error) {
-        message({ type: 'warn', str: 'message.yamlErrorMesg' })
-      }
-    }
-    reader.readAsText(file)
-  }
-  event.target.value = ''
-}
-
-function handleFileUpload(event) {
-  cleanAll()
-  const file = event.target.files[0]
-  if (file) {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const content = e.target.result
-      const sqlStatements = content.split(';').filter((s) => s.trim())
-      sqlStatements.forEach((statement) => {
-        if (
-          (statement.includes('tag_groups') || statement.includes('tag_subgroups')) &&
-            statement.includes('p_uuid')
-        ) {
-          if (statement.includes('g_uuid')) {
-            // 处理二级分类
-            subGroupSql.value = `${ statement };`
-            // 提取g_uuid，使用更灵活的正则表达式
-            const valuesPart = statement.split('VALUES')[1].trim()
-            const lastValue = valuesPart.match(/,\s*'([^']+)'\)$/)
-            if (lastValue) {
-              subGroupUUID.value = lastValue[1]
-            }
-            const nameMatch = statement.match(/VALUES\s*\([^'"]*['"]([^'"]+)['"]/)
-            if (nameMatch) {
-              subGroupName.value = nameMatch[1].replace(/''/g, "'")
-            }
-          } else {
-            // 处理一级分类
-            groupSql.value = `${ statement };`
-            // 提取p_uuid，使用更灵活的正则表达式
-            const valuesPart = statement.split('VALUES')[1].trim()
-            const lastValue = valuesPart.match(/,\s*'([^']+)'\)$/)
-            if (lastValue) {
-              mainClassUUID.value = lastValue[1]
-            }
-            const nameMatch = statement.match(/VALUES\s*\([^'"]*['"]([^'"]+)['"]/)
-            if (nameMatch) {
-              groupName.value = nameMatch[1].replace(/''/g, "'")
-            }
+        lines.forEach((line) => {
+          const [text, desc] = line.split(',')
+          if (text && desc) {
+            const escapedText = text.trim().replace(/'/g, "''")
+            const escapedDesc = desc.trim().replace(/'/g, "''")
+            const result = uuidv7()
+            i = i + 1
+            const time = parseInt(new Date().getTime() / 1000, 10) + i
+            const sql = `INSERT OR REPLACE INTO "tag_tags" ("text", "desc", "color", "create_time", "g_uuid", "t_uuid") VALUES ('${escapedText}', '${escapedDesc}', 'rgba(255, 123, 2, .4)', ${time}, '${subGroupUUID.value}', '${result}');`
+            tagGroups.value.push(sql)
           }
-        } else if (statement.includes('tag_tags')) {
-          tagGroups.value.push(`${ statement };`)
-        }
-      })
+        })
+      }
+      reader.readAsText(file)
     }
-    reader.readAsText(file)
+    event.target.value = ''
   }
-  event.target.value = ''
-}
 
-function triggerTXTUpload() {
-  if (groupSql.value.length <= 0 || subGroupSql.value.length <= 0) {
-    message({ type: 'warn', str: 'importDialog.pleaseFullRequest' })
-    return
-  }
-  txtFileInput.value.click()
-}
-
-function triggerJSONUpload() {
-  if (groupSql.value.length <= 0 || subGroupSql.value.length <= 0) {
-    message({ type: 'warn', str: 'importDialog.pleaseFullRequest' })
-    return
-  }
-  jsonFileInput.value.click()
-}
-
-function triggerFileUpload() {
-  fileInput.value.click()
-}
-
-function exportSQL() {
-  const sqlContent = [groupSql.value, subGroupSql.value, ...tagGroups.value].join('\n')
-  const blob = new Blob([sqlContent], { type: 'text/sql' })
-  const link = document.createElement('a')
-  link.href = URL.createObjectURL(blob)
-  if (outPutName.value.length <= 0) {
-    const time = parseInt(new Date().getTime() / 1000, 10)
-    link.download = `export_${ time }.sql`
-  } else {
-    link.download = `${ outPutName.value }.sql`
-  }
-  link.click()
-}
-
-const exportOnlyTagSQL = () => {
-  const sqlContent = [...tagGroups.value].join('\n')
-  const blob = new Blob([sqlContent], { type: 'text/sql' })
-  const link = document.createElement('a')
-  link.href = URL.createObjectURL(blob)
-  if (outPutName.value.length <= 0) {
-    const time = parseInt(new Date().getTime() / 1000, 10)
-    link.download = `export_tags_${ time }.sql`
-  } else {
-    link.download = `${ outPutName.value }.sql`
-  }
-  link.click()
-}
-
-function parseSQL(sql) {
-  const textMatch = sql.match(/VALUES\s*\([^']*'([^']+)'/)
-  const descMatch = sql.match(/VALUES\s*\([^']*'[^']*'\s*,\s*'([^']+)'/)
-  return {
-    text: textMatch ? textMatch[1].replace(/''/g, "'") : '',
-    desc: descMatch ? descMatch[1].replace(/''/g, "'") : ''
-  }
-}
-
-function deleteTag(index) {
-  tagGroups.value.splice(index, 1)
-}
-
-function startEdit(index) {
-  const tag = tagGroups.value[index]
-  const parsed = parseSQL(tag)
-  editText.value = parsed.text
-  editDesc.value = parsed.desc
-  editingIndex.value = index
-}
-
-function confirmEdit(index) {
-  const escapedText = editText.value.replace(/'/g, "''")
-  const escapedDesc = editDesc.value.replace(/'/g, "''")
-  tagGroups.value[index] = tagGroups.value[index]
-    .replace(/(VALUES\s*\([^']*')([^']+)'/, `$1${ escapedText }'`)
-    .replace(/(VALUES\s*\([^']*'[^']*'\s*,\s*')([^']+)'/, `$1${ escapedDesc }'`)
-  editingIndex.value = -1
-}
-
-function cancelEdit() {
-  editingIndex.value = -1
-}
-
-function generateSQL() {
-  if (!subGroupUUID.value) {
-    message({ type: 'warn', str: 'message.pleaseAddSub' })
-    return
-  }
-  const escapedTag = tag.value.replace(/'/g, "''")
-  const escapedChinese = chinese.value.replace(/'/g, "''")
-  const result = uuidv7()
-  const time = parseInt(new Date().getTime() / 1000, 10)
-  sql.value = `INSERT OR REPLACE INTO "tag_tags" ("text", "desc", "color", "create_time", "g_uuid", "t_uuid") VALUES ('${ escapedTag }', '${ escapedChinese }', 'rgba(255, 123, 2, .4)', ${ time }, '${ subGroupUUID.value }', '${ result }');`
-  tagGroups.value.push(sql.value)
-}
-
-function generateGroupSQL() {
-  if (groupName.value.length <= 0) {
-    message({ type: 'warn', str: 'importDialog.pleaseAddGroupName' })
-    return
-  }
-  const escapedGroupName = groupName.value.replace(/'/g, "''")
-  if (mainClassUUID.value.length <= 0) {
-    mainClassUUID.value = uuidv7()
-  }
-  const time = parseInt(new Date().getTime() / 1000, 10)
-  groupSql.value = `INSERT OR REPLACE INTO "tag_groups" ("name", "color", "create_time", "p_uuid") VALUES ('${ escapedGroupName }', 'rgba(255, 123, 2, .4)', ${ time }, '${ mainClassUUID.value }');`
-}
-
-function generateSubGroupSQL() {
-  if (subGroupName.value.length <= 0) {
-    message({ type: 'warn', str: 'importDialog.pleaseAddSubGroupName' })
-    return
-  }
-  if (!mainClassUUID.value) {
-    message({ type: 'warn', str: 'message.pleaseAddMainCeb' })
-    return
-  }
-  const escapedSubGroupName = subGroupName.value.replace(/'/g, "''")
-  if (subGroupUUID.value.length <= 0) {
-    subGroupUUID.value = uuidv7()
-  }
-  const time = parseInt(new Date().getTime() / 1000, 10)
-  subGroupSql.value = `INSERT OR REPLACE INTO "tag_subgroups" ("name", "color", "create_time", "p_uuid", "g_uuid") VALUES ('${ escapedSubGroupName }', 'rgba(255, 123, 2, .4)', ${ time }, '${ mainClassUUID.value }', '${ subGroupUUID.value }');`
-}
-
-const tagGroupSelectDialogItem = ref(null)
-const openSelectGroup = () => {
-  tagGroupSelectDialogItem.value.open()
-}
-
-const sureToSelectInfo = (info) => {
-  isSelectGroup.value = true
-  groupName.value = info.group.name
-  subGroupName.value = info.sub.name
-  mainClassUUID.value = info.group.p_uuid
-  subGroupUUID.value = info.sub.g_uuid
-  const escapedGroupName = info.group.name.replace(/'/g, "''")
-  const escapedSubGroupName = info.sub.name.replace(/'/g, "''")
-  groupSql.value = `INSERT OR REPLACE INTO "tag_groups" ("name", "color", "create_time", "p_uuid") VALUES ('${ escapedGroupName }', '${ info.group.color }', ${ info.group.create_time }, '${ info.group.p_uuid }');`
-  subGroupSql.value = `INSERT OR REPLACE INTO "tag_subgroups" ("name", "color", "create_time", "p_uuid", "g_uuid") VALUES ('${ escapedSubGroupName }', '${ info.sub.color }', ${ info.sub.create_time }, '${ info.group.p_uuid }', '${ info.sub.g_uuid }');`
-  // console.log(info)
-}
-
-const loading = ref(false)
-
-const runSQLToServer = async (sql) => {
-  loading.value = true
-  try {
-    await tagsApi
-      .runSQLToServer(sql)
-      .then((res) => {
-        if (res.code !== 200) {
-          message({ type: 'warn', str: res.message })
-        } else {
-          getTagsList()
-          message({ type: 'success', str: 'importDialog.successImport' })
+  function handleJSONUpload(event) {
+    const file = event.target.files[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        try {
+          const jsonData = JSON.parse(e.target.result)
+          let i = 0
+          Object.entries(jsonData).forEach(([text, desc]) => {
+            const escapedText = text.replace(/'/g, "''")
+            const escapedDesc = desc.replace(/'/g, "''")
+            const result = uuidv7()
+            i = i + 1
+            const time = parseInt(new Date().getTime() / 1000, 10) + i
+            const sql = `INSERT OR REPLACE INTO "tag_tags" ("text", "desc", "color", "create_time", "g_uuid", "t_uuid") VALUES ('${escapedText}', '${escapedDesc}', 'rgba(255, 123, 2, .4)', ${time}, '${subGroupUUID.value}', '${result}');`
+            tagGroups.value.push(sql)
+          })
+        } catch (error) {
+          message({ type: 'warn', str: 'message.jsonErrorMesg' })
         }
-      })
-      .catch((err) => {
-        console.error(err)
-        message({ type: 'warn', str: 'importDialog.importFail' })
-      })
-  } catch (err) {
-    console.error(err)
-    message({ type: 'warn', str: 'importDialog.importFail' })
-  } finally {
-    loading.value = false
+      }
+      reader.readAsText(file)
+    }
+    event.target.value = ''
   }
-}
 
-// 获取标签列表
-const getTagsList = () => {
-  window.postMessage(
-    {
-      type: 'weilin_prompt_ui_tag_manager_refresh'
-    },
-    '*'
-  )
-}
+  function handleYAMLUpload(event) {
+    const file = event.target.files[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        try {
+          const yamlData = yaml.load(e.target.result)
+          let i = 0
+          Object.entries(yamlData).forEach(([text, desc]) => {
+            const escapedText = text.replace(/'/g, "''")
+            const escapedDesc = String(desc).replace(/'/g, "''")
+            const result = uuidv7()
+            i = i + 1
+            const time = parseInt(new Date().getTime() / 1000, 10) + i
+            const sql = `INSERT OR REPLACE INTO "tag_tags" ("text", "desc", "color", "create_time", "g_uuid", "t_uuid") VALUES ('${escapedText}', '${escapedDesc}', 'rgba(255, 123, 2, .4)', ${time}, '${subGroupUUID.value}', '${result}');`
+            tagGroups.value.push(sql)
+          })
+        } catch (error) {
+          message({ type: 'warn', str: 'message.yamlErrorMesg' })
+        }
+      }
+      reader.readAsText(file)
+    }
+    event.target.value = ''
+  }
 
-const sureToImportTags = async () => {
-  if (isSelectGroup.value) {
+  function handleFileUpload(event) {
+    cleanAll()
+    const file = event.target.files[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const content = e.target.result
+        const sqlStatements = content.split(';').filter((s) => s.trim())
+        sqlStatements.forEach((statement) => {
+          if (
+            (statement.includes('tag_groups') || statement.includes('tag_subgroups')) &&
+            statement.includes('p_uuid')
+          ) {
+            if (statement.includes('g_uuid')) {
+              // 处理二级分类
+              subGroupSql.value = `${statement};`
+              // 提取g_uuid，使用更灵活的正则表达式
+              const valuesPart = statement.split('VALUES')[1].trim()
+              const lastValue = valuesPart.match(/,\s*'([^']+)'\)$/)
+              if (lastValue) {
+                subGroupUUID.value = lastValue[1]
+              }
+              const nameMatch = statement.match(/VALUES\s*\([^'"]*['"]([^'"]+)['"]/)
+              if (nameMatch) {
+                subGroupName.value = nameMatch[1].replace(/''/g, "'")
+              }
+            } else {
+              // 处理一级分类
+              groupSql.value = `${statement};`
+              // 提取p_uuid，使用更灵活的正则表达式
+              const valuesPart = statement.split('VALUES')[1].trim()
+              const lastValue = valuesPart.match(/,\s*'([^']+)'\)$/)
+              if (lastValue) {
+                mainClassUUID.value = lastValue[1]
+              }
+              const nameMatch = statement.match(/VALUES\s*\([^'"]*['"]([^'"]+)['"]/)
+              if (nameMatch) {
+                groupName.value = nameMatch[1].replace(/''/g, "'")
+              }
+            }
+          } else if (statement.includes('tag_tags')) {
+            tagGroups.value.push(`${statement};`)
+          }
+        })
+      }
+      reader.readAsText(file)
+    }
+    event.target.value = ''
+  }
+
+  function triggerTXTUpload() {
     if (groupSql.value.length <= 0 || subGroupSql.value.length <= 0) {
       message({ type: 'warn', str: 'importDialog.pleaseFullRequest' })
       return
     }
-    const sqlContent = [...tagGroups.value]
-    // console.log(sqlContent)
-    await runSQLToServer(sqlContent)
-  } else {
+    txtFileInput.value.click()
+  }
+
+  function triggerJSONUpload() {
     if (groupSql.value.length <= 0 || subGroupSql.value.length <= 0) {
       message({ type: 'warn', str: 'importDialog.pleaseFullRequest' })
       return
     }
-    const sqlContent = [groupSql.value, subGroupSql.value, ...tagGroups.value]
-    await runSQLToServer(sqlContent)
-    // console.log(sqlContent)
+    jsonFileInput.value.click()
   }
-}
 
-watch(groupSql, (newVal, oldVal) => {
-  if (!newVal || newVal === oldVal) {
-    return
+  function triggerFileUpload() {
+    fileInput.value.click()
   }
-  // 提取 p_uuid（最后一个单引号包裹的内容）
-  const newPUuid = newVal.match(/'([^']+)'\s*\)\s*;?$/)?.[1]
-  const oldPUuid = oldVal?.match(/'([^']+)'\s*\)\s*;?$/)?.[1]
 
-  if (newPUuid && oldPUuid && subGroupSql.value) {
-    // 只替换原有 oldPUuid 为 newPUuid
-    subGroupSql.value = subGroupSql.value.replace(
-      new RegExp(`'${ oldPUuid }'`, 'g'),
-      `'${ newPUuid }'`
+  function exportSQL() {
+    const sqlContent = [groupSql.value, subGroupSql.value, ...tagGroups.value].join('\n')
+    const blob = new Blob([sqlContent], { type: 'text/sql' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    if (outPutName.value.length <= 0) {
+      const time = parseInt(new Date().getTime() / 1000, 10)
+      link.download = `export_${time}.sql`
+    } else {
+      link.download = `${outPutName.value}.sql`
+    }
+    link.click()
+  }
+
+  const exportOnlyTagSQL = () => {
+    const sqlContent = [...tagGroups.value].join('\n')
+    const blob = new Blob([sqlContent], { type: 'text/sql' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    if (outPutName.value.length <= 0) {
+      const time = parseInt(new Date().getTime() / 1000, 10)
+      link.download = `export_tags_${time}.sql`
+    } else {
+      link.download = `${outPutName.value}.sql`
+    }
+    link.click()
+  }
+
+  function parseSQL(sql) {
+    const textMatch = sql.match(/VALUES\s*\([^']*'([^']+)'/)
+    const descMatch = sql.match(/VALUES\s*\([^']*'[^']*'\s*,\s*'([^']+)'/)
+    return {
+      text: textMatch ? textMatch[1].replace(/''/g, "'") : '',
+      desc: descMatch ? descMatch[1].replace(/''/g, "'") : ''
+    }
+  }
+
+  function deleteTag(index) {
+    tagGroups.value.splice(index, 1)
+  }
+
+  function startEdit(index) {
+    const tag = tagGroups.value[index]
+    const parsed = parseSQL(tag)
+    editText.value = parsed.text
+    editDesc.value = parsed.desc
+    editingIndex.value = index
+  }
+
+  function confirmEdit(index) {
+    const escapedText = editText.value.replace(/'/g, "''")
+    const escapedDesc = editDesc.value.replace(/'/g, "''")
+    tagGroups.value[index] = tagGroups.value[index]
+      .replace(/(VALUES\s*\([^']*')([^']+)'/, `$1${escapedText}'`)
+      .replace(/(VALUES\s*\([^']*'[^']*'\s*,\s*')([^']+)'/, `$1${escapedDesc}'`)
+    editingIndex.value = -1
+  }
+
+  function cancelEdit() {
+    editingIndex.value = -1
+  }
+
+  function generateSQL() {
+    if (!subGroupUUID.value) {
+      message({ type: 'warn', str: 'message.pleaseAddSub' })
+      return
+    }
+    const escapedTag = tag.value.replace(/'/g, "''")
+    const escapedChinese = chinese.value.replace(/'/g, "''")
+    const result = uuidv7()
+    const time = parseInt(new Date().getTime() / 1000, 10)
+    sql.value = `INSERT OR REPLACE INTO "tag_tags" ("text", "desc", "color", "create_time", "g_uuid", "t_uuid") VALUES ('${escapedTag}', '${escapedChinese}', 'rgba(255, 123, 2, .4)', ${time}, '${subGroupUUID.value}', '${result}');`
+    tagGroups.value.push(sql.value)
+  }
+
+  function generateGroupSQL() {
+    if (groupName.value.length <= 0) {
+      message({ type: 'warn', str: 'importDialog.pleaseAddGroupName' })
+      return
+    }
+    const escapedGroupName = groupName.value.replace(/'/g, "''")
+    if (mainClassUUID.value.length <= 0) {
+      mainClassUUID.value = uuidv7()
+    }
+    const time = parseInt(new Date().getTime() / 1000, 10)
+    groupSql.value = `INSERT OR REPLACE INTO "tag_groups" ("name", "color", "create_time", "p_uuid") VALUES ('${escapedGroupName}', 'rgba(255, 123, 2, .4)', ${time}, '${mainClassUUID.value}');`
+  }
+
+  function generateSubGroupSQL() {
+    if (subGroupName.value.length <= 0) {
+      message({ type: 'warn', str: 'importDialog.pleaseAddSubGroupName' })
+      return
+    }
+    if (!mainClassUUID.value) {
+      message({ type: 'warn', str: 'message.pleaseAddMainCeb' })
+      return
+    }
+    const escapedSubGroupName = subGroupName.value.replace(/'/g, "''")
+    if (subGroupUUID.value.length <= 0) {
+      subGroupUUID.value = uuidv7()
+    }
+    const time = parseInt(new Date().getTime() / 1000, 10)
+    subGroupSql.value = `INSERT OR REPLACE INTO "tag_subgroups" ("name", "color", "create_time", "p_uuid", "g_uuid") VALUES ('${escapedSubGroupName}', 'rgba(255, 123, 2, .4)', ${time}, '${mainClassUUID.value}', '${subGroupUUID.value}');`
+  }
+
+  const tagGroupSelectDialogItem = ref(null)
+  const openSelectGroup = () => {
+    tagGroupSelectDialogItem.value.open()
+  }
+
+  const sureToSelectInfo = (info) => {
+    isSelectGroup.value = true
+    groupName.value = info.group.name
+    subGroupName.value = info.sub.name
+    mainClassUUID.value = info.group.p_uuid
+    subGroupUUID.value = info.sub.g_uuid
+    const escapedGroupName = info.group.name.replace(/'/g, "''")
+    const escapedSubGroupName = info.sub.name.replace(/'/g, "''")
+    groupSql.value = `INSERT OR REPLACE INTO "tag_groups" ("name", "color", "create_time", "p_uuid") VALUES ('${escapedGroupName}', '${info.group.color}', ${info.group.create_time}, '${info.group.p_uuid}');`
+    subGroupSql.value = `INSERT OR REPLACE INTO "tag_subgroups" ("name", "color", "create_time", "p_uuid", "g_uuid") VALUES ('${escapedSubGroupName}', '${info.sub.color}', ${info.sub.create_time}, '${info.group.p_uuid}', '${info.sub.g_uuid}');`
+    // console.log(info)
+  }
+
+  const loading = ref(false)
+
+  const runSQLToServer = async (sql) => {
+    loading.value = true
+    try {
+      await tagsApi
+        .runSQLToServer(sql)
+        .then((res) => {
+          if (res.code !== 200) {
+            message({ type: 'warn', str: res.message })
+          } else {
+            getTagsList()
+            message({ type: 'success', str: 'importDialog.successImport' })
+          }
+        })
+        .catch((err) => {
+          console.error(err)
+          message({ type: 'warn', str: 'importDialog.importFail' })
+        })
+    } catch (err) {
+      console.error(err)
+      message({ type: 'warn', str: 'importDialog.importFail' })
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 获取标签列表
+  const getTagsList = () => {
+    window.postMessage(
+      {
+        type: 'weilin_prompt_ui_tag_manager_refresh'
+      },
+      '*'
     )
   }
-})
 
-watch(subGroupSql, (newVal, oldVal) => {
-  if (!newVal || newVal === oldVal) {
-    return
+  const sureToImportTags = async () => {
+    if (isSelectGroup.value) {
+      if (groupSql.value.length <= 0 || subGroupSql.value.length <= 0) {
+        message({ type: 'warn', str: 'importDialog.pleaseFullRequest' })
+        return
+      }
+      const sqlContent = [...tagGroups.value]
+      // console.log(sqlContent)
+      await runSQLToServer(sqlContent)
+    } else {
+      if (groupSql.value.length <= 0 || subGroupSql.value.length <= 0) {
+        message({ type: 'warn', str: 'importDialog.pleaseFullRequest' })
+        return
+      }
+      const sqlContent = [groupSql.value, subGroupSql.value, ...tagGroups.value]
+      await runSQLToServer(sqlContent)
+      // console.log(sqlContent)
+    }
   }
-  // 提取 g_uuid（最后一个单引号包裹的内容）
-  const newGUuid = newVal.match(/'([^']+)'\s*\)\s*;?$/)?.[1]
-  const oldGUuid = oldVal?.match(/'([^']+)'\s*\)\s*;?$/)?.[1]
-  if (newGUuid && oldGUuid && tagGroups.value.length > 0) {
-    // 只替换原有 oldGUuid 为 newGUuid
-    tagGroups.value = tagGroups.value.map((sql) =>
-      sql.replace(new RegExp(`'${ oldGUuid }'`, 'g'), `'${ newGUuid }'`)
-    )
-  }
-})
 
-defineExpose({
-  open: () => {
-    dialogVisible.value = true
-  }
-})
+  watch(groupSql, (newVal, oldVal) => {
+    if (!newVal || newVal === oldVal) {
+      return
+    }
+    // 提取 p_uuid（最后一个单引号包裹的内容）
+    const newPUuid = newVal.match(/'([^']+)'\s*\)\s*;?$/)?.[1]
+    const oldPUuid = oldVal?.match(/'([^']+)'\s*\)\s*;?$/)?.[1]
+
+    if (newPUuid && oldPUuid && subGroupSql.value) {
+      // 只替换原有 oldPUuid 为 newPUuid
+      subGroupSql.value = subGroupSql.value.replace(
+        new RegExp(`'${oldPUuid}'`, 'g'),
+        `'${newPUuid}'`
+      )
+    }
+  })
+
+  watch(subGroupSql, (newVal, oldVal) => {
+    if (!newVal || newVal === oldVal) {
+      return
+    }
+    // 提取 g_uuid（最后一个单引号包裹的内容）
+    const newGUuid = newVal.match(/'([^']+)'\s*\)\s*;?$/)?.[1]
+    const oldGUuid = oldVal?.match(/'([^']+)'\s*\)\s*;?$/)?.[1]
+    if (newGUuid && oldGUuid && tagGroups.value.length > 0) {
+      // 只替换原有 oldGUuid 为 newGUuid
+      tagGroups.value = tagGroups.value.map((sql) =>
+        sql.replace(new RegExp(`'${oldGUuid}'`, 'g'), `'${newGUuid}'`)
+      )
+    }
+  })
+
+  defineExpose({
+    open: () => {
+      dialogVisible.value = true
+    }
+  })
 </script>
 
 <style scoped>
@@ -650,7 +650,6 @@ defineExpose({
   .data-container {
     margin-top: 24px;
     padding: 16px;
-    color: var(--weilin-prompt-ui-primary-bg);
     color: var(--weilin-prompt-ui-primary-text);
     border-radius: 4px;
     height: 500px;
@@ -674,11 +673,8 @@ defineExpose({
 
   .loading-overlay {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    inset: 0;
+    background-color: rgb(0 0 0 / 0.5);
     display: flex;
     justify-content: center;
     align-items: center;

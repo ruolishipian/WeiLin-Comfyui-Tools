@@ -361,9 +361,7 @@
       <div class="weilin-tools-dialog-content" @mousedown.stop>
         <div class="weilin-tools-dialog-header">
           <h2>{{ getCategoryDialogTitle() }}</h2>
-          <button class="close-btn" @click="closeCategoryDialog">
-×
-</button>
+          <button class="close-btn" @click="closeCategoryDialog">×</button>
         </div>
         <div class="weilin-tools-dialog-body">
           <div class="form-group" v-if="categoryType == 'primary'">
@@ -426,9 +424,7 @@
       <div class="weilin-tools-dialog-content" @mousedown.stop>
         <div class="weilin-tools-dialog-header">
           <h2>{{ isEditingTag ? t('tagManager.editTag') : t('tagManager.addTag') }}</h2>
-          <button class="close-btn" @click="closeTagDialog">
-×
-</button>
+          <button class="close-btn" @click="closeTagDialog">×</button>
         </div>
         <div class="weilin-tools-dialog-body">
           <div class="form-group">
@@ -490,9 +486,7 @@
       <div class="weilin-tools-dialog-content confirm-weilin-tools-dialog" @mousedown.stop>
         <div class="weilin-tools-dialog-header">
           <h2>{{ t('common.confirmDelete') }}</h2>
-          <button class="close-btn" @click="closeDeleteDialog">
-×
-</button>
+          <button class="close-btn" @click="closeDeleteDialog">×</button>
         </div>
         <div class="weilin-tools-dialog-body">
           <p class="confirm-message">
@@ -515,9 +509,7 @@
       <div class="weilin-tools-dialog-content">
         <div class="weilin-tools-dialog-header">
           <h2>{{ t('tagManager.moveTag') }}</h2>
-          <button class="close-btn" @click="showMoveDialog = false">
-×
-</button>
+          <button class="close-btn" @click="showMoveDialog = false">×</button>
         </div>
         <div class="weilin-tools-dialog-body">
           <div class="form-group">
@@ -558,9 +550,7 @@
       <div class="weilin-tools-dialog-content">
         <div class="weilin-tools-dialog-header">
           <h2>{{ t('tagManager.moveGroup') }}</h2>
-          <button class="close-btn" @click="showMoveGroupDialog = false">
-×
-</button>
+          <button class="close-btn" @click="showMoveGroupDialog = false">×</button>
         </div>
         <div class="weilin-tools-dialog-body">
           <div class="form-group">
@@ -610,9 +600,7 @@
       <div class="weilin-tools-dialog-content tab-size-weilin-tools-dialog" @mousedown.stop>
         <div class="weilin-tools-dialog-header">
           <h2>{{ t('tagManager.tabSizeConfig') }}</h2>
-          <button class="close-btn" @click="closeTabSizeDialog">
-×
-</button>
+          <button class="close-btn" @click="closeTabSizeDialog">×</button>
         </div>
         <div class="weilin-tools-dialog-body">
           <!-- 一级分类配置 -->
@@ -736,297 +724,344 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { tagsApi } from '@/api/tags'
-import message from '@/utils/message'
-import ImportTagDialog from './import_tag.vue'
-import yaml from 'js-yaml'
-import { uuidv7 } from 'uuidv7'
+  import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+  import { useI18n } from 'vue-i18n'
+  import { tagsApi } from '@/api/tags'
+  import message from '@/utils/message'
+  import ImportTagDialog from './import_tag.vue'
+  import yaml from 'js-yaml'
+  import { uuidv7 } from 'uuidv7'
 
-const { t } = useI18n()
+  const { t } = useI18n()
 
-// 状态管理
-const categories = ref([])
-const selectedCategory = ref(null)
-const subCategories = ref([])
-const currentTags = ref([])
+  // 状态管理
+  const categories = ref([])
+  const selectedCategory = ref(null)
+  const subCategories = ref([])
+  const currentTags = ref([])
 
-const selectedGroup = ref(null)
-const showCategoryDialog = ref(false)
-const showTagDialog = ref(false)
-const isEditingCategory = ref(false)
-const isEditingTag = ref(false)
-const categoryType = ref('primary') // 'primary' 或 'group'
-const selectedTags = ref([]) // 用于存储选中的标签ID
-const isSelectTagAction = ref(false)
-const showMoveGroupDialog = ref(false)
+  const selectedGroup = ref(null)
+  const showCategoryDialog = ref(false)
+  const showTagDialog = ref(false)
+  const isEditingCategory = ref(false)
+  const isEditingTag = ref(false)
+  const categoryType = ref('primary') // 'primary' 或 'group'
+  const selectedTags = ref([]) // 用于存储选中的标签ID
+  const isSelectTagAction = ref(false)
+  const showMoveGroupDialog = ref(false)
 
-const hoverTabsActionFrist = ref('None')
-const hoverTabsActionSecond = ref('None')
-const editGroupTabs = ref(0) // 添加编辑模式状态
-const editGroupCategroy = ref(0) // 添加编辑模式状态
+  const hoverTabsActionFrist = ref('None')
+  const hoverTabsActionSecond = ref('None')
+  const editGroupTabs = ref(0) // 添加编辑模式状态
+  const editGroupCategroy = ref(0) // 添加编辑模式状态
 
-const highlightedTagId = ref(null) // 添加高亮状态
-const isAutoAddSearchTag = ref(0) // 添加高亮状态
+  const highlightedTagId = ref(null) // 添加高亮状态
+  const isAutoAddSearchTag = ref(0) // 添加高亮状态
 
-// 新增状态变量
-const showMoveDialog = ref(false)
-const moveTargetTagId = ref(null)
-const movePosition = ref('before')
-const currentMoveTagId = ref(null)
+  // 新增状态变量
+  const showMoveDialog = ref(false)
+  const moveTargetTagId = ref(null)
+  const movePosition = ref('before')
+  const currentMoveTagId = ref(null)
 
-const moveGroupPosition = ref('before')
-const currentMoveGroupId = ref(null)
-const moveTargetGroupId = ref(null)
+  const moveGroupPosition = ref('before')
+  const currentMoveGroupId = ref(null)
+  const moveTargetGroupId = ref(null)
 
-// 批量删除
-const isDeleteTagAction = ref(false)
-// 批量分享
-const isShareTagAction = ref(false)
+  // 批量删除
+  const isDeleteTagAction = ref(false)
+  // 批量分享
+  const isShareTagAction = ref(false)
 
-// 新增状态变量
-const showTabSizeConfig = ref(false)
-const tabSizeConfig = ref({
-  primaryTab: {
-    width: 'fit-content',
-    height: 34,
-    fontSize: 10
-  },
-  groupTab: {
-    width: 'fit-content',
-    height: 34,
-    fontSize: 10
-  }
-})
-
-// 默认配置
-const defaultTabSizeConfig = {
-  primaryTab: {
-    width: 'fit-content',
-    height: 34,
-    fontSize: 10
-  },
-  groupTab: {
-    width: 'fit-content',
-    height: 34,
-    fontSize: 10
-  }
-}
-
-const props = defineProps({
-  tagManager: {
-    type: String,
-    default: 'prompt'
-  }
-})
-
-// 当前编辑的数据
-const currentCategory = ref({
-  name: '',
-  color: 'rgba(255, 123, 2, .4)',
-  id_index: '',
-  groups: []
-})
-
-const currentGroup = ref({
-  name: '',
-  id_index: '',
-  color: 'rgba(255, 123, 2, .4)',
-  tags: []
-})
-
-const currentTag = ref({
-  text: '',
-  desc: '',
-  id_index: '',
-  color: 'rgba(255, 123, 2, .4)'
-})
-
-const rgbaToColorPickerState = (rgba) => {
-  const match = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)/)
-  if (match) {
-    const [, r, g, b, a] = match
-    const hex = `#${ ((1 << 24) + (parseInt(r, 10) << 16) + (parseInt(g, 10) << 8) + parseInt(b, 10)).toString(16).slice(1) }`
-    const alpha = a ? Math.round(parseFloat(a) * 100) : 100 // 将 alpha 转换为百分比
-    return { hex, alpha }
-  }
-  return { hex: '#FFFFFF', alpha: 100 } // 默认值
-}
-
-// 获取标签列表
-const getTagsList = () => {
-  window.postMessage(
-    {
-      type: 'weilin_prompt_ui_tag_manager_refresh'
+  // 新增状态变量
+  const showTabSizeConfig = ref(false)
+  const tabSizeConfig = ref({
+    primaryTab: {
+      width: 'fit-content',
+      height: 34,
+      fontSize: 10
     },
-    '*'
-  )
-}
-
-const refreshTagsGoThis = async () => {
-  try {
-    await tagsApi
-      .getTagMainGroup()
-      .then((res) => {
-        // console.log(res);
-        categories.value = res
-      })
-      .catch((err) => {
-        console.error(err)
-        message({ type: 'warn', str: 'message.networkError' })
-      })
-
-    // 如果当前分类存在，重新设置当前分类
-    if (selectedCategory.value) {
-      // console.log(selectedCategory.value)
-      await getSubCategories(selectedCategory.value.p_uuid)
+    groupTab: {
+      width: 'fit-content',
+      height: 34,
+      fontSize: 10
     }
+  })
 
-    // 选择了二级分类就获取tag
-    if (selectedGroup.value) {
-      // console.log(selectedGroup.value)
-      await getTagList(selectedGroup.value.g_uuid)
-    }
-  } catch (error) {
-    console.error('Tag管理器列表失败:', error)
-  }
-}
-
-const getSubCategories = async (p_uuid) => {
-  try {
-    await tagsApi
-      .getTagSubGroup(p_uuid)
-      .then((res) => {
-        // console.log(res);
-        subCategories.value = res
-      })
-      .catch((err) => {
-        console.error(err)
-        message({ type: 'warn', str: 'message.networkError' })
-      })
-  } catch (error) {
-    console.error('二级分类列表失败:', error)
-  }
-}
-
-const getTagList = async (g_uuid) => {
-  try {
-    await tagsApi
-      .getTagList(g_uuid)
-      .then((res) => {
-        // console.log(res);
-        currentTags.value = res
-      })
-      .catch((err) => {
-        console.error(err)
-        message({ type: 'warn', str: 'message.networkError' })
-      })
-  } catch (error) {
-    console.error('Tag列表失败:', error)
-  }
-}
-
-onMounted(() => {
-  updateSearchResultsStyle() // 初始化样式
-  // 添加全局点击事件监听
-  window.addEventListener('click', handleClickOutside)
-  window.addEventListener('resize', updateSearchResultsStyle)
-  window.addEventListener('message', handleMessage)
-  window.addEventListener('keydown', handleKeydown) // 监听键盘事件
-
-  // 加载标签尺寸配置
-  loadTabSizeConfig()
-
-  // categories.value = tagStore.categories
-  // if (categories.value.length <= 0) {
-  getTagsList()
-  // }
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('click', handleClickOutside)
-  window.removeEventListener('resize', updateSearchResultsStyle)
-  window.removeEventListener('message', handleMessage)
-  window.removeEventListener('keydown', handleKeydown) // 移除键盘事件监听
-})
-
-// 选择分类
-const selectCategory = async (category) => {
-  // console.log(category.p_uuid)
-  selectedCategory.value = category
-  selectedGroup.value = null
-  isSelectTagAction.value = false
-  selectedTags.value = []
-  await getSubCategories(category.p_uuid)
-}
-
-// 选择分组
-const selectGroup = async (group) => {
-  selectedGroup.value = group
-  isSelectTagAction.value = false
-  selectedTags.value = []
-  await getTagList(group.g_uuid)
-}
-
-// 显示添加分类对话框
-const showAddCategoryDialog = (type) => {
-  categoryType.value = type
-  isEditingCategory.value = false
-  colorPickerState.value = rgbaToColorPickerState('rgba(255, 123, 2, .4)')
-  if (type === 'primary') {
-    currentCategory.value = {
-      name: '',
-      color: 'rgba(255, 123, 2, .4)',
-      groups: []
-    }
-  } else {
-    currentGroup.value = {
-      name: '',
-      color: 'rgba(255, 123, 2, .4)',
-      tags: []
+  // 默认配置
+  const defaultTabSizeConfig = {
+    primaryTab: {
+      width: 'fit-content',
+      height: 34,
+      fontSize: 10
+    },
+    groupTab: {
+      width: 'fit-content',
+      height: 34,
+      fontSize: 10
     }
   }
-  showCategoryDialog.value = true
-}
 
-// 编辑分类
-const editCategory = (category) => {
-  isEditingCategory.value = true
-  categoryType.value = 'primary'
-  currentCategory.value = { ...category }
-  colorPickerState.value = rgbaToColorPickerState(category.color)
-  showCategoryDialog.value = true
-}
-
-// 编辑分组
-const editGroup = (group) => {
-  isEditingCategory.value = true
-  categoryType.value = 'group'
-  currentGroup.value = { ...group }
-  colorPickerState.value = rgbaToColorPickerState(group.color)
-  showCategoryDialog.value = true
-}
-
-// 保存分类或分组
-const saveCategory = () => {
-  if (categoryType.value === 'primary') {
-    if (!currentCategory.value.name) {
-      message({ type: 'warn', str: 'tagManager.categoryNameRequired' })
-      return
+  const props = defineProps({
+    tagManager: {
+      type: String,
+      default: 'prompt'
     }
+  })
 
-    if (isEditingCategory.value) {
-      const index = categories.value.findIndex(
-        (c) => c.id_index === currentCategory.value.id_index
-      )
-      if (index !== -1) {
-        // console.log(categories.value)
+  // 当前编辑的数据
+  const currentCategory = ref({
+    name: '',
+    color: 'rgba(255, 123, 2, .4)',
+    id_index: '',
+    groups: []
+  })
+
+  const currentGroup = ref({
+    name: '',
+    id_index: '',
+    color: 'rgba(255, 123, 2, .4)',
+    tags: []
+  })
+
+  const currentTag = ref({
+    text: '',
+    desc: '',
+    id_index: '',
+    color: 'rgba(255, 123, 2, .4)'
+  })
+
+  const rgbaToColorPickerState = (rgba) => {
+    const match = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)/)
+    if (match) {
+      const [, r, g, b, a] = match
+      const hex = `#${((1 << 24) + (parseInt(r, 10) << 16) + (parseInt(g, 10) << 8) + parseInt(b, 10)).toString(16).slice(1)}`
+      const alpha = a ? Math.round(parseFloat(a) * 100) : 100 // 将 alpha 转换为百分比
+      return { hex, alpha }
+    }
+    return { hex: '#FFFFFF', alpha: 100 } // 默认值
+  }
+
+  // 获取标签列表
+  const getTagsList = () => {
+    window.postMessage(
+      {
+        type: 'weilin_prompt_ui_tag_manager_refresh'
+      },
+      '*'
+    )
+  }
+
+  const refreshTagsGoThis = async () => {
+    try {
+      await tagsApi
+        .getTagMainGroup()
+        .then((res) => {
+          // console.log(res);
+          categories.value = res
+        })
+        .catch((err) => {
+          console.error(err)
+          message({ type: 'warn', str: 'message.networkError' })
+        })
+
+      // 如果当前分类存在，重新设置当前分类
+      if (selectedCategory.value) {
+        // console.log(selectedCategory.value)
+        await getSubCategories(selectedCategory.value.p_uuid)
+      }
+
+      // 选择了二级分类就获取tag
+      if (selectedGroup.value) {
+        // console.log(selectedGroup.value)
+        await getTagList(selectedGroup.value.g_uuid)
+      }
+    } catch (error) {
+      console.error('Tag管理器列表失败:', error)
+    }
+  }
+
+  const getSubCategories = async (pUuid) => {
+    try {
+      await tagsApi
+        .getTagSubGroup(pUuid)
+        .then((res) => {
+          // console.log(res);
+          subCategories.value = res
+        })
+        .catch((err) => {
+          console.error(err)
+          message({ type: 'warn', str: 'message.networkError' })
+        })
+    } catch (error) {
+      console.error('二级分类列表失败:', error)
+    }
+  }
+
+  const getTagList = async (gUuid) => {
+    try {
+      await tagsApi
+        .getTagList(gUuid)
+        .then((res) => {
+          // console.log(res);
+          currentTags.value = res
+        })
+        .catch((err) => {
+          console.error(err)
+          message({ type: 'warn', str: 'message.networkError' })
+        })
+    } catch (error) {
+      console.error('Tag列表失败:', error)
+    }
+  }
+
+  onMounted(() => {
+    updateSearchResultsStyle() // 初始化样式
+    // 添加全局点击事件监听
+    window.addEventListener('click', handleClickOutside)
+    window.addEventListener('resize', updateSearchResultsStyle)
+    window.addEventListener('message', handleMessage)
+    window.addEventListener('keydown', handleKeydown) // 监听键盘事件
+
+    // 加载标签尺寸配置
+    loadTabSizeConfig()
+
+    // categories.value = tagStore.categories
+    // if (categories.value.length <= 0) {
+    getTagsList()
+    // }
+  })
+
+  onBeforeUnmount(() => {
+    window.removeEventListener('click', handleClickOutside)
+    window.removeEventListener('resize', updateSearchResultsStyle)
+    window.removeEventListener('message', handleMessage)
+    window.removeEventListener('keydown', handleKeydown) // 移除键盘事件监听
+  })
+
+  // 选择分类
+  const selectCategory = async (category) => {
+    // console.log(category.p_uuid)
+    selectedCategory.value = category
+    selectedGroup.value = null
+    isSelectTagAction.value = false
+    selectedTags.value = []
+    await getSubCategories(category.p_uuid)
+  }
+
+  // 选择分组
+  const selectGroup = async (group) => {
+    selectedGroup.value = group
+    isSelectTagAction.value = false
+    selectedTags.value = []
+    await getTagList(group.g_uuid)
+  }
+
+  // 显示添加分类对话框
+  const showAddCategoryDialog = (type) => {
+    categoryType.value = type
+    isEditingCategory.value = false
+    colorPickerState.value = rgbaToColorPickerState('rgba(255, 123, 2, .4)')
+    if (type === 'primary') {
+      currentCategory.value = {
+        name: '',
+        color: 'rgba(255, 123, 2, .4)',
+        groups: []
+      }
+    } else {
+      currentGroup.value = {
+        name: '',
+        color: 'rgba(255, 123, 2, .4)',
+        tags: []
+      }
+    }
+    showCategoryDialog.value = true
+  }
+
+  // 编辑分类
+  const editCategory = (category) => {
+    isEditingCategory.value = true
+    categoryType.value = 'primary'
+    currentCategory.value = { ...category }
+    colorPickerState.value = rgbaToColorPickerState(category.color)
+    showCategoryDialog.value = true
+  }
+
+  // 编辑分组
+  const editGroup = (group) => {
+    isEditingCategory.value = true
+    categoryType.value = 'group'
+    currentGroup.value = { ...group }
+    colorPickerState.value = rgbaToColorPickerState(group.color)
+    showCategoryDialog.value = true
+  }
+
+  // 保存分类或分组
+  const saveCategory = () => {
+    if (categoryType.value === 'primary') {
+      if (!currentCategory.value.name) {
+        message({ type: 'warn', str: 'tagManager.categoryNameRequired' })
+        return
+      }
+
+      if (isEditingCategory.value) {
+        const index = categories.value.findIndex(
+          (c) => c.id_index === currentCategory.value.id_index
+        )
+        if (index !== -1) {
+          // console.log(categories.value)
+          tagsApi
+            .editPrimaryCategory({
+              id_index: currentCategory.value.id_index,
+              name: currentCategory.value.name,
+              color: currentCategory.value.color
+            })
+            .then((res) => {
+              if (res.code === 200) {
+                getTagsList()
+                message({ type: 'success', str: 'message.editSuccess' })
+              } else if (res.code === 201) {
+                message({ type: 'error', str: 'message.editNameExist' })
+              } else {
+                message({ type: 'error', str: 'message.editFailed' })
+              }
+            })
+            .catch(() => {
+              message({ type: 'warn', str: 'message.networkError' })
+            })
+        }
+      } else {
         tagsApi
-          .editPrimaryCategory({
-            id_index: currentCategory.value.id_index,
+          .addPrimaryCategory({
             name: currentCategory.value.name,
             color: currentCategory.value.color
+          })
+          .then((res) => {
+            if (res.code === 200) {
+              getTagsList()
+              message({ type: 'success', str: 'message.addSuccess' })
+            } else if (res.code === 201) {
+              message({ type: 'error', str: 'message.editNameExist' })
+            } else {
+              message({ type: 'error', str: 'message.addFailed' })
+            }
+          })
+          .catch(() => {
+            message({ type: 'warn', str: 'message.networkError' })
+          })
+      }
+    } else {
+      if (!currentGroup.value.name) {
+        message({ type: 'warn', str: 'tagManager.groupNameRequired' })
+        return
+      }
+
+      if (isEditingCategory.value) {
+        tagsApi
+          .editSubCategory({
+            id_index: currentGroup.value.id_index,
+            name: currentGroup.value.name,
+            color: currentGroup.value.color
           })
           .then((res) => {
             if (res.code === 200) {
@@ -1038,656 +1073,559 @@ const saveCategory = () => {
               message({ type: 'error', str: 'message.editFailed' })
             }
           })
-          .catch((err) => {
+          .catch(() => {
+            message({ type: 'warn', str: 'message.networkError' })
+          })
+      } else {
+        tagsApi
+          .addSubCategory({
+            name: currentGroup.value.name,
+            color: currentGroup.value.color,
+            key: selectedCategory.value.id_index,
+            p_uuid: selectedCategory.value.p_uuid
+          })
+          .then((res) => {
+            if (res.code === 200) {
+              getTagsList()
+              message({ type: 'success', str: 'message.addSuccess' })
+            } else if (res.code === 201) {
+              message({ type: 'error', str: 'message.editNameExist' })
+            } else {
+              message({ type: 'error', str: 'message.editFailed' })
+            }
+          })
+          .catch(() => {
             message({ type: 'warn', str: 'message.networkError' })
           })
       }
-    } else {
-      tagsApi
-        .addPrimaryCategory({
-          name: currentCategory.value.name,
-          color: currentCategory.value.color
-        })
-        .then((res) => {
-          if (res.code === 200) {
-            getTagsList()
-            message({ type: 'success', str: 'message.addSuccess' })
-          } else if (res.code === 201) {
-            message({ type: 'error', str: 'message.editNameExist' })
-          } else {
-            message({ type: 'error', str: 'message.addFailed' })
-          }
-        })
-        .catch((err) => {
-          message({ type: 'warn', str: 'message.networkError' })
-        })
     }
-  } else {
-    if (!currentGroup.value.name) {
-      message({ type: 'warn', str: 'tagManager.groupNameRequired' })
+
+    closeCategoryDialog()
+  }
+
+  // 获取分类对话框标题
+  const getCategoryDialogTitle = () => {
+    if (isEditingCategory.value) {
+      return categoryType.value === 'primary'
+        ? t('tagManager.editPrimaryCategory')
+        : t('tagManager.editSubCategory')
+    }
+    return categoryType.value === 'primary'
+      ? t('tagManager.addPrimaryCategory')
+      : t('tagManager.addSubCategory')
+  }
+
+  // 关闭分类对话框
+  const closeCategoryDialog = () => {
+    showCategoryDialog.value = false
+    currentCategory.value = {
+      id: '',
+      name: '',
+      parentId: null,
+      subCategories: [],
+      backgroundColor: 'transparent'
+    }
+    // 重置颜色选择器
+    colorPickerState.value = {
+      hex: '#FFFFFF',
+      alpha: 0
+    }
+  }
+
+  // 显示添加标签对话框
+  const showAddTagDialog = () => {
+    if (!selectedGroup.value) {
       return
     }
 
-    if (isEditingCategory.value) {
+    isEditingTag.value = false
+    currentTag.value = {
+      id: '',
+      text: '',
+      desc: '',
+      categoryId: selectedGroup.value.id,
+      g_uuid: selectedGroup.value.g_uuid,
+      backgroundColor: currentGroup.value.color // 设置默认颜色
+    }
+    // 初始化颜色选择器
+    colorPickerState.value = rgbaToColorPickerState(currentGroup.value.color)
+    showTagDialog.value = true
+  }
+
+  // 编辑标签
+  const editTag = (tag) => {
+    isEditingTag.value = true
+    currentTag.value = { ...tag }
+    colorPickerState.value = rgbaToColorPickerState(tag.color)
+    showTagDialog.value = true
+  }
+
+  // 保存标签
+  const saveTag = () => {
+    if (!currentTag.value.text || !currentTag.value.desc) {
+      message({ type: 'warn', str: 'tagManager.textRequired' })
+      return
+    }
+
+    if (isEditingTag.value && selectedGroup.value) {
       tagsApi
-        .editSubCategory({
-          id_index: currentGroup.value.id_index,
-          name: currentGroup.value.name,
-          color: currentGroup.value.color
+        .editTags({
+          id_index: currentTag.value.id_index,
+          text: currentTag.value.text,
+          desc: currentTag.value.desc,
+          color: currentTag.value.color
         })
-        .then((res) => {
-          if (res.code === 200) {
-            getTagsList()
-            message({ type: 'success', str: 'message.editSuccess' })
-          } else if (res.code === 201) {
-            message({ type: 'error', str: 'message.editNameExist' })
-          } else {
-            message({ type: 'error', str: 'message.editFailed' })
-          }
+        .then(() => {
+          getTagsList()
+          window.postMessage(
+            {
+              type: 'weilin_prompt_ui_refresh_all_data'
+            },
+            '*'
+          )
+          message({ type: 'success', str: 'message.editSuccess' })
         })
-        .catch((err) => {
+        .catch(() => {
           message({ type: 'warn', str: 'message.networkError' })
         })
-    } else {
+    } else if (selectedGroup.value) {
       tagsApi
-        .addSubCategory({
-          name: currentGroup.value.name,
-          color: currentGroup.value.color,
-          key: selectedCategory.value.id_index,
-          p_uuid: selectedCategory.value.p_uuid
+        .addNewTags({
+          id_index: selectedGroup.value.id_index,
+          g_uuid: selectedGroup.value.g_uuid,
+          text: currentTag.value.text,
+          desc: currentTag.value.desc,
+          color: currentTag.value.color ? currentTag.value.color : 'rgba(255, 123, 2, .4)'
         })
-        .then((res) => {
-          if (res.code === 200) {
-            getTagsList()
-            message({ type: 'success', str: 'message.addSuccess' })
-          } else if (res.code === 201) {
-            message({ type: 'error', str: 'message.editNameExist' })
-          } else {
-            message({ type: 'error', str: 'message.editFailed' })
-          }
+        .then(() => {
+          getTagsList()
+          window.postMessage(
+            {
+              type: 'weilin_prompt_ui_refresh_all_data'
+            },
+            '*'
+          )
+          message({ type: 'success', str: 'message.addSuccess' })
         })
-        .catch((err) => {
+        .catch(() => {
           message({ type: 'warn', str: 'message.networkError' })
         })
     }
+
+    closeTagDialog()
   }
 
-  closeCategoryDialog()
-}
-
-// 获取分类对话框标题
-const getCategoryDialogTitle = () => {
-  if (isEditingCategory.value) {
-    return categoryType.value === 'primary'
-      ? t('tagManager.editPrimaryCategory')
-      : t('tagManager.editSubCategory')
+  // 关闭标签对话框
+  const closeTagDialog = () => {
+    showTagDialog.value = false
+    currentTag.value = {
+      text: '',
+      desc: '',
+      color: 'rgba(255, 123, 2, .4)'
+    }
+    isEditingTag.value = false
   }
-  return categoryType.value === 'primary'
-    ? t('tagManager.addPrimaryCategory')
-    : t('tagManager.addSubCategory')
-}
 
-// 关闭分类对话框
-const closeCategoryDialog = () => {
-  showCategoryDialog.value = false
-  currentCategory.value = {
-    id: '',
-    name: '',
-    parentId: null,
-    subCategories: [],
-    backgroundColor: 'transparent'
-  }
-  // 重置颜色选择器
-  colorPickerState.value = {
+  // 颜色选择器状态
+  const colorPickerState = ref({
     hex: '#FFFFFF',
-    alpha: 0
-  }
-}
+    alpha: 100
+  })
 
-// 显示添加标签对话框
-const showAddTagDialog = () => {
-  if (!selectedGroup.value) {
-    return
-  }
+  // 预览颜色计算属性
+  const previewColor = computed(() => {
+    return hexToRgba(colorPickerState.value.hex, colorPickerState.value.alpha)
+  })
 
-  isEditingTag.value = false
-  currentTag.value = {
-    id: '',
-    text: '',
-    desc: '',
-    categoryId: selectedGroup.value.id,
-    g_uuid: selectedGroup.value.g_uuid,
-    backgroundColor: currentGroup.value.color // 设置默认颜色
-  }
-  // 初始化颜色选择器
-  colorPickerState.value = rgbaToColorPickerState(currentGroup.value.color)
-  showTagDialog.value = true
-}
-
-// 编辑标签
-const editTag = (tag) => {
-  isEditingTag.value = true
-  currentTag.value = { ...tag }
-  colorPickerState.value = rgbaToColorPickerState(tag.color)
-  showTagDialog.value = true
-}
-
-// 保存标签
-const saveTag = () => {
-  if (!currentTag.value.text || !currentTag.value.desc) {
-    message({ type: 'warn', str: 'tagManager.textRequired' })
-    return
-  }
-
-  if (isEditingTag.value && selectedGroup.value) {
-    tagsApi
-      .editTags({
-        id_index: currentTag.value.id_index,
-        text: currentTag.value.text,
-        desc: currentTag.value.desc,
-        color: currentTag.value.color
-      })
-      .then((res) => {
-        getTagsList()
-        window.postMessage(
-          {
-            type: 'weilin_prompt_ui_refresh_all_data'
-          },
-          '*'
-        )
-        message({ type: 'success', str: 'message.editSuccess' })
-      })
-      .catch((err) => {
-        message({ type: 'warn', str: 'message.networkError' })
-      })
-  } else if (selectedGroup.value) {
-    tagsApi
-      .addNewTags({
-        id_index: selectedGroup.value.id_index,
-        g_uuid: selectedGroup.value.g_uuid,
-        text: currentTag.value.text,
-        desc: currentTag.value.desc,
-        color: currentTag.value.color ? currentTag.value.color : 'rgba(255, 123, 2, .4)'
-      })
-      .then((res) => {
-        getTagsList()
-        window.postMessage(
-          {
-            type: 'weilin_prompt_ui_refresh_all_data'
-          },
-          '*'
-        )
-        message({ type: 'success', str: 'message.addSuccess' })
-      })
-      .catch((err) => {
-        message({ type: 'warn', str: 'message.networkError' })
-      })
-  }
-
-  closeTagDialog()
-}
-
-// 关闭标签对话框
-const closeTagDialog = () => {
-  showTagDialog.value = false
-  currentTag.value = {
-    text: '',
-    desc: '',
-    color: 'rgba(255, 123, 2, .4)'
-  }
-  isEditingTag.value = false
-}
-
-// 颜色选择器状态
-const colorPickerState = ref({
-  hex: '#FFFFFF',
-  alpha: 100
-})
-
-// 预览颜色计算属性
-const previewColor = computed(() => {
-  return hexToRgba(colorPickerState.value.hex, colorPickerState.value.alpha)
-})
-
-// 更新颜色（统一处理分类和标签）
-const updateColor = () => {
-  const color = hexToRgba(colorPickerState.value.hex, colorPickerState.value.alpha)
-  if (showCategoryDialog.value) {
-    if (categoryType.value === 'primary') {
-      currentCategory.value.color = color
-    } else {
-      currentGroup.value.color = color
+  // 更新颜色（统一处理分类和标签）
+  const updateColor = () => {
+    const color = hexToRgba(colorPickerState.value.hex, colorPickerState.value.alpha)
+    if (showCategoryDialog.value) {
+      if (categoryType.value === 'primary') {
+        currentCategory.value.color = color
+      } else {
+        currentGroup.value.color = color
+      }
+    } else if (showTagDialog.value) {
+      currentTag.value.color = color
     }
-  } else if (showTagDialog.value) {
-    currentTag.value.color = color
   }
-}
 
-// 改进的 RGBA 转换函数
-const hexToRgba = (hex, alpha) => {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  return `rgba(${ r }, ${ g }, ${ b }, ${ alpha / 100 })`
-}
+  // 改进的 RGBA 转换函数
+  const hexToRgba = (hex, alpha) => {
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    return `rgba(${r}, ${g}, ${b}, ${alpha / 100})`
+  }
 
-// 搜索相关的状态
-const searchQuery = ref('')
-const searchResults = ref([])
-const isSearching = ref(false)
+  // 搜索相关的状态
+  const searchQuery = ref('')
+  const searchResults = ref([])
+  const isSearching = ref(false)
 
-// 防抖函数
-let searchDebounceTimer = null
-const debounceSearch = (func, delay) => {
-  return function (...args) {
-    if (searchDebounceTimer) {
-      clearTimeout(searchDebounceTimer)
+  // 防抖函数
+  let searchDebounceTimer = null
+  const debounceSearch = (func, delay) => {
+    return function (...args) {
+      if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer)
+      }
+      searchDebounceTimer = setTimeout(() => {
+        func.apply(this, args)
+      }, delay)
     }
-    searchDebounceTimer = setTimeout(() => {
-      func.apply(this, args)
-    }, delay)
   }
-}
 
-// 搜索处理函数
-const handleSearch = async () => {
-  isSearching.value = searchQuery.value.trim().length > 0
-  const query = searchQuery.value.trim().toLowerCase()
-  if (!query) {
+  // 搜索处理函数
+  const handleSearch = async () => {
+    isSearching.value = searchQuery.value.trim().length > 0
+    const query = searchQuery.value.trim().toLowerCase()
+    if (!query) {
+      searchResults.value = []
+      return
+    }
+
     searchResults.value = []
-    return
+    // 搜索匹配
+    await tagsApi
+      .searchTag(query)
+      .then((res) => {
+        searchResults.value = res
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.networkError' })
+      })
   }
 
-  searchResults.value = []
-  // 搜索匹配
-  await tagsApi
-    .searchTag(query)
-    .then((res) => {
-      searchResults.value = res
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.networkError' })
-    })
-}
+  // 防抖搜索函数
+  const debouncedSearch = debounceSearch(handleSearch, 400)
 
-// 防抖搜索函数
-const debouncedSearch = debounceSearch(handleSearch, 400)
+  // 监听搜索输入,使用防抖
+  watch(searchQuery, () => {
+    debouncedSearch()
+  })
 
-// 监听搜索输入,使用防抖
-watch(searchQuery, () => {
-  debouncedSearch()
-})
-
-// 跳转到搜索结果
-const navigateToResult = async (result) => {
-  // 先根据p_uuid查找并选择一级分类
-  const primaryCategory = categories.value.find((cat) => cat.p_uuid === result.p_uuid)
-  if (primaryCategory) {
-    await selectCategory(primaryCategory).then(async () => {
-      // 然后根据g_uuid查找并选择二级分类
-      await nextTick(async () => {
-        const group = subCategories.value.find((g) => g.g_uuid === result.g_uuid)
-        if (group) {
-          await selectGroup(group).then(async () => {
-            // 最后高亮显示对应的标签
-            await nextTick(() => {
-              if (isAutoAddSearchTag.value === 1) {
-                // 发送消息通知
-                window.postMessage(
-                  {
-                    type: 'weilin_prompt_ui_insertTag',
-                    tagText: result.text
-                  },
-                  '*'
-                )
-              }
-
-              highlightedTagId.value = result.id_index
-              // 滚动到该标签位置
-              setTimeout(() => {
-                const tagElement = document.querySelector('.tag-wrapper.highlight')
-                if (tagElement) {
-                  tagElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  // 跳转到搜索结果
+  const navigateToResult = async (result) => {
+    // 先根据p_uuid查找并选择一级分类
+    const primaryCategory = categories.value.find((cat) => cat.p_uuid === result.p_uuid)
+    if (primaryCategory) {
+      await selectCategory(primaryCategory).then(async () => {
+        // 然后根据g_uuid查找并选择二级分类
+        await nextTick(async () => {
+          const group = subCategories.value.find((g) => g.g_uuid === result.g_uuid)
+          if (group) {
+            await selectGroup(group).then(async () => {
+              // 最后高亮显示对应的标签
+              await nextTick(() => {
+                if (isAutoAddSearchTag.value === 1) {
+                  // 发送消息通知
+                  window.postMessage(
+                    {
+                      type: 'weilin_prompt_ui_insertTag',
+                      tagText: result.text
+                    },
+                    '*'
+                  )
                 }
-              }, 100)
 
-              // 5秒后取消高亮
-              setTimeout(() => {
-                highlightedTagId.value = null
-              }, 5000)
+                highlightedTagId.value = result.id_index
+                // 滚动到该标签位置
+                setTimeout(() => {
+                  const tagElement = document.querySelector('.tag-wrapper.highlight')
+                  if (tagElement) {
+                    tagElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  }
+                }, 100)
+
+                // 5秒后取消高亮
+                setTimeout(() => {
+                  highlightedTagId.value = null
+                }, 5000)
+              })
             })
+          }
+        })
+      })
+    }
+    searchQuery.value = '' // 清空搜索
+  }
+
+  // 添加获取对比色的函数
+  const getContrastColor = (backgroundColor) => {
+    // 如果背景色是透明的，返回默认文本颜色
+    if (!backgroundColor || backgroundColor === 'transparent') {
+      return 'var(--primary-text)'
+    }
+
+    // 解析 RGB 值
+    let r,
+      g,
+      b,
+      a = 1
+    if (backgroundColor.startsWith('rgba')) {
+      const matches = backgroundColor.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/)
+      if (matches) {
+        // eslint-disable-next-line no-extra-semi
+        ;[, r, g, b, a] = matches.map(Number)
+      }
+    } else if (backgroundColor.startsWith('rgb')) {
+      const matches = backgroundColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
+      if (matches) {
+        // eslint-disable-next-line no-extra-semi
+        ;[, r, g, b] = matches.map(Number)
+      }
+    }
+
+    // 如果透明度太低，返回默认文本颜色
+    if (a < 0.5) {
+      return 'var(--primary-text)'
+    }
+
+    // 计算亮度
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000
+    return brightness > 128 ? '#000000' : '#ffffff'
+  }
+
+  // 添加标签点击处理函数
+  const handleTagClick = (tag) => {
+    if (props.tagManager === 'prompt') {
+      // 发送消息通知
+      window.postMessage(
+        {
+          type: 'weilin_prompt_ui_insertTag',
+          tagText: tag.text
+        },
+        '*'
+      )
+    }
+  }
+
+  // 删除相关状态
+  const showDeleteDialog = ref(false)
+  const deleteType = ref('') // 'category', 'group', 或 'tag'
+  const itemToDelete = ref(null)
+  const deleteConfirmMessage = computed(() => {
+    if (!itemToDelete.value) {
+      return ''
+    }
+
+    switch (deleteType.value) {
+      case 'category':
+        return t('tagManager.deletePrimaryCategoryConfirm', { name: itemToDelete.value.name })
+      case 'group':
+        return t('tagManager.deleteGroupConfirm', { name: itemToDelete.value.name })
+      case 'tag':
+        return t('tagManager.deleteTagConfirm', { name: itemToDelete.value.text })
+      case 'deleteSelected':
+        return t('tagManager.confirmDeleteSelected')
+      default:
+        return ''
+    }
+  })
+
+  // 删除分类
+  const deleteCategory = (category) => {
+    deleteType.value = 'category'
+    itemToDelete.value = category
+    showDeleteDialog.value = true
+  }
+
+  // 删除分组
+  const deleteGroup = (group) => {
+    deleteType.value = 'group'
+    itemToDelete.value = group
+    showDeleteDialog.value = true
+  }
+
+  // 删除标签
+  const deleteTag = (tag) => {
+    deleteType.value = 'tag'
+    itemToDelete.value = tag
+    showDeleteDialog.value = true
+  }
+
+  // 确认删除
+  const confirmDelete = () => {
+    try {
+      switch (deleteType.value) {
+        case 'category':
+          tagsApi
+            .deletePrimaryCategory({
+              p_uuid: itemToDelete.value.p_uuid
+            })
+            .then(() => {
+              getTagsList()
+              message({ type: 'success', str: 'message.deleteSuccess' })
+            })
+            .catch(() => {
+              message({ type: 'warn', str: 'message.networkError' })
+            })
+          break
+
+        case 'group':
+          tagsApi
+            .deleteSubCategory({
+              g_uuid: itemToDelete.value.g_uuid
+            })
+            .then(() => {
+              getTagsList()
+              message({ type: 'success', str: 'message.deleteSuccess' })
+            })
+            .catch(() => {
+              message({ type: 'warn', str: 'message.networkError' })
+            })
+          break
+
+        case 'tag':
+          tagsApi
+            .deleteTags({
+              id_index: itemToDelete.value.id_index
+            })
+            .then(() => {
+              getTagsList()
+              window.postMessage(
+                {
+                  type: 'weilin_prompt_ui_refresh_all_data'
+                },
+                '*'
+              )
+              message({ type: 'success', str: 'message.deleteSuccess' })
+            })
+            .catch(() => {
+              message({ type: 'warn', str: 'message.networkError' })
+            })
+          break
+
+        case 'deleteSelected':
+          tagsApi
+            .batchDeleteTags({
+              id_indexs: selectedTags.value
+            })
+            .then(() => {
+              getTagsList()
+              window.postMessage(
+                {
+                  type: 'weilin_prompt_ui_refresh_all_data'
+                },
+                '*'
+              )
+              message({ type: 'success', str: 'message.deleteSuccess' })
+            })
+            .catch(() => {
+              message({ type: 'warn', str: 'message.networkError' })
+            })
+          break
+      }
+
+      closeDeleteDialog()
+    } catch (error) {
+      console.error('删除失败:', error)
+    }
+  }
+
+  // 分享整个一级目录
+  const shareCategory = async (category) => {
+    const groupSql = `INSERT OR REPLACE INTO "tag_groups" ("name", "color", "create_time", "p_uuid") VALUES ('${category.name.replace(/'/g, "''")}', '${category.color}', ${category.create_time}, '${category.p_uuid}');`
+    try {
+      const groupData = await tagsApi.getTagSubGroup(category.p_uuid)
+      const tagSqls = []
+      tagSqls.push(groupSql)
+
+      // 并行获取所有组的标签数据
+      const tagPromises = groupData.map(async (group) => {
+        const subGroupSql = `INSERT OR REPLACE INTO "tag_subgroups" ("name", "color", "create_time", "p_uuid", "g_uuid") VALUES ('${group.name.replace(/'/g, "''")}', '${group.color}', ${group.create_time}, '${group.p_uuid}', '${group.g_uuid}');`
+
+        try {
+          const currentTags = await tagsApi.getTagList(group.g_uuid)
+          const tagSqls = currentTags.map((tag) => {
+            return `INSERT OR REPLACE INTO "tag_tags" ("text", "desc", "color", "create_time", "g_uuid", "t_uuid") VALUES ('${tag.text !== null && tag.text.length > 0 ? tag.text.replace(/'/g, "''") : ''}', '${tag.desc !== null && tag.desc.length > 0 ? tag.desc.replace(/'/g, "''") : ''}', '${tag.color}', ${tag.create_time}, '${tag.g_uuid}', '${uuidv7()}');`
           })
+          return { subGroupSql, tagSqls }
+        } catch (error) {
+          console.error('Tag列表失败:', error)
+          message({ type: 'warn', str: 'message.shareTagError' })
+          return { subGroupSql, tagSqls: [] }
         }
       })
-    })
-  }
-  searchQuery.value = '' // 清空搜索
-}
 
-// 添加获取对比色的函数
-const getContrastColor = (backgroundColor) => {
-  // 如果背景色是透明的，返回默认文本颜色
-  if (!backgroundColor || backgroundColor === 'transparent') {
-    return 'var(--primary-text)'
-  }
+      const results = await Promise.all(tagPromises)
 
-  // 解析 RGB 值
-  let r,
-    g,
-    b,
-    a = 1
-  if (backgroundColor.startsWith('rgba')) {
-    const matches = backgroundColor.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/)
-    if (matches) {
-      [, r, g, b, a] = matches.map(Number)
-    }
-  } else if (backgroundColor.startsWith('rgb')) {
-    const matches = backgroundColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
-    if (matches) {
-      [, r, g, b] = matches.map(Number)
+      // 按顺序添加 SQL 语句
+      results.forEach(({ subGroupSql, tagSqls: groupTagSqls }) => {
+        tagSqls.push(subGroupSql)
+        tagSqls.push(...groupTagSqls)
+      })
+
+      // 创建下载链接
+      const blob = new Blob([tagSqls.join('\n')], { type: 'text/sql' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = `${category.name}_export_${Date.now()}.sql`
+      link.click()
+
+      message({ type: 'success', str: 'tagManager.outputSuccess' })
+    } catch (error) {
+      console.error('二级分类列表失败:', error)
+      message({ type: 'warn', str: 'message.shareGroupError' })
     }
   }
 
-  // 如果透明度太低，返回默认文本颜色
-  if (a < 0.5) {
-    return 'var(--primary-text)'
-  }
+  // 分享整个二级目录
+  const shareCategorySecond = async (group) => {
+    try {
+      const tagSqls = []
 
-  // 计算亮度
-  const brightness = (r * 299 + g * 587 + b * 114) / 1000
-  return brightness > 128 ? '#000000' : '#ffffff'
-}
-
-// 添加标签点击处理函数
-const handleTagClick = (tag) => {
-  if (props.tagManager === 'prompt') {
-    // 发送消息通知
-    window.postMessage(
-      {
-        type: 'weilin_prompt_ui_insertTag',
-        tagText: tag.text
-      },
-      '*'
-    )
-  }
-}
-
-// 删除相关状态
-const showDeleteDialog = ref(false)
-const deleteType = ref('') // 'category', 'group', 或 'tag'
-const itemToDelete = ref(null)
-const deleteConfirmMessage = computed(() => {
-  if (!itemToDelete.value) {
-    return ''
-  }
-
-  switch (deleteType.value) {
-  case 'category':
-    return t('tagManager.deletePrimaryCategoryConfirm', { name: itemToDelete.value.name })
-  case 'group':
-    return t('tagManager.deleteGroupConfirm', { name: itemToDelete.value.name })
-  case 'tag':
-    return t('tagManager.deleteTagConfirm', { name: itemToDelete.value.text })
-  case 'deleteSelected':
-    return t('tagManager.confirmDeleteSelected')
-  default:
-    return ''
-  }
-})
-
-// 删除分类
-const deleteCategory = (category) => {
-  deleteType.value = 'category'
-  itemToDelete.value = category
-  showDeleteDialog.value = true
-}
-
-// 删除分组
-const deleteGroup = (group) => {
-  deleteType.value = 'group'
-  itemToDelete.value = group
-  showDeleteDialog.value = true
-}
-
-// 删除标签
-const deleteTag = (tag) => {
-  deleteType.value = 'tag'
-  itemToDelete.value = tag
-  showDeleteDialog.value = true
-}
-
-// 确认删除
-const confirmDelete = async () => {
-  try {
-    switch (deleteType.value) {
-    case 'category':
-      tagsApi
-        .deletePrimaryCategory({
-          p_uuid: itemToDelete.value.p_uuid
-        })
-        .then((res) => {
-          getTagsList()
-          message({ type: 'success', str: 'message.deleteSuccess' })
-        })
-        .catch((err) => {
-          message({ type: 'warn', str: 'message.networkError' })
-        })
-      break
-
-    case 'group':
-      tagsApi
-        .deleteSubCategory({
-          g_uuid: itemToDelete.value.g_uuid
-        })
-        .then((res) => {
-          getTagsList()
-          message({ type: 'success', str: 'message.deleteSuccess' })
-        })
-        .catch((err) => {
-          message({ type: 'warn', str: 'message.networkError' })
-        })
-      break
-
-    case 'tag':
-      tagsApi
-        .deleteTags({
-          id_index: itemToDelete.value.id_index
-        })
-        .then((res) => {
-          getTagsList()
-          window.postMessage(
-            {
-              type: 'weilin_prompt_ui_refresh_all_data'
-            },
-            '*'
-          )
-          message({ type: 'success', str: 'message.deleteSuccess' })
-        })
-        .catch((err) => {
-          message({ type: 'warn', str: 'message.networkError' })
-        })
-      break
-
-    case 'deleteSelected':
-      tagsApi
-        .batchDeleteTags({
-          id_indexs: selectedTags.value
-        })
-        .then((res) => {
-          getTagsList()
-          window.postMessage(
-            {
-              type: 'weilin_prompt_ui_refresh_all_data'
-            },
-            '*'
-          )
-          message({ type: 'success', str: 'message.deleteSuccess' })
-        })
-        .catch((err) => {
-          message({ type: 'warn', str: 'message.networkError' })
-        })
-      break
-    }
-
-    closeDeleteDialog()
-  } catch (error) {
-    console.error('删除失败:', error)
-  }
-}
-
-// 分享整个一级目录
-const shareCategory = async (category) => {
-  const groupSql = `INSERT OR REPLACE INTO "tag_groups" ("name", "color", "create_time", "p_uuid") VALUES ('${ category.name.replace(/'/g, "''") }', '${ category.color }', ${ category.create_time }, '${ category.p_uuid }');`
-  try {
-    const groupData = await tagsApi.getTagSubGroup(category.p_uuid)
-    const tagSqls = []
-    tagSqls.push(groupSql)
-
-    for (const group of groupData) {
-      const subGroupSql = `INSERT OR REPLACE INTO "tag_subgroups" ("name", "color", "create_time", "p_uuid", "g_uuid") VALUES ('${ group.name.replace(/'/g, "''") }', '${ group.color }', ${ group.create_time }, '${ group.p_uuid }', '${ group.g_uuid }');`
+      const subGroupSql = `INSERT OR REPLACE INTO "tag_subgroups" ("name", "color", "create_time", "p_uuid", "g_uuid") VALUES ('${group.name.replace(/'/g, "''")}', '${group.color}', ${group.create_time}, '${group.p_uuid}', '${group.g_uuid}');`
       tagSqls.push(subGroupSql)
 
       try {
         const currentTags = await tagsApi.getTagList(group.g_uuid)
         currentTags.forEach((tag) => {
-          const tagSql = `INSERT OR REPLACE INTO "tag_tags" ("text", "desc", "color", "create_time", "g_uuid", "t_uuid") VALUES ('${ tag.text !== null && tag.text.length > 0 ? tag.text.replace(/'/g, "''") : '' }', '${ tag.desc !== null && tag.desc.length > 0 ? tag.desc.replace(/'/g, "''") : '' }', '${ tag.color }', ${ tag.create_time }, '${ tag.g_uuid }', '${ uuidv7() }');`
+          const tagSql = `INSERT OR REPLACE INTO "tag_tags" ("text", "desc", "color", "create_time", "g_uuid", "t_uuid") VALUES ('${tag.text !== null && tag.text.length > 0 ? tag.text.replace(/'/g, "''") : ''}', '${tag.desc !== null && tag.desc.length > 0 ? tag.desc.replace(/'/g, "''") : ''}', '${tag.color}', ${tag.create_time}, '${tag.g_uuid}', '${uuidv7()}');`
           tagSqls.push(tagSql)
         })
       } catch (error) {
         console.error('Tag列表失败:', error)
         message({ type: 'warn', str: 'message.shareTagError' })
       }
-    }
 
-    // 创建下载链接
-    const blob = new Blob([tagSqls.join('\n')], { type: 'text/sql' })
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(blob)
-    link.download = `${ category.name }_export_${ Date.now() }.sql`
-    link.click()
+      // 创建下载链接
+      const blob = new Blob([tagSqls.join('\n')], { type: 'text/sql' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = `${group.name}_export_${Date.now()}.sql`
+      link.click()
 
-    message({ type: 'success', str: 'tagManager.outputSuccess' })
-  } catch (error) {
-    console.error('二级分类列表失败:', error)
-    message({ type: 'warn', str: 'message.shareGroupError' })
-  }
-}
-
-// 分享整个二级目录
-const shareCategorySecond = async (group) => {
-  try {
-    const tagSqls = []
-
-    const subGroupSql = `INSERT OR REPLACE INTO "tag_subgroups" ("name", "color", "create_time", "p_uuid", "g_uuid") VALUES ('${ group.name.replace(/'/g, "''") }', '${ group.color }', ${ group.create_time }, '${ group.p_uuid }', '${ group.g_uuid }');`
-    tagSqls.push(subGroupSql)
-
-    try {
-      const currentTags = await tagsApi.getTagList(group.g_uuid)
-      currentTags.forEach((tag) => {
-        const tagSql = `INSERT OR REPLACE INTO "tag_tags" ("text", "desc", "color", "create_time", "g_uuid", "t_uuid") VALUES ('${ tag.text !== null && tag.text.length > 0 ? tag.text.replace(/'/g, "''") : '' }', '${ tag.desc !== null && tag.desc.length > 0 ? tag.desc.replace(/'/g, "''") : '' }', '${ tag.color }', ${ tag.create_time }, '${ tag.g_uuid }', '${ uuidv7() }');`
-        tagSqls.push(tagSql)
-      })
+      message({ type: 'success', str: 'tagManager.outputSuccess' })
     } catch (error) {
-      console.error('Tag列表失败:', error)
-      message({ type: 'warn', str: 'message.shareTagError' })
+      console.error('二级分类列表失败:', error)
+      message({ type: 'warn', str: 'message.shareGroupError' })
     }
-
-    // 创建下载链接
-    const blob = new Blob([tagSqls.join('\n')], { type: 'text/sql' })
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(blob)
-    link.download = `${ group.name }_export_${ Date.now() }.sql`
-    link.click()
-
-    message({ type: 'success', str: 'tagManager.outputSuccess' })
-  } catch (error) {
-    console.error('二级分类列表失败:', error)
-    message({ type: 'warn', str: 'message.shareGroupError' })
   }
-}
 
-// 打开移动对话框
-const openMoveDialog = (tag) => {
-  currentMoveTagId.value = tag.id_index
-  showMoveDialog.value = true
-}
-
-// 确认移动
-const confirmMove = async () => {
-  try {
-    tagsApi
-      .moveTag({
-        id_index: currentMoveTagId.value,
-        reference_id_index: moveTargetTagId.value,
-        position: movePosition.value
-      })
-      .then((res) => {
-        getTagsList()
-        showMoveDialog.value = false
-        message({ type: 'success', str: t('message.moveSuccess') })
-      })
-      .catch((err) => {
-        message({ type: 'error', str: t('message.moveFailed') })
-      })
-  } catch (error) {
-    console.error('移动标签失败:', error)
-    message({ type: 'error', str: t('message.moveFailed') })
+  // 打开移动对话框
+  const openMoveDialog = (tag) => {
+    currentMoveTagId.value = tag.id_index
+    showMoveDialog.value = true
   }
-}
 
-const availableGroup = ref([])
-const actionMoveGroup = ref(1)
-// 打开移动对话框 Group
-const openMoveGroupDialog = (group, action) => {
-  actionMoveGroup.value = action
-  if (action === 1) {
-    availableGroup.value = categories.value
-    currentMoveGroupId.value = group.id_index
-    showMoveGroupDialog.value = true
-  } else {
-    // console.log(group)
-    availableGroup.value = subCategories.value
-    currentMoveGroupId.value = group.id_index
-    showMoveGroupDialog.value = true
-  }
-  // console.log(group)
-}
-
-const confirmMoveGroup = async () => {
-  if (actionMoveGroup.value === 1) {
+  // 确认移动
+  const confirmMove = () => {
     try {
       tagsApi
-        .moveMainGroup({
-          id_index: currentMoveGroupId.value,
-          reference_id_index: moveTargetGroupId.value,
-          position: moveGroupPosition.value
+        .moveTag({
+          id_index: currentMoveTagId.value,
+          reference_id_index: moveTargetTagId.value,
+          position: movePosition.value
         })
-        .then((res) => {
+        .then(() => {
           getTagsList()
-          showMoveGroupDialog.value = false
+          showMoveDialog.value = false
           message({ type: 'success', str: t('message.moveSuccess') })
         })
-        .catch((err) => {
-          message({ type: 'error', str: t('message.moveFailed') })
-        })
-    } catch (error) {
-      console.error('移动标签失败:', error)
-      message({ type: 'error', str: t('message.moveFailed') })
-    }
-  } else {
-    try {
-      tagsApi
-        .moveSubGroup({
-          id_index: currentMoveGroupId.value,
-          reference_id_index: moveTargetGroupId.value,
-          position: moveGroupPosition.value
-        })
-        .then((res) => {
-          getTagsList()
-          showMoveGroupDialog.value = false
-          message({ type: 'success', str: t('message.moveSuccess') })
-        })
-        .catch((err) => {
+        .catch(() => {
           message({ type: 'error', str: t('message.moveFailed') })
         })
     } catch (error) {
@@ -1695,208 +1633,269 @@ const confirmMoveGroup = async () => {
       message({ type: 'error', str: t('message.moveFailed') })
     }
   }
-}
 
-const deleteTagAction = () => {
-  isSelectTagAction.value = true
-  isDeleteTagAction.value = true
-}
-
-const cancelDeleteAction = () => {
-  isSelectTagAction.value = false
-  isDeleteTagAction.value = false
-  selectedTags.value = []
-}
-
-const deleteSelectedTags = () => {
-  if (selectedTags.value.length === 0) {
-    return
-  }
-
-  // 确认删除操作
-  deleteType.value = 'deleteSelected'
-  itemToDelete.value = {}
-  showDeleteDialog.value = true
-}
-
-const shareTagAction = () => {
-  isSelectTagAction.value = true
-  isShareTagAction.value = true
-}
-
-const cancelShareAction = () => {
-  isSelectTagAction.value = false
-  isShareTagAction.value = false
-  selectedTags.value = []
-}
-
-const shareSelectedTags = () => {
-  if (selectedTags.value.length === 0) {
-    message({ type: 'warn', str: 'tagManager.noTagsSelected' })
-    return
-  }
-
-  // 生成YAML内容
-  const yamlContent = {}
-  selectedTags.value.forEach((tag) => {
-    yamlContent[tag.text] = tag.desc
-  })
-
-  // 创建下载链接
-  const blob = new Blob([yaml.dump(yamlContent)], { type: 'text/yaml' })
-  const link = document.createElement('a')
-  link.href = URL.createObjectURL(blob)
-  link.download = `selected_tags_export_${ Date.now() }.yaml`
-  link.click()
-
-  message({ type: 'success', str: 'tagManager.outputSuccess' })
-  cancelShareAction()
-}
-
-// 关闭删除对话框
-const closeDeleteDialog = () => {
-  showDeleteDialog.value = false
-  deleteType.value = ''
-  itemToDelete.value = null
-}
-
-// 刷新标签列表
-const refreshTags = async () => {
-  try {
-    await getTagsList()
-  } catch (error) {
-    console.error('刷新标签列表失败:', error)
-  }
-}
-
-const searchInput = ref()
-
-const searchResultsStyle = ref({}) // 使用 ref 来存储样式
-
-// 计算搜索结果的样式
-const updateSearchResultsStyle = () => {
-  if (searchInput.value) {
-    const rect = searchInput.value.getBoundingClientRect() // 获取搜索框的位置信息
-    searchResultsStyle.value = {
-      position: 'fixed', // 设置为 fixed
-      top: `${ rect.bottom }px`, // 在输入框下方
-      left: `${ rect.left }px`, // 与输入框左对齐
-      width: `${ rect.width }px`, // 宽度与输入框一致
-      zIndex: 1000 // 确保在最上层
-    }
-  }
-}
-
-// 处理消息
-const handleMessage = (event) => {
-  // console.log(event.data.type)
-  if (event.data.type === 'weilin_prompt_ui_window_change_tagManager_position') {
-    updateSearchResultsStyle()
-  } else if (event.data.type === 'weilin_prompt_ui_window_change_tagManager_size') {
-    updateSearchResultsStyle()
-  } else if (event.data.type === 'weilin_prompt_ui_window_change_tagManager_scroll') {
-    updateSearchResultsStyle()
-  } else if (event.data.type === 'weilin_prompt_ui_window_change_promptBox_position') {
-    updateSearchResultsStyle()
-  } else if (event.data.type === 'weilin_prompt_ui_window_change_promptBox_size') {
-    updateSearchResultsStyle()
-  } else if (event.data.type === 'weilin_prompt_ui_window_change_promptBox_scroll') {
-    updateSearchResultsStyle()
-  } else if (event.data.type === 'weilin_prompt_ui_window_change_click_outside') {
-    // console.log(event.data.event)
-  } else if (event.data.type === 'weilin_prompt_ui_tag_manager_refresh') {
-    refreshTagsGoThis()
-  }
-}
-
-// 处理点击事件，关闭搜索结果框
-const handleClickOutside = (event) => {
-  if (isSearching.value && !searchInput.value.contains(event.target)) {
-    isSearching.value = false // 关闭搜索结果框
-  }
-}
-
-// 处理键盘事件
-const handleKeydown = (event) => {
-  if (event.key === 'Escape') {
-    isSearching.value = false // 关闭搜索结果框
-  }
-}
-
-const showTabActions = (index) => {
-  if (editGroupCategroy.value === 1) {
-    hoverTabsActionFrist.value = `TabID-${ index }`
-  }
-}
-
-const hideTabActions = (index) => {
-  hoverTabsActionFrist.value = 'None'
-}
-
-const showTabActionsGroup = (index) => {
-  if (editGroupTabs.value === 1) {
-    hoverTabsActionSecond.value = `TabID-${ index }`
-  }
-}
-
-const hideTabActionsGroup = (index) => {
-  hoverTabsActionSecond.value = 'None'
-}
-
-const importTagDialogItem = ref()
-const showImportDialog = () => {
-  importTagDialogItem.value.open()
-}
-
-// 从localStorage读取配置
-const loadTabSizeConfig = () => {
-  const defaultTabData = JSON.parse(JSON.stringify(defaultTabSizeConfig))
-  try {
-    const saved = localStorage.getItem('weilin_tag_manager_tab_size_config')
-    if (saved) {
-      const parsed = JSON.parse(saved)
-      tabSizeConfig.value = { ...defaultTabData, ...parsed }
+  const availableGroup = ref([])
+  const actionMoveGroup = ref(1)
+  // 打开移动对话框 Group
+  const openMoveGroupDialog = (group, action) => {
+    actionMoveGroup.value = action
+    if (action === 1) {
+      availableGroup.value = categories.value
+      currentMoveGroupId.value = group.id_index
+      showMoveGroupDialog.value = true
     } else {
+      // console.log(group)
+      availableGroup.value = subCategories.value
+      currentMoveGroupId.value = group.id_index
+      showMoveGroupDialog.value = true
+    }
+    // console.log(group)
+  }
+
+  const confirmMoveGroup = () => {
+    if (actionMoveGroup.value === 1) {
+      try {
+        tagsApi
+          .moveMainGroup({
+            id_index: currentMoveGroupId.value,
+            reference_id_index: moveTargetGroupId.value,
+            position: moveGroupPosition.value
+          })
+          .then(() => {
+            getTagsList()
+            showMoveGroupDialog.value = false
+            message({ type: 'success', str: t('message.moveSuccess') })
+          })
+          .catch(() => {
+            message({ type: 'error', str: t('message.moveFailed') })
+          })
+      } catch (error) {
+        console.error('移动标签失败:', error)
+        message({ type: 'error', str: t('message.moveFailed') })
+      }
+    } else {
+      try {
+        tagsApi
+          .moveSubGroup({
+            id_index: currentMoveGroupId.value,
+            reference_id_index: moveTargetGroupId.value,
+            position: moveGroupPosition.value
+          })
+          .then(() => {
+            getTagsList()
+            showMoveGroupDialog.value = false
+            message({ type: 'success', str: t('message.moveSuccess') })
+          })
+          .catch(() => {
+            message({ type: 'error', str: t('message.moveFailed') })
+          })
+      } catch (error) {
+        console.error('移动标签失败:', error)
+        message({ type: 'error', str: t('message.moveFailed') })
+      }
+    }
+  }
+
+  const deleteTagAction = () => {
+    isSelectTagAction.value = true
+    isDeleteTagAction.value = true
+  }
+
+  const cancelDeleteAction = () => {
+    isSelectTagAction.value = false
+    isDeleteTagAction.value = false
+    selectedTags.value = []
+  }
+
+  const deleteSelectedTags = () => {
+    if (selectedTags.value.length === 0) {
+      return
+    }
+
+    // 确认删除操作
+    deleteType.value = 'deleteSelected'
+    itemToDelete.value = {}
+    showDeleteDialog.value = true
+  }
+
+  const shareTagAction = () => {
+    isSelectTagAction.value = true
+    isShareTagAction.value = true
+  }
+
+  const cancelShareAction = () => {
+    isSelectTagAction.value = false
+    isShareTagAction.value = false
+    selectedTags.value = []
+  }
+
+  const shareSelectedTags = () => {
+    if (selectedTags.value.length === 0) {
+      message({ type: 'warn', str: 'tagManager.noTagsSelected' })
+      return
+    }
+
+    // 生成YAML内容
+    const yamlContent = {}
+    selectedTags.value.forEach((tag) => {
+      yamlContent[tag.text] = tag.desc
+    })
+
+    // 创建下载链接
+    const blob = new Blob([yaml.dump(yamlContent)], { type: 'text/yaml' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `selected_tags_export_${Date.now()}.yaml`
+    link.click()
+
+    message({ type: 'success', str: 'tagManager.outputSuccess' })
+    cancelShareAction()
+  }
+
+  // 关闭删除对话框
+  const closeDeleteDialog = () => {
+    showDeleteDialog.value = false
+    deleteType.value = ''
+    itemToDelete.value = null
+  }
+
+  // 刷新标签列表
+  const refreshTags = async () => {
+    try {
+      await getTagsList()
+    } catch (error) {
+      console.error('刷新标签列表失败:', error)
+    }
+  }
+
+  const searchInput = ref()
+
+  const searchResultsStyle = ref({}) // 使用 ref 来存储样式
+
+  // 计算搜索结果的样式
+  const updateSearchResultsStyle = () => {
+    if (searchInput.value) {
+      const rect = searchInput.value.getBoundingClientRect() // 获取搜索框的位置信息
+      searchResultsStyle.value = {
+        position: 'fixed', // 设置为 fixed
+        top: `${rect.bottom}px`, // 在输入框下方
+        left: `${rect.left}px`, // 与输入框左对齐
+        width: `${rect.width}px`, // 宽度与输入框一致
+        zIndex: 1000 // 确保在最上层
+      }
+    }
+  }
+
+  // 处理消息
+  const handleMessage = (event) => {
+    // console.log(event.data.type)
+    if (event.data.type === 'weilin_prompt_ui_window_change_tagManager_position') {
+      updateSearchResultsStyle()
+    } else if (event.data.type === 'weilin_prompt_ui_window_change_tagManager_size') {
+      updateSearchResultsStyle()
+    } else if (event.data.type === 'weilin_prompt_ui_window_change_tagManager_scroll') {
+      updateSearchResultsStyle()
+    } else if (event.data.type === 'weilin_prompt_ui_window_change_promptBox_position') {
+      updateSearchResultsStyle()
+    } else if (event.data.type === 'weilin_prompt_ui_window_change_promptBox_size') {
+      updateSearchResultsStyle()
+    } else if (event.data.type === 'weilin_prompt_ui_window_change_promptBox_scroll') {
+      updateSearchResultsStyle()
+    } else if (event.data.type === 'weilin_prompt_ui_window_change_click_outside') {
+      // console.log(event.data.event)
+    } else if (event.data.type === 'weilin_prompt_ui_tag_manager_refresh') {
+      refreshTagsGoThis()
+    }
+  }
+
+  // 处理点击事件，关闭搜索结果框
+  const handleClickOutside = (event) => {
+    if (isSearching.value && !searchInput.value.contains(event.target)) {
+      isSearching.value = false // 关闭搜索结果框
+    }
+  }
+
+  // 处理键盘事件
+  const handleKeydown = (event) => {
+    if (event.key === 'Escape') {
+      isSearching.value = false // 关闭搜索结果框
+    }
+  }
+
+  const showTabActions = (index) => {
+    if (editGroupCategroy.value === 1) {
+      hoverTabsActionFrist.value = `TabID-${index}`
+    }
+  }
+
+  const hideTabActions = () => {
+    hoverTabsActionFrist.value = 'None'
+  }
+
+  const showTabActionsGroup = (index) => {
+    if (editGroupTabs.value === 1) {
+      hoverTabsActionSecond.value = `TabID-${index}`
+    }
+  }
+
+  const hideTabActionsGroup = () => {
+    hoverTabsActionSecond.value = 'None'
+  }
+
+  const importTagDialogItem = ref()
+  const showImportDialog = () => {
+    importTagDialogItem.value.open()
+  }
+
+  // 从localStorage读取配置
+  const loadTabSizeConfig = () => {
+    const defaultTabData = JSON.parse(JSON.stringify(defaultTabSizeConfig))
+    try {
+      const saved = localStorage.getItem('weilin_tag_manager_tab_size_config')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        tabSizeConfig.value = { ...defaultTabData, ...parsed }
+      } else {
+        tabSizeConfig.value = { ...defaultTabData }
+      }
+    } catch (error) {
+      console.error('读取标签尺寸配置失败:', error)
       tabSizeConfig.value = { ...defaultTabData }
     }
-  } catch (error) {
-    console.error('读取标签尺寸配置失败:', error)
+  }
+
+  // 保存配置到localStorage
+  const saveTabSizeConfig = () => {
+    try {
+      localStorage.setItem(
+        'weilin_tag_manager_tab_size_config',
+        JSON.stringify(tabSizeConfig.value)
+      )
+      message({ type: 'success', str: 'tagManager.tabSizeConfigSaved' })
+      showTabSizeConfig.value = false
+    } catch (error) {
+      console.error('保存标签尺寸配置失败:', error)
+      message({ type: 'error', str: 'tagManager.tabSizeConfigSaveFailed' })
+    }
+  }
+
+  // 显示配置对话框
+  const showTabSizeDialog = () => {
+    showTabSizeConfig.value = true
+  }
+
+  // 关闭配置对话框
+  const closeTabSizeDialog = () => {
+    showTabSizeConfig.value = false
+    // 重新从localStorage加载，撤销未保存的更改
+    loadTabSizeConfig()
+  }
+
+  // 重置为默认值
+  const resetTabSizeConfig = () => {
+    const defaultTabData = JSON.parse(JSON.stringify(defaultTabSizeConfig))
     tabSizeConfig.value = { ...defaultTabData }
   }
-}
-
-// 保存配置到localStorage
-const saveTabSizeConfig = () => {
-  try {
-    localStorage.setItem(
-      'weilin_tag_manager_tab_size_config',
-      JSON.stringify(tabSizeConfig.value)
-    )
-    message({ type: 'success', str: 'tagManager.tabSizeConfigSaved' })
-    showTabSizeConfig.value = false
-  } catch (error) {
-    console.error('保存标签尺寸配置失败:', error)
-    message({ type: 'error', str: 'tagManager.tabSizeConfigSaveFailed' })
-  }
-}
-
-// 显示配置对话框
-const showTabSizeDialog = () => {
-  showTabSizeConfig.value = true
-}
-
-// 关闭配置对话框
-const closeTabSizeDialog = () => {
-  showTabSizeConfig.value = false
-  // 重新从localStorage加载，撤销未保存的更改
-  loadTabSizeConfig()
-}
-
-// 重置为默认值
-const resetTabSizeConfig = () => {
-  const defaultTabData = JSON.parse(JSON.stringify(defaultTabSizeConfig))
-  tabSizeConfig.value = { ...defaultTabData }
-}
 </script>
 
 <style scoped>
@@ -1910,7 +1909,7 @@ const resetTabSizeConfig = () => {
   .tag-manager {
     display: flex;
     flex-direction: column;
-    padding: 0 16px 16px 16px;
+    padding: 0 16px 16px;
     background: var(--weilin-prompt-ui-primary-bg);
     height: 100%;
     box-sizing: border-box;
@@ -1939,23 +1938,28 @@ const resetTabSizeConfig = () => {
   /* 自定义滚动条样式 */
   .tabs-scroll::-webkit-scrollbar {
     height: 10px;
+
     /* 设置滚动条高度 */
   }
 
   .tabs-scroll::-webkit-scrollbar-track {
     background: var(--weilin-prompt-ui-scrollbar-track);
+
     /* 滚动条轨道颜色 */
   }
 
   .tabs-scroll::-webkit-scrollbar-thumb {
     background: var(--weilin-prompt-ui-scrollbar-thumb);
+
     /* 滚动条颜色 */
     border-radius: 3px;
+
     /* 滚动条圆角 */
   }
 
   .tabs-scroll::-webkit-scrollbar-thumb:hover {
     background: var(--weilin-prompt-ui-scrollbar-thumb-hover);
+
     /* 滚动条悬停颜色 */
   }
 
@@ -2019,7 +2023,7 @@ const resetTabSizeConfig = () => {
   .action-icon {
     width: 16px;
     height: 16px;
-    fill: currentColor;
+    fill: currentcolor;
   }
 
   .add-tab {
@@ -2129,6 +2133,7 @@ const resetTabSizeConfig = () => {
     text-overflow: ellipsis;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     line-height: 1.4;
     background-color: var(--weilin-prompt-ui-secondary-bg);
@@ -2141,7 +2146,7 @@ const resetTabSizeConfig = () => {
   }
 
   .tag-actions {
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgb(0 0 0 / 0.5);
     border-radius: 6px;
     position: absolute;
     right: 8px;
@@ -2196,6 +2201,7 @@ const resetTabSizeConfig = () => {
   .primary-tabs::-webkit-scrollbar,
   .sub-tabs::-webkit-scrollbar {
     height: 6px;
+
     /* 横向滚动条的高度 */
     width: 6px;
   }
@@ -2220,11 +2226,8 @@ const resetTabSizeConfig = () => {
   /* 对话框样式 */
   .weilin-tools-dialog-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    inset: 0;
+    background: rgb(0 0 0 / 0.5);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2236,7 +2239,7 @@ const resetTabSizeConfig = () => {
     border-radius: 8px;
     min-width: 400px;
     max-width: 90%;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 2px 12px rgb(0 0 0 / 0.15);
     box-sizing: border-box;
     z-index: 10099;
   }
@@ -2306,7 +2309,7 @@ const resetTabSizeConfig = () => {
   .form-group textarea:focus {
     outline: none;
     border-color: var(--weilin-prompt-ui-primary-color);
-    box-shadow: 0 0 0 2px rgba(var(--weilin-prompt-ui-primary-color-rgb), 0.1);
+    box-shadow: 0 0 0 2px rgb(var(--weilin-prompt-ui-primary-color-rgb), 0.1);
   }
 
   .cancel-btn,
@@ -2529,7 +2532,7 @@ const resetTabSizeConfig = () => {
       0 0,
       0 5px,
       5px -5px,
-      -5px 0px;
+      -5px 0;
   }
 
   .color-controls {
@@ -2557,21 +2560,21 @@ const resetTabSizeConfig = () => {
   .alpha-slider {
     flex: 1;
     height: 8px;
-    -webkit-appearance: none;
-    background: linear-gradient(to right, transparent, currentColor);
+    appearance: none;
+    background: linear-gradient(to right, transparent, currentcolor);
     border-radius: 4px;
     border: 1px solid var(--weilin-prompt-ui-border-color);
   }
 
   .alpha-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
+    appearance: none;
     width: 16px;
     height: 16px;
     border-radius: 50%;
     background: var(--weilin-prompt-ui-primary-color);
     cursor: pointer;
     border: 2px solid white;
-    box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 2px rgb(0 0 0 / 0.3);
   }
 
   .alpha-value {
@@ -2667,7 +2670,7 @@ const resetTabSizeConfig = () => {
   }
 
   .tab-item.active .action-btn {
-    color: #ffffff;
+    color: #fff;
   }
 
   .tab-content {
@@ -2733,6 +2736,7 @@ const resetTabSizeConfig = () => {
 
   .tag-checkbox {
     margin-top: 3px;
+
     /* 复选框与标签文本之间的间距 */
   }
 
@@ -2759,7 +2763,6 @@ const resetTabSizeConfig = () => {
     border: 1px dashed var(--weilin-prompt-ui-border-color);
     border-radius: 4px 4px 0 0;
     color: var(--weilin-prompt-ui-secondary-text);
-    cursor: pointer;
     transition: all 0.3s;
     white-space: nowrap;
     font-size: 13px;
@@ -2776,7 +2779,7 @@ const resetTabSizeConfig = () => {
 
   .highlight {
     border: 2px solid var(--weilin-prompt-ui-primary-color);
-    box-shadow: 0 0 8px rgba(255, 123, 2, 0.6);
+    box-shadow: 0 0 8px rgb(255 123 2 / 0.6);
     transform: scale(1.05);
     transition: all 0.3s ease;
   }
@@ -2901,7 +2904,7 @@ const resetTabSizeConfig = () => {
   }
 
   .config-section h3 {
-    margin: 0 0 16px 0;
+    margin: 0 0 16px;
     color: var(--weilin-prompt-ui-primary-text);
     font-size: 16px;
   }
@@ -2932,21 +2935,21 @@ const resetTabSizeConfig = () => {
   .range-input {
     width: 100%;
     height: 8px;
-    -webkit-appearance: none;
+    appearance: none;
     background: var(--weilin-prompt-ui-border-color);
     border-radius: 4px;
     outline: none;
   }
 
   .range-input::-webkit-slider-thumb {
-    -webkit-appearance: none;
+    appearance: none;
     width: 16px;
     height: 16px;
     border-radius: 50%;
     background: var(--weilin-prompt-ui-primary-color);
     cursor: pointer;
     border: 2px solid white;
-    box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 2px rgb(0 0 0 / 0.3);
   }
 
   .reset-btn {

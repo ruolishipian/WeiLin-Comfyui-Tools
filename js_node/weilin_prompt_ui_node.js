@@ -137,17 +137,60 @@ function loadResourcesOnDemand() {
     const checkAllLoaded = () => {
       loadedCount++;
       if (loadedCount === totalResources) {
-        resourcesLoaded = true;
-        resourcesLoading = false;
-        resolve();
+        // 等待Vue应用初始化完成
+        waitForVueAppInit(resolve);
       }
     };
     
-    // 加载主JS (648KB) - 使用defer确保不阻塞
+    // 等待Vue应用初始化完成的函数
+    const waitForVueAppInit = (resolveCallback) => {
+      // 检查Vue应用是否已初始化的标志：
+      // 1. weilin_comfyui_tools_prompt_ui_div 元素存在
+      // 2. Vue应用已挂载（检查 __vue_app__ 或元素内部有内容）
+      const checkVueReady = () => {
+        const container = document.getElementById('weilin_comfyui_tools_prompt_ui_div');
+        if (!container) return false;
+        
+        // Vue 3 会在挂载元素上设置 __vue_app__ 属性
+        // 或者检查容器内是否有Vue渲染的内容
+        const hasVueApp = container.__vue_app__ || 
+                          container.__vue__ || 
+                          container.children.length > 0;
+        
+        if (hasVueApp) {
+          console.log('[WeiLin] Vue app initialized, resources ready');
+          resourcesLoaded = true;
+          resourcesLoading = false;
+          resolveCallback();
+          return true;
+        }
+        return false;
+      };
+      
+      // 立即检查一次
+      if (checkVueReady()) return;
+      
+      // 如果还没准备好，使用轮询检查
+      let attempts = 0;
+      const maxAttempts = 100; // 最多等待10秒
+      const pollInterval = setInterval(() => {
+        attempts++;
+        if (checkVueReady()) {
+          clearInterval(pollInterval);
+        } else if (attempts >= maxAttempts) {
+          console.warn('[WeiLin] Vue app initialization timeout, proceeding anyway');
+          clearInterval(pollInterval);
+          resourcesLoaded = true;
+          resourcesLoading = false;
+          resolveCallback();
+        }
+      }, 100);
+    };
+    
+    // 加载主JS (648KB) - 移除defer，让脚本立即执行
     var script1 = document.createElement('script');
     script1.src = './weilin/prompt_ui/webjs?v=' + WEILIN_VERSION;
     script1.type = 'text/javascript';
-    script1.defer = true;
     script1.onload = checkAllLoaded;
     script1.onerror = checkAllLoaded;
     document.head.appendChild(script1);
@@ -165,7 +208,6 @@ function loadResourcesOnDemand() {
     var script2 = document.createElement('script');
     script2.src = './weilin/prompt_ui/file/lora_stack.js?v=' + WEILIN_VERSION;
     script2.type = 'text/javascript';
-    script2.defer = true;
     script2.onload = checkAllLoaded;
     script2.onerror = checkAllLoaded;
     document.head.appendChild(script2);
@@ -442,6 +484,8 @@ waitForApp((app) => {
 
         // Lora Stack 创建可视化节点
         if (nodeData.name === "WeiLinPromptUIOnlyLoraStack") {
+          // 确保资源加载完成后再创建widget
+          await loadResourcesOnDemand();
           await createLoraStackWidget(this, thisNodeSeed,nodeTextAreaList[3]);
         }
 
@@ -532,7 +576,7 @@ waitForApp((app) => {
 
             if (nodeData.name === "WeiLinPromptUI") {
               // console.log(jsonReponse.lora.length)
-              if (jsonReponse.lora && jsonReponse.lora.length > 0 && jsonReponse.lora != "") {
+              if (jsonReponse.lora && Array.isArray(jsonReponse.lora) && jsonReponse.lora.length > 0) {
                 if (nodeTextAreaList[1]) nodeTextAreaList[1].value = JSON.stringify(jsonReponse.lora);
                 if (nodeWidgetList[1]) nodeWidgetList[1].value = JSON.stringify(jsonReponse.lora);
               } else {
@@ -541,7 +585,7 @@ waitForApp((app) => {
               }
             }
 
-            if (jsonReponse.temp_prompt && jsonReponse.temp_prompt != "") {
+            if (jsonReponse.temp_prompt && (typeof jsonReponse.temp_prompt === 'object') && Object.keys(jsonReponse.temp_prompt).length > 0) {
               if (nodeTextAreaList[2]) nodeTextAreaList[2].value = JSON.stringify(jsonReponse.temp_prompt);
               if (nodeWidgetList[2]) nodeWidgetList[2].value = JSON.stringify(jsonReponse.temp_prompt);
             }else {
@@ -550,7 +594,7 @@ waitForApp((app) => {
             }
 
             if (nodeData.name === "WeiLinPromptUI") {
-              if (jsonReponse.temp_lora && jsonReponse.temp_lora != "") {
+              if (jsonReponse.temp_lora && Array.isArray(jsonReponse.temp_lora)) {
                 if (nodeTextAreaList[3]) nodeTextAreaList[3].value = JSON.stringify(jsonReponse.temp_lora);
                 if (nodeWidgetList[3]) nodeWidgetList[3].value = JSON.stringify(jsonReponse.temp_lora);
               }else {
@@ -603,7 +647,7 @@ waitForApp((app) => {
             // console.log(jsonReponse)
             if (nodeData.name === "WeiLinPromptUI" || nodeData.name === "WeiLinPromptUIOnlyLoraStack") {
               // console.log(jsonReponse.lora.length)
-              if (jsonReponse.lora && jsonReponse.lora.length > 0 && jsonReponse.lora != "") {
+              if (jsonReponse.lora && Array.isArray(jsonReponse.lora) && jsonReponse.lora.length > 0) {
                 if (nodeTextAreaList[1]) nodeTextAreaList[1].value = JSON.stringify(jsonReponse.lora);
                 if (nodeWidgetList[1]) nodeWidgetList[1].value = JSON.stringify(jsonReponse.lora);
               } else {
@@ -611,7 +655,7 @@ waitForApp((app) => {
                 if (nodeWidgetList[1]) nodeWidgetList[1].value = "";
               }
 
-              if (jsonReponse.temp_lora && jsonReponse.temp_lora != "") {
+              if (jsonReponse.temp_lora && Array.isArray(jsonReponse.temp_lora)) {
                 if (nodeTextAreaList[3]) nodeTextAreaList[3].value = JSON.stringify(jsonReponse.temp_lora);
                 if (nodeWidgetList[3]) nodeWidgetList[3].value = JSON.stringify(jsonReponse.temp_lora);
               }else{
@@ -630,21 +674,28 @@ waitForApp((app) => {
           }else if (event.data.type === "weilin_prompt_ui_prompt_node_finish_lora_stack_" + thisNodeSeed) {
             // 接收到更新LoraStack内容消息
             const jsonReponse = JSON.parse(event.data.data)
-            if (nodeData.name === "WeiLinPromptUIOnlyLoraStack") {
-              if (jsonReponse.lora && jsonReponse.lora.length > 0 && jsonReponse.lora != "") {
+            if (nodeData.name === "WeiLinPromptUI" || nodeData.name === "WeiLinPromptUIOnlyLoraStack") {
+              // 处理 lora 数据
+              if (jsonReponse.lora && Array.isArray(jsonReponse.lora) && jsonReponse.lora.length > 0) {
                 if (nodeTextAreaList[1]) nodeTextAreaList[1].value = JSON.stringify(jsonReponse.lora);
                 if (nodeWidgetList[1]) nodeWidgetList[1].value = JSON.stringify(jsonReponse.lora);
               } else {
                 if (nodeTextAreaList[1]) nodeTextAreaList[1].value = "";
                 if (nodeWidgetList[1]) nodeWidgetList[1].value = "";
               }
-              if (jsonReponse.temp_lora && jsonReponse.temp_lora != "") {
+              // 处理 temp_lora 数据 - 支持空数组
+              if (jsonReponse.temp_lora && Array.isArray(jsonReponse.temp_lora)) {
                 if (nodeTextAreaList[3]) nodeTextAreaList[3].value = JSON.stringify(jsonReponse.temp_lora);
                 if (nodeWidgetList[3]) nodeWidgetList[3].value = JSON.stringify(jsonReponse.temp_lora);
-              }else{
+                // 更新全局数据
+                window.weilinGlobalSelectedLoras[thisNodeSeed] = jsonReponse.temp_lora;
+              } else {
                 if (nodeTextAreaList[3]) nodeTextAreaList[3].value = "";
                 if (nodeWidgetList[3]) nodeWidgetList[3].value = "";
+                window.weilinGlobalSelectedLoras[thisNodeSeed] = [];
               }
+              // 重新渲染节点上的Lora堆
+              renderAllLoras(thisNodeSeed)
             }
           }else if (event.data.type === "weilin_prompt_ui_selectLora_stack_node_"+thisNodeSeed) {
             addLora(thisNodeSeed,event.data.lora)
@@ -703,11 +754,10 @@ waitForApp((app) => {
             // 先加载资源（如果还未加载）
             await loadResourcesOnDemand();
             
+            // 使用 thisNodeSeed 而不是生成新的UUID，确保数据能正确同步
             // console.log(thisNodeName)
             // 发送消息给父窗口
             // console.log(global_randomID)
-            loraStackRandomID = generateUUID();
-            // console.log("register====>",loraStackRandomID)
             let jsonData = {
               lora: [],
               temp_lora: {},
@@ -721,7 +771,8 @@ waitForApp((app) => {
             }
 
             const data = JSON.stringify(jsonData)
-            window.parent.postMessage({ type: 'weilin_prompt_ui_open_node_lora_stack_window', seed: loraStackRandomID, prompt: data, node: nodeData.name }, '*')
+            // 使用 thisNodeSeed 确保与节点内的LoRA堆使用相同的ID
+            window.parent.postMessage({ type: 'weilin_prompt_ui_open_node_lora_stack_window', seed: thisNodeSeed, prompt: data, node: nodeData.name }, '*')
           });
         }
 
@@ -793,14 +844,10 @@ function hideWidgetForGood(node, widget, suffix = '') {
   widget.type = "converted-widget" + suffix
 
   widget.element.style.display = 'none'
-  // widget.serializeValue = () => {
-  //     // Prevent serializing the widget if we have no input linked
-  //     const w = node.inputs?.find((i) => i.widget?.name === widget.name);
-  //     if (w?.link == null) {
-  //         return undefined;
-  //     }
-  //     return widget.origSerializeValue ? widget.origSerializeValue() : widget.value;
-  // };
+  // 启用序列化，确保widget值被保存到工作流JSON中
+  widget.serializeValue = () => {
+      return widget.value;
+  }
 
   // Hide any linked widgets, e.g. seed+seedControl
   if (widget.linkedWidgets) {
@@ -862,15 +909,18 @@ function createLoraStackWidget(node, seed, ptEl) {
   previewWidget.contentEl.className = "weilin-comfyui-lora-content"
   previewWidget.parentEl.appendChild(previewWidget.contentEl)
   
-  // 使用 addEventListener 绑定点击事件，更可靠
-  const addLoraBtn = document.getElementById('addLoraBtn_' + prSeed);
+  // 使用 querySelector 在当前元素内查找按钮，而不是 document.getElementById
+  const addLoraBtn = previewWidget.contentEl.querySelector('#addLoraBtn_' + prSeed);
   if (addLoraBtn) {
     addLoraBtn.addEventListener('click', function(e) {
       e.preventDefault();
       e.stopPropagation();
       const seed = this.getAttribute('data-seed');
+      console.log('[WeiLin] Add Lora button clicked, seed:', seed);
       if (seed && typeof openLoraManager === 'function') {
         openLoraManager(this);
+      } else {
+        console.warn('[WeiLin] openLoraManager function not found or seed is invalid');
       }
     });
     // 阻止事件冒泡，防止被 LiteGraph 拦截
@@ -880,6 +930,8 @@ function createLoraStackWidget(node, seed, ptEl) {
     addLoraBtn.addEventListener('mouseup', function(e) {
       e.stopPropagation();
     });
+  } else {
+    console.warn('[WeiLin] Add Lora button not found for seed:', prSeed);
   }
 
   setTimeout(() => {

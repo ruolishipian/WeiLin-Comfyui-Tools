@@ -30,45 +30,42 @@
 </template>
 
 <script setup>
-const prefix = 'weilin_prompt_ui_'
+  const prefix = 'weilin_prompt_ui_'
 
-const props = defineProps({
-  modelValue: Boolean,
-  title: {
-    type: String,
-    default: '标题'
-  },
-  closeOnClickOverlay: {
-    type: Boolean,
-    default: false
-  },
-  width: {
-    type: String,
-    default: '60%'
+  const props = defineProps({
+    modelValue: Boolean,
+    title: {
+      type: String,
+      default: '标题'
+    },
+    closeOnClickOverlay: {
+      type: Boolean,
+      default: false
+    },
+    width: {
+      type: String,
+      default: '60%'
+    }
+  })
+
+  const emit = defineEmits(['update:modelValue'])
+
+  const close = () => {
+    emit('update:modelValue', false)
   }
-})
 
-const emit = defineEmits(['update:modelValue'])
-
-const close = () => {
-  emit('update:modelValue', false)
-}
-
-const handleOverlayClick = () => {
-  if (props.closeOnClickOverlay) {
-    close()
+  const handleOverlayClick = () => {
+    if (props.closeOnClickOverlay) {
+      close()
+    }
   }
-}
 </script>
 
 <style scoped>
   .weilin_prompt_ui_dialog-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.18);
+    inset: 0;
+    background: rgb(0 0 0 / 0.18);
     backdrop-filter: blur(2px);
     display: flex;
     justify-content: center;
@@ -94,7 +91,7 @@ const handleOverlayClick = () => {
   }
 
   .weilin_prompt_ui_dialog-header {
-    padding: 20px 28px 12px 28px;
+    padding: 20px 28px 12px;
     border-bottom: none;
     display: flex;
     justify-content: space-between;
@@ -138,7 +135,7 @@ const handleOverlayClick = () => {
   }
 
   .weilin_prompt_ui_dialog-content {
-    padding: 0 28px 20px 28px;
+    padding: 0 28px 20px;
     color: var(--weilin-prompt-ui-primary-text);
     overflow-y: auto;
     flex: 1;
@@ -180,6 +177,7 @@ const handleOverlayClick = () => {
   .weilin_prompt_ui_dialog-fade-leave-active {
     transition: opacity 0.25s;
   }
+
   .weilin_prompt_ui_dialog-fade-enter-from,
   .weilin_prompt_ui_dialog-fade-leave-to {
     opacity: 0;
@@ -188,13 +186,16 @@ const handleOverlayClick = () => {
   .weilin_prompt_ui_dialog-slide-enter-active {
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
+
   .weilin_prompt_ui_dialog-slide-leave-active {
     transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
   }
+
   .weilin_prompt_ui_dialog-slide-enter-from {
     opacity: 0;
     transform: translateY(-16px) scale(0.98);
   }
+
   .weilin_prompt_ui_dialog-slide-leave-to {
     opacity: 0;
     transform: translateY(16px) scale(0.98);

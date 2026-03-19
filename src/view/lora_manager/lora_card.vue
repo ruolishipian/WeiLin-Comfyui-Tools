@@ -21,9 +21,7 @@
 
       <div class="lora-detail__body">
         <!-- 标题 -->
-        <div class="lora-detail__title">
-Lora 信息
-</div>
+        <div class="lora-detail__title">Lora 信息</div>
 
         <!-- 标签区域 -->
         <ul class="lora-detail__tags">
@@ -315,142 +313,107 @@ Lora 信息
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted } from 'vue'
-import { useI18n } from 'vue-i18n'
-import message from '@/utils/message'
-import { loraApi } from '@/api/lora'
+  import { ref, computed, nextTick, onMounted } from 'vue'
+  import { useI18n } from 'vue-i18n'
+  import message from '@/utils/message'
+  import { loraApi } from '@/api/lora'
 
-const { t } = useI18n()
-const loading = ref(false)
-const loraInfo = ref({})
-const loraContent = ref()
-const nameInput = ref(null)
+  const { t } = useI18n()
+  const loading = ref(false)
+  const loraInfo = ref({})
+  const loraContent = ref()
+  const nameInput = ref(null)
 
-const userEditFields = ref({}) // 用户自定义字段
+  const userEditFields = ref({}) // 用户自定义字段
 
-const props = defineProps({
-  fileNmae: {
-    type: String,
-    required: true
-  },
-  paddingLeft: {
-    type: Number,
-    required: false,
-    default: 100
-  },
-  paddingTop: {
-    type: Number,
-    required: false,
-    default: 100
-  }
-})
-
-const fileURL = ref('')
-const emit = defineEmits(['cardLeave', 'cardenter'])
-
-const handleCardLeave = () => {
-  emit('cardLeave')
-}
-const handleCardEnter = () => {
-  emit('cardenter')
-}
-
-// 编辑状态管理
-const isEditing = ref({})
-const editValues = ref({})
-const selectedWords = ref([])
-
-// 可编辑字段配置
-const editableFields = [
-  {
-    key: 'strengthMin',
-    label: t('lora.strengthMin'),
-    tip: t('lora.strengthMinTip'),
-    type: 'number'
-  },
-  {
-    key: 'strengthMax',
-    label: t('lora.strengthMax'),
-    tip: t('lora.strengthMaxTip'),
-    type: 'number'
-  },
-  {
-    key: 'strWeight',
-    label: t('lora.strWeight'),
-    tip: t('lora.strWeightTip'),
-    type: 'number'
-  },
-  {
-    key: 'loraWorks',
-    label: t('lora.promptWords'),
-    tip: t('lora.promptWordsTip')
-  }
-]
-
-// 添加字段方法修改为：
-const addField = () => {
-  const newKey = `custom_${ Date.now() }`
-  if (!loraInfo.value.user_diy_fileds) {
-    loraInfo.value.user_diy_fileds = {}
-  }
-
-  // 以对象形式存储字段
-  userEditFields.value[newKey] = {
-    label: '新字段',
-    type: 'text'
-  }
-
-  // 使用结构化存储方式
-  loraInfo.value.user_diy_fileds[newKey] = {
-    label: '新字段',
-    value: ''
-  }
-  editValues.value[newKey] = ''
-  saveEdit(newKey)
-}
-
-// 删除字段方法修改为：
-const removeField = async (key) => {
-  delete userEditFields.value[key]
-  delete editValues.value[key]
-  if (loraInfo.value?.user_diy_fileds?.[key]) {
-    delete loraInfo.value.user_diy_fileds[key]
-    // console.log('Deleted field:', key, 'from user_diy_fileds:', loraInfo.value.user_diy_fileds)
-  }
-  await nextTick(async () => {
-    await deleteInfo(key)
+  const props = defineProps({
+    fileNmae: {
+      type: String,
+      required: true
+    },
+    paddingLeft: {
+      type: Number,
+      required: false,
+      default: 100
+    },
+    paddingTop: {
+      type: Number,
+      required: false,
+      default: 100
+    }
   })
-}
 
-onMounted(() => {
-  init()
-})
+  const fileURL = ref('')
+  const emit = defineEmits(['cardLeave', 'cardenter'])
 
-// 初始化
-const init = () => {
-  fileURL.value = props.fileNmae
-  loraInfo.value = {}
-  selectedWords.value = []
-  editValues.value = {
-    name: false,
-    nameValue: '',
-    min: false,
-    minValue: '',
-    max: false,
-    maxValue: '',
-    notes: false,
-    notesValue: '',
-    loraWorks: false,
-    loraWorksValue: ''
+  const handleCardLeave = () => {
+    emit('cardLeave')
   }
-  loraApi
-    .getLoraDetail({ file: fileURL.value, refresh: false, light: false })
-    .then((res) => {
-      // console.log(res.data.data)
-      loraInfo.value = res.data
-      nextTick(() => {
-        let _j, _k, _u, _v, _w, _x
-        loraInfo.value.name =
+  const handleCardEnter = () => {
+    emit('cardenter')
+  }
+
+  // 编辑状态管理
+  const isEditing = ref({})
+  const editValues = ref({})
+  const selectedWords = ref([])
+
+  // 可编辑字段配置
+  const editableFields = [
+    {
+      key: 'strengthMin',
+      label: t('lora.strengthMin'),
+      tip: t('lora.strengthMinTip'),
+      type: 'number'
+    },
+    {
+      key: 'strengthMax',
+      label: t('lora.strengthMax'),
+      tip: t('lora.strengthMaxTip'),
+      type: 'number'
+    },
+    {
+      key: 'strWeight',
+      label: t('lora.strWeight'),
+      tip: t('lora.strWeightTip'),
+      type: 'number'
+    },
+    {
+      key: 'loraWorks',
+      label: t('lora.promptWords'),
+      tip: t('lora.promptWordsTip')
+    }
+  ]
+
+  onMounted(() => {
+    init()
+  })
+
+  // 初始化
+  const init = () => {
+    fileURL.value = props.fileNmae
+    loraInfo.value = {}
+    selectedWords.value = []
+    editValues.value = {
+      name: false,
+      nameValue: '',
+      min: false,
+      minValue: '',
+      max: false,
+      maxValue: '',
+      notes: false,
+      notesValue: '',
+      loraWorks: false,
+      loraWorksValue: ''
+    }
+    loraApi
+      .getLoraDetail({ file: fileURL.value, refresh: false, light: false })
+      .then((res) => {
+        // console.log(res.data.data)
+        loraInfo.value = res.data
+        nextTick(() => {
+          let _j, _k, _u, _v, _w, _x
+          loraInfo.value.name =
             loraInfo.value.name ||
             ((_k = (_j = loraInfo.value.raw) === null || _j === void 0 ? void 0 : _j.metadata) ===
               null || _k === void 0
@@ -459,69 +422,69 @@ const init = () => {
                 ? _k['modelspec.title']
                 : _k.ss_output_name) ||
             ''
-        editValues.value.nameValue = loraInfo.value.name
-        loraInfo.value.strengthMin =
+          editValues.value.nameValue = loraInfo.value.name
+          loraInfo.value.strengthMin =
             (_u = loraInfo.value.strengthMin) !== null && _u !== void 0 ? _u : ''
-        editValues.value.minValue = loraInfo.value.strengthMin
-        loraInfo.value.strengthMax =
+          editValues.value.minValue = loraInfo.value.strengthMin
+          loraInfo.value.strengthMax =
             (_v = loraInfo.value.strengthMax) !== null && _v !== void 0 ? _v : ''
-        editValues.value.maxValue = loraInfo.value.strengthMax
-        loraInfo.value.userNote =
+          editValues.value.maxValue = loraInfo.value.strengthMax
+          loraInfo.value.userNote =
             (_w = loraInfo.value.userNote) !== null && _w !== void 0 ? _w : ''
-        editValues.value.notesValue = loraInfo.value.userNote
-        loraInfo.value.loraWorks =
+          editValues.value.notesValue = loraInfo.value.userNote
+          loraInfo.value.loraWorks =
             (_x = loraInfo.value.loraWorks) !== null && _x !== void 0 ? _x : ''
-        editValues.value.loraWorksValue = loraInfo.value.loraWorks
+          editValues.value.loraWorksValue = loraInfo.value.loraWorks
 
-        userEditFields.value = loraInfo.value.user_diy_fileds
+          userEditFields.value = loraInfo.value.user_diy_fileds
 
+          loading.value = false
+        })
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.networkError' })
         loading.value = false
       })
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.networkError' })
-      loading.value = false
-    })
-}
+  }
 
-const copyToClipboard = (text) => {
-  navigator.clipboard
-    .writeText(text)
-    .then(() => {
-      message({ type: 'success', str: '已复制到剪贴板' })
-    })
-    .catch((err) => {
-      //   console.error("复制失败:", err);
-      message({ type: 'error', str: '复制失败' })
-    })
-}
+  const copyToClipboard = (text) => {
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        message({ type: 'success', str: '已复制到剪贴板' })
+      })
+      .catch(() => {
+        //   console.error("复制失败:", err);
+        message({ type: 'error', str: '复制失败' })
+      })
+  }
 
-// 计算属性
-const civitaiLink = computed(() => {
-  return loraInfo.value.links?.find((link) => link.includes('civitai.com/models'))
-})
+  // 计算属性
+  const civitaiLink = computed(() => {
+    return loraInfo.value.links?.find((link) => link.includes('civitai.com/models'))
+  })
 
-const isCivitaiNotFound = computed(() => {
-  return loraInfo.value.raw?.civitai?.error === 'Model not found'
-})
+  const isCivitaiNotFound = computed(() => {
+    return loraInfo.value.raw?.civitai?.error === 'Model not found'
+  })
 
-const trainedWords = computed(() => {
-  return loraInfo.value.trainedWords || []
-})
+  const trainedWords = computed(() => {
+    return loraInfo.value.trainedWords || []
+  })
 
-// 方法
-const refreshLoraInfo = async () => {
-  const scrollPosition = loraContent.value?.scrollTop || 0
-  loading.value = true
-  loraApi
-    .getLoraRefresh({ file: fileURL.value })
-    .then((res) => {
-      // console.log(res.data.data)
-      loraInfo.value = res.data
+  // 方法
+  const refreshLoraInfo = () => {
+    const scrollPosition = loraContent.value?.scrollTop || 0
+    loading.value = true
+    loraApi
+      .getLoraRefresh({ file: fileURL.value })
+      .then((res) => {
+        // console.log(res.data.data)
+        loraInfo.value = res.data
 
-      nextTick(() => {
-        let _j, _k, _u, _v, _w
-        loraInfo.value.name =
+        nextTick(() => {
+          let _j, _k, _u, _v, _w
+          loraInfo.value.name =
             loraInfo.value.name ||
             ((_k = (_j = loraInfo.value.raw) === null || _j === void 0 ? void 0 : _j.metadata) ===
               null || _k === void 0
@@ -530,238 +493,237 @@ const refreshLoraInfo = async () => {
                 ? _k['modelspec.title']
                 : _k.ss_output_name) ||
             ''
-        editValues.value.nameValue = loraInfo.value.name
-        loraInfo.value.strengthMin =
+          editValues.value.nameValue = loraInfo.value.name
+          loraInfo.value.strengthMin =
             (_u = loraInfo.value.strengthMin) !== null && _u !== void 0 ? _u : ''
-        editValues.value.minValue = loraInfo.value.strengthMin
-        loraInfo.value.strengthMax =
+          editValues.value.minValue = loraInfo.value.strengthMin
+          loraInfo.value.strengthMax =
             (_v = loraInfo.value.strengthMax) !== null && _v !== void 0 ? _v : ''
-        editValues.value.maxValue = loraInfo.value.strengthMax
-        loraInfo.value.userNote =
+          editValues.value.maxValue = loraInfo.value.strengthMax
+          loraInfo.value.userNote =
             (_w = loraInfo.value.userNote) !== null && _w !== void 0 ? _w : ''
-        editValues.value.notesValue = loraInfo.value.userNote
+          editValues.value.notesValue = loraInfo.value.userNote
 
+          loading.value = false
+        })
+
+        nextTick(() => {
+          loading.value = false
+        })
+
+        // 恢复滚动位置
+        if (loraContent.value) {
+          loraContent.value.scrollTop = scrollPosition
+        }
+
+        message({ type: 'success', str: 'message.dataLoaded' })
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.networkError' })
         loading.value = false
       })
-
-      nextTick(() => {
-        loading.value = false
-      })
-
-      // 恢复滚动位置
-      if (loraContent.value) {
-        loraContent.value.scrollTop = scrollPosition
-      }
-
-      message({ type: 'success', str: 'message.dataLoaded' })
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.networkError' })
-      loading.value = false
-    })
-}
-
-const toggleEdit = (field) => {
-  if (isEditing.value[field]) {
-    saveEdit(field)
-  } else {
-    startEdit(field)
   }
-}
 
-const startEdit = (field) => {
-  isEditing.value[field] = true
-  // 区分普通字段和自定义字段
-  if (field in userEditFields.value) {
-    editValues.value[field] = loraInfo.value.user_diy_fileds?.[field]?.value || ''
-  } else {
+  // eslint-disable-next-line no-unused-vars
+  const toggleEdit = (field) => {
+    if (isEditing.value[field]) {
+      saveEdit(field)
+    } else {
+      startEdit(field)
+    }
+  }
+
+  const startEdit = (field) => {
+    isEditing.value[field] = true
+    // 区分普通字段和自定义字段
+    if (field in userEditFields.value) {
+      editValues.value[field] = loraInfo.value.user_diy_fileds?.[field]?.value || ''
+    } else {
+      editValues.value[field] = loraInfo.value[field]
+    }
+    // 自动聚焦输入框
+    nextTick(() => {
+      if (field === 'name' && nameInput.value) {
+        nameInput.value.focus()
+      }
+    })
+  }
+
+  const saveEdit = (fieldKey) => {
+    const isCustomField = fieldKey in userEditFields.value
+
+    if (isCustomField) {
+      if (!loraInfo.value.user_diy_fileds) {
+        loraInfo.value.user_diy_fileds = {}
+      }
+      // 更新自定义字段的值
+      loraInfo.value.user_diy_fileds[fieldKey] = {
+        label: userEditFields.value[fieldKey].label,
+        value: editValues.value[fieldKey]
+      }
+    } else {
+      loraInfo.value[fieldKey] = editValues.value[fieldKey]
+    }
+
+    saveInfo(loraInfo.value)
+    isEditing.value[fieldKey] = false
+  }
+
+  const cancelEdit = (field) => {
+    isEditing.value[field] = false
     editValues.value[field] = loraInfo.value[field]
   }
-  // 自动聚焦输入框
-  nextTick(() => {
-    if (field === 'name' && nameInput.value) {
-      nameInput.value.focus()
+
+  const saveInfo = (param) => {
+    const scrollPosition = loraContent.value?.scrollTop || 0
+    // console.log(scrollPosition)
+    loading.value = true
+    loraApi
+      .postLoraSave(fileURL.value, param)
+      .then((res) => {
+        // console.log(res.data.data)
+        loraInfo.value = res.data
+        nextTick(() => {
+          let _j, _k, _u, _v, _w
+          loraInfo.value.name =
+            loraInfo.value.name ||
+            ((_k = (_j = loraInfo.value.raw) === null || _j === void 0 ? void 0 : _j.metadata) ===
+              null || _k === void 0
+              ? void 0
+              : _k.ss_output_name === void 0
+                ? _k['modelspec.title']
+                : _k.ss_output_name) ||
+            ''
+          editValues.value.nameValue = loraInfo.value.name
+          loraInfo.value.strengthMin =
+            (_u = loraInfo.value.strengthMin) !== null && _u !== void 0 ? _u : ''
+          editValues.value.minValue = loraInfo.value.strengthMin
+          loraInfo.value.strengthMax =
+            (_v = loraInfo.value.strengthMax) !== null && _v !== void 0 ? _v : ''
+          editValues.value.maxValue = loraInfo.value.strengthMax
+          loraInfo.value.userNote =
+            (_w = loraInfo.value.userNote) !== null && _w !== void 0 ? _w : ''
+          editValues.value.notesValue = loraInfo.value.userNote
+
+          loading.value = false
+
+          nextTick(() => {
+            // 恢复滚动位置
+            if (loraContent.value) {
+              loraContent.value.scrollTop = scrollPosition
+            }
+          })
+        })
+
+        message({ type: 'success', str: 'message.saveSuccess' })
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.networkError' })
+        // console.log(err)
+        loading.value = false
+      })
+  }
+
+  // eslint-disable-next-line no-unused-vars
+  const deleteInfo = async (param) => {
+    const scrollPosition = loraContent.value?.scrollTop || 0
+    // console.log(scrollPosition)
+    loading.value = true
+    await loraApi
+      .postLoraDelet(fileURL.value, param)
+      .then((res) => {
+        // console.log(res.data.data)
+        loraInfo.value = res.data
+        nextTick(() => {
+          let _j, _k, _u, _v, _w
+          loraInfo.value.name =
+            loraInfo.value.name ||
+            ((_k = (_j = loraInfo.value.raw) === null || _j === void 0 ? void 0 : _j.metadata) ===
+              null || _k === void 0
+              ? void 0
+              : _k.ss_output_name === void 0
+                ? _k['modelspec.title']
+                : _k.ss_output_name) ||
+            ''
+          editValues.value.nameValue = loraInfo.value.name
+          loraInfo.value.strengthMin =
+            (_u = loraInfo.value.strengthMin) !== null && _u !== void 0 ? _u : ''
+          editValues.value.minValue = loraInfo.value.strengthMin
+          loraInfo.value.strengthMax =
+            (_v = loraInfo.value.strengthMax) !== null && _v !== void 0 ? _v : ''
+          editValues.value.maxValue = loraInfo.value.strengthMax
+          loraInfo.value.userNote =
+            (_w = loraInfo.value.userNote) !== null && _w !== void 0 ? _w : ''
+          editValues.value.notesValue = loraInfo.value.userNote
+
+          loading.value = false
+
+          nextTick(() => {
+            // 恢复滚动位置
+            if (loraContent.value) {
+              loraContent.value.scrollTop = scrollPosition
+            }
+          })
+        })
+
+        message({ type: 'success', str: 'message.deleteSuccess' })
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.networkError' })
+        // console.log(err)
+        loading.value = false
+      })
+  }
+
+  const toggleWordSelection = (word) => {
+    const index = selectedWords.value.indexOf(word)
+    if (index === -1) {
+      selectedWords.value.push(word)
+    } else {
+      selectedWords.value.splice(index, 1)
     }
+  }
+
+  const isWordSelected = (word) => {
+    return selectedWords.value.includes(word)
+  }
+
+  const copySelectedWords = () => {
+    if (!selectedWords.value.length) {
+      return
+    }
+
+    navigator.clipboard.writeText(selectedWords.value).then(
+      () => {
+        message({ type: 'success', str: 'message.copySuccess' })
+      },
+      () => {
+        message({ type: 'warn', str: 'message.copyFailed' })
+      }
+    )
+  }
+
+  const isCollapsed = ref(true) // 添加展开/收起状态
+
+  const toggleCollapse = () => {
+    isCollapsed.value = !isCollapsed.value
+  }
+
+  const refresh = () => {
+    init()
+  }
+
+  defineExpose({
+    refresh
   })
-}
-
-const saveEdit = (fieldKey) => {
-  const isCustomField = fieldKey in userEditFields.value
-
-  if (isCustomField) {
-    if (!loraInfo.value.user_diy_fileds) {
-      loraInfo.value.user_diy_fileds = {}
-    }
-    // 更新自定义字段的值
-    loraInfo.value.user_diy_fileds[fieldKey] = {
-      label: userEditFields.value[fieldKey].label,
-      value: editValues.value[fieldKey]
-    }
-  } else {
-    loraInfo.value[fieldKey] = editValues.value[fieldKey]
-  }
-
-  saveInfo(loraInfo.value)
-  isEditing.value[fieldKey] = false
-}
-
-const cancelEdit = (field) => {
-  isEditing.value[field] = false
-  editValues.value[field] = loraInfo.value[field]
-}
-
-const saveInfo = (param) => {
-  const scrollPosition = loraContent.value?.scrollTop || 0
-  // console.log(scrollPosition)
-  loading.value = true
-  loraApi
-    .postLoraSave(fileURL.value, param)
-    .then((res) => {
-      // console.log(res.data.data)
-      loraInfo.value = res.data
-      nextTick(() => {
-        let _j, _k, _u, _v, _w
-        loraInfo.value.name =
-            loraInfo.value.name ||
-            ((_k = (_j = loraInfo.value.raw) === null || _j === void 0 ? void 0 : _j.metadata) ===
-              null || _k === void 0
-              ? void 0
-              : _k.ss_output_name === void 0
-                ? _k['modelspec.title']
-                : _k.ss_output_name) ||
-            ''
-        editValues.value.nameValue = loraInfo.value.name
-        loraInfo.value.strengthMin =
-            (_u = loraInfo.value.strengthMin) !== null && _u !== void 0 ? _u : ''
-        editValues.value.minValue = loraInfo.value.strengthMin
-        loraInfo.value.strengthMax =
-            (_v = loraInfo.value.strengthMax) !== null && _v !== void 0 ? _v : ''
-        editValues.value.maxValue = loraInfo.value.strengthMax
-        loraInfo.value.userNote =
-            (_w = loraInfo.value.userNote) !== null && _w !== void 0 ? _w : ''
-        editValues.value.notesValue = loraInfo.value.userNote
-
-        loading.value = false
-
-        nextTick(() => {
-          // 恢复滚动位置
-          if (loraContent.value) {
-            loraContent.value.scrollTop = scrollPosition
-          }
-        })
-      })
-
-      message({ type: 'success', str: 'message.saveSuccess' })
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.networkError' })
-      // console.log(err)
-      loading.value = false
-    })
-}
-
-const deleteInfo = async (param) => {
-  const scrollPosition = loraContent.value?.scrollTop || 0
-  // console.log(scrollPosition)
-  loading.value = true
-  await loraApi
-    .postLoraDelet(fileURL.value, param)
-    .then((res) => {
-      // console.log(res.data.data)
-      loraInfo.value = res.data
-      nextTick(() => {
-        let _j, _k, _u, _v, _w
-        loraInfo.value.name =
-            loraInfo.value.name ||
-            ((_k = (_j = loraInfo.value.raw) === null || _j === void 0 ? void 0 : _j.metadata) ===
-              null || _k === void 0
-              ? void 0
-              : _k.ss_output_name === void 0
-                ? _k['modelspec.title']
-                : _k.ss_output_name) ||
-            ''
-        editValues.value.nameValue = loraInfo.value.name
-        loraInfo.value.strengthMin =
-            (_u = loraInfo.value.strengthMin) !== null && _u !== void 0 ? _u : ''
-        editValues.value.minValue = loraInfo.value.strengthMin
-        loraInfo.value.strengthMax =
-            (_v = loraInfo.value.strengthMax) !== null && _v !== void 0 ? _v : ''
-        editValues.value.maxValue = loraInfo.value.strengthMax
-        loraInfo.value.userNote =
-            (_w = loraInfo.value.userNote) !== null && _w !== void 0 ? _w : ''
-        editValues.value.notesValue = loraInfo.value.userNote
-
-        loading.value = false
-
-        nextTick(() => {
-          // 恢复滚动位置
-          if (loraContent.value) {
-            loraContent.value.scrollTop = scrollPosition
-          }
-        })
-      })
-
-      message({ type: 'success', str: 'message.deleteSuccess' })
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.networkError' })
-      // console.log(err)
-      loading.value = false
-    })
-}
-
-const toggleWordSelection = (word) => {
-  const index = selectedWords.value.indexOf(word)
-  if (index === -1) {
-    selectedWords.value.push(word)
-  } else {
-    selectedWords.value.splice(index, 1)
-  }
-}
-
-const isWordSelected = (word) => {
-  return selectedWords.value.includes(word)
-}
-
-const copySelectedWords = async () => {
-  if (!selectedWords.value.length) {
-    return
-  }
-
-  navigator.clipboard.writeText(selectedWords.value).then(
-    (res) => {
-      message({ type: 'success', str: 'message.copySuccess' })
-    },
-    (err) => {
-      message({ type: 'warn', str: 'message.copyFailed' })
-    }
-  )
-}
-
-const isCollapsed = ref(true) // 添加展开/收起状态
-
-const toggleCollapse = () => {
-  isCollapsed.value = !isCollapsed.value
-}
-
-const refresh = () => {
-  init()
-}
-
-defineExpose({
-  refresh
-})
 </script>
 
 <style scoped>
   .lora-detail {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     z-index: 1000;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgb(0 0 0 / 0.5);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -799,7 +761,7 @@ defineExpose({
   .lora-detail__table {
     width: 100%;
     table-layout: fixed;
-    word-wrap: break-word;
+    overflow-wrap: break-word;
     border-collapse: collapse;
     font-size: 0.55em;
   }
@@ -975,6 +937,7 @@ defineExpose({
     position: relative;
     width: 100%;
     padding-top: 100%;
+
     /* 1:1 宽高比 */
     overflow: hidden;
   }
@@ -998,7 +961,7 @@ defineExpose({
     position: absolute;
     top: 12px;
     right: 12px;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgb(0 0 0 / 0.6);
     color: #fff;
     padding: 6px 12px;
     border-radius: 4px;
@@ -1007,7 +970,7 @@ defineExpose({
     cursor: pointer;
     font-size: 0.55em;
     backdrop-filter: blur(4px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgb(255 255 255 / 0.1);
     z-index: 1;
   }
 
@@ -1016,7 +979,7 @@ defineExpose({
   }
 
   .image-action:hover {
-    background: rgba(0, 0, 0, 0.8);
+    background: rgb(0 0 0 / 0.8);
     transform: translateY(-1px);
   }
 
@@ -1063,7 +1026,7 @@ defineExpose({
   }
 
   .civitai-icon {
-    fill: currentColor;
+    fill: currentcolor;
   }
 
   /* 提示词区域样式 */
@@ -1091,7 +1054,7 @@ defineExpose({
   }
 
   /* 响应式调整 */
-  @media (max-width: 768px) {
+  @media (width <= 768px) {
     .lora-detail__images {
       grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
       gap: 16px;
@@ -1127,18 +1090,18 @@ defineExpose({
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background-color: rgba(187, 187, 187, 0.5);
+    background-color: rgb(187 187 187 / 0.5);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     z-index: 10;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 4px rgb(0 0 0 / 0.2);
     transition: all 0.2s ease;
   }
 
   .close-button:hover {
-    background-color: rgba(255, 0, 0, 0.8);
+    background-color: rgb(255 0 0 / 0.8);
     color: white;
   }
 

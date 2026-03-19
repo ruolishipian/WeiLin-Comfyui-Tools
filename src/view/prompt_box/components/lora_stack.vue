@@ -98,6 +98,15 @@
                     step="0.1"
                   />
                 </div>
+                <div class="weight-item-col">
+                  <label>{{ t('loraManager.triggerWeight') }}</label>
+                  <input
+                    type="number"
+                    v-model="lora.trigger_weight"
+                    class="lora-weight"
+                    step="0.1"
+                  />
+                </div>
                 <!-- Switch 开关 -->
                 <div class="switch-item-col">
                   <label>{{ lora.hidden ? t('lora.hideLora') : t('lora.showLora') }}</label>
@@ -128,165 +137,242 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
-import { useI18n } from 'vue-i18n'
-import loraDetail from '@/view/lora_manager/lora_detail.vue'
-import LoraCard from '@/view/lora_manager/lora_card.vue'
+  import { ref, nextTick, watch } from 'vue'
+  import { useI18n } from 'vue-i18n'
+  import loraDetail from '@/view/lora_manager/lora_detail.vue'
+  import LoraCard from '@/view/lora_manager/lora_card.vue'
 
-const prefix = 'weilin_prompt_ui_'
-const { t } = useI18n()
-const showCard = ref(false)
-const hoveFileName = ref('')
-const paddingLeftValue = ref(100)
-const paddingTopValue = ref(0)
-const loraStackItemRef = ref()
-const isEnterCatd = ref(false)
-const isHovering = ref(false)
-const loraCardItem = ref()
+  const prefix = 'weilin_prompt_ui_'
+  const { t } = useI18n()
+  const showCard = ref(false)
+  const hoveFileName = ref('')
+  const paddingLeftValue = ref(100)
+  const paddingTopValue = ref(0)
+  const loraStackItemRef = ref()
+  const isEnterCatd = ref(false)
+  const isHovering = ref(false)
+  const loraCardItem = ref()
 
-const props = defineProps({
-  isOpen: {
-    type: Boolean,
-    default: false
-  },
-  selectedLoras: {
-    type: Array,
-    default: () => []
-  }
-})
-
-const emit = defineEmits(['close', 'update:selectedLoras'])
-
-const handleMouseHover = (fileName, event) => {
-  isHovering.value = true
-  if (hoveFileName.value === fileName && showCard.value) {
-    return
-  }
-
-  const hoveredCard = event.currentTarget
-  const cardRect = hoveredCard.getBoundingClientRect()
-  const viewportWidth = window.innerWidth
-  const cardWidth = 450
-
-  // 默认显示在左侧
-  const position = {
-    left: cardRect.left - cardWidth - 10,
-    top: cardRect.top
-  }
-
-  // 如果左侧空间不足(小于10px)，则显示在右侧
-  if (position.left < 10) {
-    position.left = cardRect.right + 10
-  }
-
-  // 确保不会超出视口顶部和底部
-  position.top = Math.max(10, Math.min(position.top, window.innerHeight - 310))
-
-  paddingLeftValue.value = position.left
-  paddingTopValue.value = position.top
-
-  showCard.value = true
-  hoveFileName.value = fileName
-  // console.log(fileName)
-  nextTick(() => {
-    loraCardItem.value.refresh()
-  })
-}
-
-const handleMouseLeave = () => {
-  isHovering.value = false
-  setTimeout(() => {
-    if (!isEnterCatd.value && !isHovering.value) {
-      showCard.value = false
-      hoveFileName.value = ''
-      isEnterCatd.value = false
+  const props = defineProps({
+    isOpen: {
+      type: Boolean,
+      default: false
+    },
+    selectedLoras: {
+      type: Array,
+      default: () => []
     }
-  }, 200)
-}
+  })
 
-const handEnterCard = () => {
-  // console.log("enter")
-  isEnterCatd.value = true
-  isHovering.value = true
-}
+  const emit = defineEmits(['close', 'update:selectedLoras'])
 
-const handleEnterLeave = () => {
-  showCard.value = false
-  hoveFileName.value = ''
-  isEnterCatd.value = false
-}
+  const handleMouseHover = (fileName, event) => {
+    isHovering.value = true
+    if (hoveFileName.value === fileName && showCard.value) {
+      return
+    }
 
-// 打开Lora管理器
-const openLoraManager = () => {
-  window.postMessage({ type: 'weilin_prompt_ui_openLoraManager_addLora' }, '*')
-}
+    const hoveredCard = event.currentTarget
+    const cardRect = hoveredCard.getBoundingClientRect()
+    const cardWidth = 450
 
-// 添加切换隐藏状态的方法
-const toggleHideLora = (lora) => {
-  // console.log('toggleHideLora', lora)
-  lora.hidden = !lora.hidden
-  // emit('update:selectedLoras', props.selectedLoras);
-}
+    // 默认显示在左侧
+    const position = {
+      left: cardRect.left - cardWidth - 10,
+      top: cardRect.top
+    }
 
-// 添加Lora
-const addLora = (lora) => {
-  // 检查是否已存在
-  // console.log(props.selectedLoras)
-  if (props.selectedLoras && !props.selectedLoras.find((item) => item.name === lora.name)) {
-    const newLoras = [...props.selectedLoras, {
-      name: lora.name,
-      weight: 1,
-      text_encoder_weight: 1,
-      ...lora
-    }]
+    // 如果左侧空间不足(小于10px)，则显示在右侧
+    if (position.left < 10) {
+      position.left = cardRect.right + 10
+    }
+
+    // 确保不会超出视口顶部和底部
+    position.top = Math.max(10, Math.min(position.top, window.innerHeight - 310))
+
+    paddingLeftValue.value = position.left
+    paddingTopValue.value = position.top
+
+    showCard.value = true
+    hoveFileName.value = fileName
+    // console.log(fileName)
+    nextTick(() => {
+      loraCardItem.value.refresh()
+    })
+  }
+
+  const handleMouseLeave = () => {
+    isHovering.value = false
+    setTimeout(() => {
+      if (!isEnterCatd.value && !isHovering.value) {
+        showCard.value = false
+        hoveFileName.value = ''
+        isEnterCatd.value = false
+      }
+    }, 200)
+  }
+
+  const handEnterCard = () => {
+    // console.log("enter")
+    isEnterCatd.value = true
+    isHovering.value = true
+  }
+
+  const handleEnterLeave = () => {
+    showCard.value = false
+    hoveFileName.value = ''
+    isEnterCatd.value = false
+  }
+
+  // 打开Lora管理器
+  const openLoraManager = () => {
+    window.postMessage({ type: 'weilin_prompt_ui_openLoraManager_addLora' }, '*')
+  }
+
+  // 添加切换隐藏状态的方法
+  const toggleHideLora = (lora) => {
+    // console.log('toggleHideLora', lora)
+    lora.hidden = !lora.hidden
+    // emit('update:selectedLoras', props.selectedLoras);
+  }
+
+  // 添加Lora
+  const addLora = (lora) => {
+    // 检查是否已存在
+    if (props.selectedLoras && !props.selectedLoras.find((item) => item.name === lora.name)) {
+      const newLoraItem = {
+        name: lora.name,
+        weight: lora.weight || 1,
+        text_encoder_weight: lora.text_encoder_weight || 1,
+        trigger_weight: lora.trigger_weight || 1,
+        lora: lora.lora,
+        loraWorks: lora.loraWorks || '',
+        display_name: lora.display_name || lora.name
+      }
+      const newLoras = [...props.selectedLoras, newLoraItem]
+      emit('update:selectedLoras', newLoras)
+
+      // 不再发送 weilin_prompt_ui_add_lora_tag 消息
+      // 因为 watch 会监听 selectedLoras 的变化并发送 weilin_prompt_ui_update_lora_tags 消息
+      // 这样避免了双重更新导致的数据竞争问题
+    }
+  }
+
+  // 移除Lora
+  const removeLora = (lora) => {
+    const index = props.selectedLoras.findIndex((item) => item.name === lora.name)
+    if (index > -1) {
+      const newLoras = props.selectedLoras.filter((_, i) => i !== index)
+      // console.log('removeLora', newLoras)
+      emit('update:selectedLoras', newLoras)
+    }
+  }
+
+  const loraDetailLoraStackRef = ref()
+
+  const lookOnLora = (loraData) => {
+    // console.log('lookOnLora', loraData)
+    loraDetailLoraStackRef.value.open({ name: loraData.lora })
+  }
+
+  // 监听来自 Lora 管理器的消息
+  // 当 actionAct.value === 0 时，通过 Lora 管理器选择 Lora 会发送此消息
+  window.addEventListener('message', (event) => {
+    if (event.data.type === 'weilin_prompt_ui_selectLora') {
+      addLora(event.data.lora)
+    }
+  })
+
+  // 用于跟踪上一次的 Lora 数据，避免不必要的更新
+  let lastLorasJson = ''
+  // 用于标记是否正在初始化，避免初始化时触发不必要的更新
+  let isInitializing = false
+
+  // 监听 selectedLoras 的变化，当权重改变时同步到标签
+  watch(
+    () => props.selectedLoras,
+    (newLoras) => {
+      // 如果正在初始化，不发送更新消息
+      if (isInitializing) {
+        // 只更新 lastLorasJson，不发送消息
+        if (newLoras && newLoras.length > 0) {
+          const visibleLoras = newLoras.filter((lora) => !lora.hidden)
+          const loraTags = visibleLoras.map((lora) => {
+            const loraName = lora.lora ? lora.lora.replace('.safetensors', '') : lora.name
+            return `<wlr:${loraName}:${lora.weight || 1}:${lora.text_encoder_weight || 1}:${lora.trigger_weight || 1}>`
+          })
+          lastLorasJson = JSON.stringify(loraTags)
+        } else {
+          lastLorasJson = ''
+        }
+        return
+      }
+
+      if (newLoras && newLoras.length > 0) {
+        // 过滤隐藏的 Lora，只同步未隐藏的
+        const visibleLoras = newLoras.filter((lora) => !lora.hidden)
+
+        // 构建所有可见 Lora 标签
+        const loraTags = visibleLoras.map((lora) => {
+          const loraName = lora.lora ? lora.lora.replace('.safetensors', '') : lora.name
+          return `<wlr:${loraName}:${lora.weight || 1}:${lora.text_encoder_weight || 1}:${lora.trigger_weight || 1}>`
+        })
+
+        const newJson = JSON.stringify(loraTags)
+        // 只有当标签内容真正改变时才发送消息
+        if (newJson !== lastLorasJson) {
+          lastLorasJson = newJson
+          window.postMessage(
+            {
+              type: 'weilin_prompt_ui_update_lora_tags',
+              tags: loraTags
+            },
+            '*'
+          )
+        }
+      } else {
+        // 如果没有 Lora，清空标签
+        if (lastLorasJson !== '') {
+          lastLorasJson = ''
+          window.postMessage(
+            {
+              type: 'weilin_prompt_ui_update_lora_tags',
+              tags: []
+            },
+            '*'
+          )
+        }
+      }
+    },
+    { deep: true }
+  )
+
+  // 暴露初始化标记方法，供父组件调用
+  const setInitializing = (value) => {
+    isInitializing = value
+  }
+
+  // 拖拽相关
+  const dragIndex = ref(null)
+  const handleDragStart = (idx) => {
+    dragIndex.value = idx
+  }
+  const handleDrop = (idx) => {
+    if (dragIndex.value === null || dragIndex.value === idx) {
+      return
+    }
+    const newLoras = [...props.selectedLoras]
+    const moved = newLoras.splice(dragIndex.value, 1)[0]
+    newLoras.splice(idx, 0, moved)
+    dragIndex.value = null
     emit('update:selectedLoras', newLoras)
   }
-}
 
-// 移除Lora
-const removeLora = (lora) => {
-  const index = props.selectedLoras.findIndex((item) => item.name === lora.name)
-  if (index > -1) {
-    const newLoras = props.selectedLoras.filter((_, i) => i !== index)
-    // console.log('removeLora', newLoras)
-    emit('update:selectedLoras', newLoras)
-  }
-}
-
-const loraDetailLoraStackRef = ref()
-
-const lookOnLora = (loraData) => {
-  // console.log('lookOnLora', loraData)
-  loraDetailLoraStackRef.value.open({ name: loraData.lora })
-}
-
-// 监听来自Lora管理器的消息
-window.addEventListener('message', (event) => {
-  if (event.data.type === 'weilin_prompt_ui_selectLora') {
-    addLora(event.data.lora)
-  }
-})
-
-// 拖拽相关
-const dragIndex = ref(null)
-const handleDragStart = (idx) => {
-  dragIndex.value = idx
-}
-const handleDrop = (idx) => {
-  if (dragIndex.value === null || dragIndex.value === idx) {
-    return
-  }
-  const newLoras = [...props.selectedLoras]
-  const moved = newLoras.splice(dragIndex.value, 1)[0]
-  newLoras.splice(idx, 0, moved)
-  dragIndex.value = null
-  emit('update:selectedLoras', newLoras)
-}
-
-defineExpose({
-  addLora,
-  removeLora
-})
+  defineExpose({
+    addLora,
+    removeLora,
+    setInitializing
+  })
 </script>
 
 <style scoped>
@@ -411,9 +497,11 @@ defineExpose({
   }
 
   .hidden-lora {
-    background: rgba(255, 200, 200, 0.2) !important;
+    background: rgb(255 200 200 / 0.2) !important;
+
     /* 淡红色背景 */
-    border-color: rgba(255, 150, 150, 0.5) !important;
+    border-color: rgb(255 150 150 / 0.5) !important;
+
     /* 可选：淡红色边框 */
   }
 
@@ -552,23 +640,20 @@ defineExpose({
     height: 0;
   }
 
-  .switch input:checked + .slider:before {
+  .switch input:checked + .slider::before {
     transform: translateX(16px);
   }
 
   .slider {
     position: absolute;
     cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background-color: #ccc;
     transition: 0.4s;
     border-radius: 20px;
   }
 
-  .slider:before {
+  .slider::before {
     position: absolute;
     content: '';
     height: 16px;

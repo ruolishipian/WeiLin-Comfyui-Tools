@@ -151,273 +151,275 @@
 </template>
 
 <script setup>
-import Dialog from '@/components/Dialog.vue'
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { tagsApi } from '@/api/tags'
-import message from '@/utils/message'
+  import Dialog from '@/components/Dialog.vue'
+  import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+  import { useI18n } from 'vue-i18n'
+  import { tagsApi } from '@/api/tags'
+  import message from '@/utils/message'
 
-const { t } = useI18n()
+  const { t } = useI18n()
 
-const emit = defineEmits(['sureSelect'])
+  const emit = defineEmits(['sureSelect'])
 
-// 状态管理
-const categories = ref([])
-const selectedCategory = ref(null)
-const selectedGroup = ref(null)
-const selectedTags = ref([]) // 用于存储选中的标签ID
-const isDeleteTagAction = ref(false)
-const selectGroupsData = ref([]) // 存储选中的分类和子分类
+  // 状态管理
+  const categories = ref([])
+  const selectedCategory = ref(null)
+  const selectedGroup = ref(null)
+  const selectedTags = ref([]) // 用于存储选中的标签ID
+  const isDeleteTagAction = ref(false)
+  const selectGroupsData = ref([]) // 存储选中的分类和子分类
 
-const dialogVisible = ref(false)
-const selectActionIndex = ref(0)
+  const dialogVisible = ref(false)
+  const selectActionIndex = ref(0)
 
-// 计算属性：获取一级分类（没有子分类的选择）
-const primaryCategories = computed(() => {
-  return selectGroupsData.value.filter((item) => !item.sub)
-})
+  // 计算属性：获取一级分类（没有子分类的选择）
+  const primaryCategories = computed(() => {
+    return selectGroupsData.value.filter((item) => !item.sub)
+  })
 
-// 计算属性：获取二级分类（有子分类的选择）
-const subCategories = computed(() => {
-  return selectGroupsData.value.filter((item) => item.sub)
-})
+  // 计算属性：获取二级分类（有子分类的选择）
+  const subCategories = computed(() => {
+    return selectGroupsData.value.filter((item) => item.sub)
+  })
 
-// 获取一级分类在原数组中的索引
-const getPrimaryIndex = (item) => {
-  return selectGroupsData.value.findIndex((i) => i.group.p_uuid === item.group.p_uuid && !i.sub)
-}
-
-// 获取二级分类在原数组中的索引
-const getSubIndex = (item) => {
-  return selectGroupsData.value.findIndex(
-    (i) => i.group.p_uuid === item.group.p_uuid && i.sub && i.sub.g_uuid === item.sub.g_uuid
-  )
-}
-
-// 获取标签列表
-const getTagsList = () => {
-  window.postMessage(
-    {
-      type: 'weilin_prompt_ui_tag_manager_refresh_select'
-    },
-    '*'
-  )
-}
-
-const refreshTagsGoThis = async () => {
-  try {
-    const res = await tagsApi.getTagsGroupList()
-    // console.log(res)
-    categories.value = res.info
-    // 如果当前分组存在，重新设置当前分组
-    if (selectedGroup.value) {
-      const group = categories.value
-        .flatMap((category) => category.groups) // 获取所有分组
-        .find((g) => g.p_uuid === selectedGroup.value.p_uuid) // 根据 p_uuid 查找当前分组
-
-      if (group) {
-        selectedGroup.value = group // 重新设置当前分组
-      } else {
-        selectedGroup.value = null // 如果分组不存在，重置为 null
-      }
-    }
-
-    // 如果当前分类存在，重新设置当前分类
-    if (selectedCategory.value) {
-      const category = categories.value.find((c) => c.p_uuid === selectedCategory.value.p_uuid) // 根据 p_uuid 查找当前分类
-
-      if (category) {
-        selectedCategory.value = category // 重新设置当前分类
-      } else {
-        selectedCategory.value = null // 如果分类不存在，重置为 null
-      }
-    }
-  } catch (error) {
-    console.error('获取标签列表失败:', error)
-  }
-}
-
-// 添加获取对比色的函数
-const getContrastColor = (backgroundColor) => {
-  // 如果背景色是透明的，返回默认文本颜色
-  if (!backgroundColor || backgroundColor === 'transparent') {
-    return 'var(--primary-text)'
+  // 获取一级分类在原数组中的索引
+  const getPrimaryIndex = (item) => {
+    return selectGroupsData.value.findIndex((i) => i.group.p_uuid === item.group.p_uuid && !i.sub)
   }
 
-  // 解析 RGB 值
-  let r,
-    g,
-    b,
-    a = 1
-  if (backgroundColor.startsWith('rgba')) {
-    const matches = backgroundColor.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/)
-    if (matches) {
-      [, r, g, b, a] = matches.map(Number)
-    }
-  } else if (backgroundColor.startsWith('rgb')) {
-    const matches = backgroundColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
-    if (matches) {
-      [, r, g, b] = matches.map(Number)
-    }
-  }
-
-  // 如果透明度太低，返回默认文本颜色
-  if (a < 0.5) {
-    return 'var(--primary-text)'
-  }
-
-  // 计算亮度
-  const brightness = (r * 299 + g * 587 + b * 114) / 1000
-  return brightness > 128 ? '#000000' : '#ffffff'
-}
-
-onMounted(() => {
-  // 添加全局点击事件监听
-  window.addEventListener('message', handleMessage)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('message', handleMessage)
-})
-
-// 选择分类
-const selectCategory = (category) => {
-  selectedCategory.value = category
-  selectedGroup.value = null
-  isDeleteTagAction.value = false
-  selectedTags.value = []
-}
-
-// 选择分组
-const selectGroup = (group) => {
-  if (isGroupDisabled(selectedCategory.value)) {
-    return
-  }
-  selectedGroup.value = group
-  isDeleteTagAction.value = false
-  selectedTags.value = []
-}
-
-// 判断分组是否被禁用（当一级分类被选中时，其二级分类被禁用）
-const isGroupDisabled = (category) => {
-  if (!category) {
-    return false
-  }
-  // 只有当一级分类本身被选中时，才禁用其二级分类
-  return selectGroupsData.value.some((item) => item.group.p_uuid === category.p_uuid && !item.sub)
-}
-
-// 仅选择一级分类
-const selectCategoryOnly = (category) => {
-  // 检查是否已经选择了该分类
-  const existingIndex = selectGroupsData.value.findIndex(
-    (item) => item.group.p_uuid === category.p_uuid && !item.sub
-  )
-
-  if (existingIndex !== -1) {
-    // 如果已经选择了，则移除
-    selectGroupsData.value.splice(existingIndex, 1)
-  } else {
-    // 移除该分类下的所有子分类选择
-    selectGroupsData.value = selectGroupsData.value.filter(
-      (item) => item.group.p_uuid !== category.p_uuid
+  // 获取二级分类在原数组中的索引
+  const getSubIndex = (item) => {
+    return selectGroupsData.value.findIndex(
+      (i) => i.group.p_uuid === item.group.p_uuid && i.sub && i.sub.g_uuid === item.sub.g_uuid
     )
+  }
 
-    // 添加新的选择（只保留必要的字段）
-    selectGroupsData.value.push({
-      group: {
-        p_uuid: category.p_uuid,
-        name: category.name
+  // 获取标签列表
+  const getTagsList = () => {
+    window.postMessage(
+      {
+        type: 'weilin_prompt_ui_tag_manager_refresh_select'
       },
-      sub: null
-    })
-  }
-}
-
-// 选择二级分类及其所属的一级分类
-const selectGroupWithCategory = (category, group) => {
-  if (isGroupDisabled(category)) {
-    return
+      '*'
+    )
   }
 
-  // 检查是否已经选择了该分类和子分类
-  const existingIndex = selectGroupsData.value.findIndex(
-    (item) =>
-      item.group.p_uuid === category.p_uuid && item.sub && item.sub.g_uuid === group.g_uuid
-  )
+  const refreshTagsGoThis = async () => {
+    try {
+      const res = await tagsApi.getTagsGroupList()
+      // console.log(res)
+      categories.value = res.info
+      // 如果当前分组存在，重新设置当前分组
+      if (selectedGroup.value) {
+        const group = categories.value
+          .flatMap((category) => category.groups) // 获取所有分组
+          .find((g) => g.p_uuid === selectedGroup.value.p_uuid) // 根据 p_uuid 查找当前分组
 
-  if (existingIndex !== -1) {
-    // 如果已经选择了，则移除
-    selectGroupsData.value.splice(existingIndex, 1)
-  } else {
-    // 检查是否选择了该分类本身（不带子分类）
-    const categoryOnlyIndex = selectGroupsData.value.findIndex(
+        if (group) {
+          selectedGroup.value = group // 重新设置当前分组
+        } else {
+          selectedGroup.value = null // 如果分组不存在，重置为 null
+        }
+      }
+
+      // 如果当前分类存在，重新设置当前分类
+      if (selectedCategory.value) {
+        const category = categories.value.find((c) => c.p_uuid === selectedCategory.value.p_uuid) // 根据 p_uuid 查找当前分类
+
+        if (category) {
+          selectedCategory.value = category // 重新设置当前分类
+        } else {
+          selectedCategory.value = null // 如果分类不存在，重置为 null
+        }
+      }
+    } catch (error) {
+      console.error('获取标签列表失败:', error)
+    }
+  }
+
+  // 添加获取对比色的函数
+  const getContrastColor = (backgroundColor) => {
+    // 如果背景色是透明的，返回默认文本颜色
+    if (!backgroundColor || backgroundColor === 'transparent') {
+      return 'var(--primary-text)'
+    }
+
+    // 解析 RGB 值
+    let r,
+      g,
+      b,
+      a = 1
+    if (backgroundColor.startsWith('rgba')) {
+      const matches = backgroundColor.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/)
+      if (matches) {
+        // eslint-disable-next-line no-extra-semi
+        ;[, r, g, b, a] = matches.map(Number)
+      }
+    } else if (backgroundColor.startsWith('rgb')) {
+      const matches = backgroundColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
+      if (matches) {
+        // eslint-disable-next-line no-extra-semi
+        ;[, r, g, b] = matches.map(Number)
+      }
+    }
+
+    // 如果透明度太低，返回默认文本颜色
+    if (a < 0.5) {
+      return 'var(--primary-text)'
+    }
+
+    // 计算亮度
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000
+    return brightness > 128 ? '#000000' : '#ffffff'
+  }
+
+  onMounted(() => {
+    // 添加全局点击事件监听
+    window.addEventListener('message', handleMessage)
+  })
+
+  onBeforeUnmount(() => {
+    window.removeEventListener('message', handleMessage)
+  })
+
+  // 选择分类
+  const selectCategory = (category) => {
+    selectedCategory.value = category
+    selectedGroup.value = null
+    isDeleteTagAction.value = false
+    selectedTags.value = []
+  }
+
+  // 选择分组
+  const selectGroup = (group) => {
+    if (isGroupDisabled(selectedCategory.value)) {
+      return
+    }
+    selectedGroup.value = group
+    isDeleteTagAction.value = false
+    selectedTags.value = []
+  }
+
+  // 判断分组是否被禁用（当一级分类被选中时，其二级分类被禁用）
+  const isGroupDisabled = (category) => {
+    if (!category) {
+      return false
+    }
+    // 只有当一级分类本身被选中时，才禁用其二级分类
+    return selectGroupsData.value.some((item) => item.group.p_uuid === category.p_uuid && !item.sub)
+  }
+
+  // 仅选择一级分类
+  const selectCategoryOnly = (category) => {
+    // 检查是否已经选择了该分类
+    const existingIndex = selectGroupsData.value.findIndex(
       (item) => item.group.p_uuid === category.p_uuid && !item.sub
     )
 
-    // 如果选择了分类本身，需要先移除
-    if (categoryOnlyIndex !== -1) {
-      selectGroupsData.value.splice(categoryOnlyIndex, 1)
+    if (existingIndex !== -1) {
+      // 如果已经选择了，则移除
+      selectGroupsData.value.splice(existingIndex, 1)
+    } else {
+      // 移除该分类下的所有子分类选择
+      selectGroupsData.value = selectGroupsData.value.filter(
+        (item) => item.group.p_uuid !== category.p_uuid
+      )
+
+      // 添加新的选择（只保留必要的字段）
+      selectGroupsData.value.push({
+        group: {
+          p_uuid: category.p_uuid,
+          name: category.name
+        },
+        sub: null
+      })
+    }
+  }
+
+  // 选择二级分类及其所属的一级分类
+  const selectGroupWithCategory = (category, group) => {
+    if (isGroupDisabled(category)) {
+      return
     }
 
-    // 添加新的选择（只保留必要的字段）
-    selectGroupsData.value.push({
-      group: {
-        p_uuid: category.p_uuid,
-        name: category.name
-      },
-      sub: group
-        ? {
-          g_uuid: group.g_uuid,
-          name: group.name
-        }
-        : null
-    })
+    // 检查是否已经选择了该分类和子分类
+    const existingIndex = selectGroupsData.value.findIndex(
+      (item) =>
+        item.group.p_uuid === category.p_uuid && item.sub && item.sub.g_uuid === group.g_uuid
+    )
+
+    if (existingIndex !== -1) {
+      // 如果已经选择了，则移除
+      selectGroupsData.value.splice(existingIndex, 1)
+    } else {
+      // 检查是否选择了该分类本身（不带子分类）
+      const categoryOnlyIndex = selectGroupsData.value.findIndex(
+        (item) => item.group.p_uuid === category.p_uuid && !item.sub
+      )
+
+      // 如果选择了分类本身，需要先移除
+      if (categoryOnlyIndex !== -1) {
+        selectGroupsData.value.splice(categoryOnlyIndex, 1)
+      }
+
+      // 添加新的选择（只保留必要的字段）
+      selectGroupsData.value.push({
+        group: {
+          p_uuid: category.p_uuid,
+          name: category.name
+        },
+        sub: group
+          ? {
+              g_uuid: group.g_uuid,
+              name: group.name
+            }
+          : null
+      })
+    }
   }
-}
 
-// 移除已选择的项目
-const removeSelected = (index) => {
-  selectGroupsData.value.splice(index, 1)
-}
-
-// 清除所有选择
-const clearAllSelected = () => {
-  selectGroupsData.value = []
-}
-
-// 处理消息
-const handleMessage = (event) => {
-  // console.log(event.data.type)
-  if (event.data.type === 'weilin_prompt_ui_tag_manager_refresh_select') {
-    refreshTagsGoThis()
+  // 移除已选择的项目
+  const removeSelected = (index) => {
+    selectGroupsData.value.splice(index, 1)
   }
-}
 
-const selectSureThis = () => {
-  if (selectGroupsData.value.length === 0) {
-    message({ type: 'warn', str: 'message.pleaseSelectGroup' })
-    return
+  // 清除所有选择
+  const clearAllSelected = () => {
+    selectGroupsData.value = []
   }
-  // console.log(selectGroupsData.value)
-  emit('sureSelect', { data: selectGroupsData.value, index: selectActionIndex.value })
-  dialogVisible.value = false
-}
 
-defineExpose({
-  open: (index, data) => {
-    getTagsList()
-    selectActionIndex.value = index
-    selectGroupsData.value = data
-    dialogVisible.value = true
+  // 处理消息
+  const handleMessage = (event) => {
+    // console.log(event.data.type)
+    if (event.data.type === 'weilin_prompt_ui_tag_manager_refresh_select') {
+      refreshTagsGoThis()
+    }
   }
-})
+
+  const selectSureThis = () => {
+    if (selectGroupsData.value.length === 0) {
+      message({ type: 'warn', str: 'message.pleaseSelectGroup' })
+      return
+    }
+    // console.log(selectGroupsData.value)
+    emit('sureSelect', { data: selectGroupsData.value, index: selectActionIndex.value })
+    dialogVisible.value = false
+  }
+
+  defineExpose({
+    open: (index, data) => {
+      getTagsList()
+      selectActionIndex.value = index
+      selectGroupsData.value = data
+      dialogVisible.value = true
+    }
+  })
 </script>
 <style scoped>
   .tag-manager {
     display: flex;
     flex-direction: column;
-    padding: 0 16px 16px 16px;
+    padding: 0 16px 16px;
     background: var(--weilin-prompt-ui-primary-bg);
     height: 100%;
     box-sizing: border-box;
@@ -477,7 +479,7 @@ defineExpose({
     height: 34px;
     min-width: unset;
     width: fit-content;
-    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 -2px 5px rgb(0 0 0 / 0.05);
   }
 
   .tab-item:hover {
@@ -485,7 +487,7 @@ defineExpose({
   }
 
   .tab-item .active {
-    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 -2px 8px rgb(0 0 0 / 0.1);
     z-index: 1;
   }
 
@@ -655,7 +657,7 @@ defineExpose({
 
   .select-tab-btn:hover {
     opacity: 1;
-    background-color: rgba(255, 255, 255, 0.2);
+    background-color: rgb(255 255 255 / 0.2);
     transform: scale(1.1);
   }
 

@@ -62,156 +62,158 @@
 </template>
 
 <script setup>
-import Dialog from '@/components/Dialog.vue'
-import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { tagsApi } from '@/api/tags'
-import message from '@/utils/message'
+  import Dialog from '@/components/Dialog.vue'
+  import { ref, onMounted, onBeforeUnmount } from 'vue'
+  import { useI18n } from 'vue-i18n'
+  import { tagsApi } from '@/api/tags'
+  import message from '@/utils/message'
 
-const { t } = useI18n()
+  const { t } = useI18n()
 
-const emit = defineEmits(['sureSelect'])
+  const emit = defineEmits(['sureSelect'])
 
-// 状态管理
-const categories = ref([])
-const selectedCategory = ref(null)
-const selectedGroup = ref(null)
-const selectedTags = ref([]) // 用于存储选中的标签ID
-const isDeleteTagAction = ref(false)
+  // 状态管理
+  const categories = ref([])
+  const selectedCategory = ref(null)
+  const selectedGroup = ref(null)
+  const selectedTags = ref([]) // 用于存储选中的标签ID
+  const isDeleteTagAction = ref(false)
 
-const dialogVisible = ref(false)
+  const dialogVisible = ref(false)
 
-// 获取标签列表
-const getTagsList = () => {
-  window.postMessage(
-    {
-      type: 'weilin_prompt_ui_tag_manager_refresh_select'
-    },
-    '*'
-  )
-}
+  // 获取标签列表
+  const getTagsList = () => {
+    window.postMessage(
+      {
+        type: 'weilin_prompt_ui_tag_manager_refresh_select'
+      },
+      '*'
+    )
+  }
 
-const refreshTagsGoThis = async () => {
-  try {
-    const res = await tagsApi.getTagsGroupList()
-    // console.log(res)
-    categories.value = res.info
-    // 如果当前分组存在，重新设置当前分组
-    if (selectedGroup.value) {
-      const group = categories.value
-        .flatMap((category) => category.groups) // 获取所有分组
-        .find((g) => g.p_uuid === selectedGroup.value.p_uuid) // 根据 p_uuid 查找当前分组
+  const refreshTagsGoThis = async () => {
+    try {
+      const res = await tagsApi.getTagsGroupList()
+      // console.log(res)
+      categories.value = res.info
+      // 如果当前分组存在，重新设置当前分组
+      if (selectedGroup.value) {
+        const group = categories.value
+          .flatMap((category) => category.groups) // 获取所有分组
+          .find((g) => g.p_uuid === selectedGroup.value.p_uuid) // 根据 p_uuid 查找当前分组
 
-      if (group) {
-        selectedGroup.value = group // 重新设置当前分组
-      } else {
-        selectedGroup.value = null // 如果分组不存在，重置为 null
+        if (group) {
+          selectedGroup.value = group // 重新设置当前分组
+        } else {
+          selectedGroup.value = null // 如果分组不存在，重置为 null
+        }
+      }
+
+      // 如果当前分类存在，重新设置当前分类
+      if (selectedCategory.value) {
+        const category = categories.value.find((c) => c.p_uuid === selectedCategory.value.p_uuid) // 根据 p_uuid 查找当前分类
+
+        if (category) {
+          selectedCategory.value = category // 重新设置当前分类
+        } else {
+          selectedCategory.value = null // 如果分类不存在，重置为 null
+        }
+      }
+    } catch (error) {
+      console.error('获取标签列表失败:', error)
+    }
+  }
+
+  // 添加获取对比色的函数
+  const getContrastColor = (backgroundColor) => {
+    // 如果背景色是透明的，返回默认文本颜色
+    if (!backgroundColor || backgroundColor === 'transparent') {
+      return 'var(--primary-text)'
+    }
+
+    // 解析 RGB 值
+    let r,
+      g,
+      b,
+      a = 1
+    if (backgroundColor.startsWith('rgba')) {
+      const matches = backgroundColor.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/)
+      if (matches) {
+        // eslint-disable-next-line no-extra-semi
+        ;[, r, g, b, a] = matches.map(Number)
+      }
+    } else if (backgroundColor.startsWith('rgb')) {
+      const matches = backgroundColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
+      if (matches) {
+        // eslint-disable-next-line no-extra-semi
+        ;[, r, g, b] = matches.map(Number)
       }
     }
 
-    // 如果当前分类存在，重新设置当前分类
-    if (selectedCategory.value) {
-      const category = categories.value.find((c) => c.p_uuid === selectedCategory.value.p_uuid) // 根据 p_uuid 查找当前分类
-
-      if (category) {
-        selectedCategory.value = category // 重新设置当前分类
-      } else {
-        selectedCategory.value = null // 如果分类不存在，重置为 null
-      }
+    // 如果透明度太低，返回默认文本颜色
+    if (a < 0.5) {
+      return 'var(--primary-text)'
     }
-  } catch (error) {
-    console.error('获取标签列表失败:', error)
-  }
-}
 
-// 添加获取对比色的函数
-const getContrastColor = (backgroundColor) => {
-  // 如果背景色是透明的，返回默认文本颜色
-  if (!backgroundColor || backgroundColor === 'transparent') {
-    return 'var(--primary-text)'
+    // 计算亮度
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000
+    return brightness > 128 ? '#000000' : '#ffffff'
   }
 
-  // 解析 RGB 值
-  let r,
-    g,
-    b,
-    a = 1
-  if (backgroundColor.startsWith('rgba')) {
-    const matches = backgroundColor.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/)
-    if (matches) {
-      [, r, g, b, a] = matches.map(Number)
+  onMounted(() => {
+    // 添加全局点击事件监听
+    window.addEventListener('message', handleMessage)
+  })
+
+  onBeforeUnmount(() => {
+    window.removeEventListener('message', handleMessage)
+  })
+
+  // 选择分类
+  const selectCategory = (category) => {
+    selectedCategory.value = category
+    selectedGroup.value = null
+    isDeleteTagAction.value = false
+    selectedTags.value = []
+  }
+
+  // 选择分组
+  const selectGroup = (group) => {
+    selectedGroup.value = group
+    isDeleteTagAction.value = false
+    selectedTags.value = []
+  }
+
+  // 处理消息
+  const handleMessage = (event) => {
+    // console.log(event.data.type)
+    if (event.data.type === 'weilin_prompt_ui_tag_manager_refresh_select') {
+      refreshTagsGoThis()
     }
-  } else if (backgroundColor.startsWith('rgb')) {
-    const matches = backgroundColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
-    if (matches) {
-      [, r, g, b] = matches.map(Number)
+  }
+
+  const selectSureThis = () => {
+    if (selectedGroup.value === null || selectedCategory.value === null) {
+      message({ type: 'warn', str: 'message.pleaseSelectGroup' })
+      return
     }
+    emit('sureSelect', { group: selectedCategory.value, sub: selectedGroup.value })
+    dialogVisible.value = false
   }
 
-  // 如果透明度太低，返回默认文本颜色
-  if (a < 0.5) {
-    return 'var(--primary-text)'
-  }
-
-  // 计算亮度
-  const brightness = (r * 299 + g * 587 + b * 114) / 1000
-  return brightness > 128 ? '#000000' : '#ffffff'
-}
-
-onMounted(() => {
-  // 添加全局点击事件监听
-  window.addEventListener('message', handleMessage)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('message', handleMessage)
-})
-
-// 选择分类
-const selectCategory = (category) => {
-  selectedCategory.value = category
-  selectedGroup.value = null
-  isDeleteTagAction.value = false
-  selectedTags.value = []
-}
-
-// 选择分组
-const selectGroup = (group) => {
-  selectedGroup.value = group
-  isDeleteTagAction.value = false
-  selectedTags.value = []
-}
-
-// 处理消息
-const handleMessage = (event) => {
-  // console.log(event.data.type)
-  if (event.data.type === 'weilin_prompt_ui_tag_manager_refresh_select') {
-    refreshTagsGoThis()
-  }
-}
-
-const selectSureThis = () => {
-  if (selectedGroup.value === null || selectedCategory.value === null) {
-    message({ type: 'warn', str: 'message.pleaseSelectGroup' })
-    return
-  }
-  emit('sureSelect', { group: selectedCategory.value, sub: selectedGroup.value })
-  dialogVisible.value = false
-}
-
-defineExpose({
-  open: () => {
-    getTagsList()
-    dialogVisible.value = true
-  }
-})
+  defineExpose({
+    open: () => {
+      getTagsList()
+      dialogVisible.value = true
+    }
+  })
 </script>
 
 <style scoped>
   .tag-manager {
     display: flex;
     flex-direction: column;
-    padding: 0 16px 16px 16px;
+    padding: 0 16px 16px;
     background: var(--weilin-prompt-ui-primary-bg);
     height: 100%;
     box-sizing: border-box;
@@ -240,23 +242,28 @@ defineExpose({
   /* 自定义滚动条样式 */
   .tabs-scroll::-webkit-scrollbar {
     height: 10px;
+
     /* 设置滚动条高度 */
   }
 
   .tabs-scroll::-webkit-scrollbar-track {
     background: var(--weilin-prompt-ui-scrollbar-track);
+
     /* 滚动条轨道颜色 */
   }
 
   .tabs-scroll::-webkit-scrollbar-thumb {
     background: var(--weilin-prompt-ui-scrollbar-thumb);
+
     /* 滚动条颜色 */
     border-radius: 3px;
+
     /* 滚动条圆角 */
   }
 
   .tabs-scroll::-webkit-scrollbar-thumb:hover {
     background: var(--weilin-prompt-ui-scrollbar-thumb-hover);
+
     /* 滚动条悬停颜色 */
   }
 
@@ -320,7 +327,7 @@ defineExpose({
   .action-icon {
     width: 16px;
     height: 16px;
-    fill: currentColor;
+    fill: currentcolor;
   }
 
   .add-tab {
@@ -430,6 +437,7 @@ defineExpose({
     text-overflow: ellipsis;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     line-height: 1.4;
     background-color: var(--weilin-prompt-ui-secondary-bg);
@@ -442,7 +450,7 @@ defineExpose({
   }
 
   .tag-actions {
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgb(0 0 0 / 0.5);
     border-radius: 6px;
     position: absolute;
     right: 8px;

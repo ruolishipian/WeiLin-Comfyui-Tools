@@ -2,8 +2,8 @@ import request from './request'
 // OpenAI 相关接口
 export const openaiApi = {
   // 更新设置
-  updateOpenAiSetting: async (data) => {
-    return await request({
+  updateOpenAiSetting: (data) => {
+    return request({
       url: '/prompt/openai/update_settings',
       method: 'post',
       data
@@ -11,8 +11,8 @@ export const openaiApi = {
   },
 
   // 添加设置
-  addOpenAiSetting: async (data) => {
-    return await request({
+  addOpenAiSetting: (data) => {
+    return request({
       url: '/prompt/openai/add_setting',
       method: 'post',
       data
@@ -20,8 +20,8 @@ export const openaiApi = {
   },
 
   // 删除设置
-  deleteOpenAiSetting: async (data) => {
-    return await request({
+  deleteOpenAiSetting: (data) => {
+    return request({
       url: '/prompt/openai/delete_setting',
       method: 'post',
       data
@@ -29,16 +29,16 @@ export const openaiApi = {
   },
 
   // 设置选中
-  setOpenAiSelect: async (data) => {
-    return await request({
+  setOpenAiSelect: (data) => {
+    return request({
       url: '/prompt/openai/set_select',
       method: 'post',
       data
     })
   },
 
-  getOpenAiSetting: async () => {
-    return await request({
+  getOpenAiSetting: () => {
+    return request({
       url: '/prompt/openai/get_settings',
       method: 'get'
     })

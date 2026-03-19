@@ -2,22 +2,22 @@ import request from './request'
 
 export const cloudApi = {
   // 获取云仓库列表
-  getTreeFromCloud: async (path) => {
-    return await request({
+  getTreeFromCloud: (path) => {
+    return request({
       url: '/cloud/get/tree',
       method: 'post',
       data: { path: path }
     })
   },
-  getLocalInstallPackage: async () => {
-    return await request({
+  getLocalInstallPackage: () => {
+    return request({
       url: '/cloud/get/local/package',
       method: 'post',
       data: {}
     })
   },
-  installSelectPackage: async (path, paths) => {
-    return await request({
+  installSelectPackage: (path, paths) => {
+    return request({
       url: '/cloud/download/file',
       method: 'post',
       timeout: 0,

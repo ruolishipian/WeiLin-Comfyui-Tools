@@ -26,11 +26,11 @@ export const tagsApi = {
   // 获取提示词列表（带缓存）
   getTagsList: async (params) => {
     // 从 localStorage 获取保存的语言设置
-    const savedLocale = localStorage.getItem(`${ STORAGE_PREFIX }userLocale`) || 'zh_CN'
+    const savedLocale = localStorage.getItem(`${STORAGE_PREFIX}userLocale`) || 'zh_CN'
 
     // 检查缓存
     const now = Date.now()
-    if (tagCache.categories && (now - tagCache.lastUpdated) < CACHE_DURATION) {
+    if (tagCache.categories && now - tagCache.lastUpdated < CACHE_DURATION) {
       return tagCache.categories
     }
 
@@ -51,7 +51,7 @@ export const tagsApi = {
   // 添加主分类
   addPrimaryCategory: async (data) => {
     // 从 localStorage 获取保存的语言设置
-    const savedLocale = localStorage.getItem(`${ STORAGE_PREFIX }userLocale`) || 'zh_CN'
+    const savedLocale = localStorage.getItem(`${STORAGE_PREFIX}userLocale`) || 'zh_CN'
     const result = await request({
       url: '/prompt/add_new_f_group',
       method: 'post',
@@ -64,7 +64,7 @@ export const tagsApi = {
   // 编辑主分类
   editPrimaryCategory: async (data) => {
     // 从 localStorage 获取保存的语言设置
-    const savedLocale = localStorage.getItem(`${ STORAGE_PREFIX }userLocale`) || 'zh_CN'
+    const savedLocale = localStorage.getItem(`${STORAGE_PREFIX}userLocale`) || 'zh_CN'
     const result = await request({
       url: '/prompt/edit_f_group',
       method: 'post',
@@ -77,7 +77,7 @@ export const tagsApi = {
   // 删除主分类
   deletePrimaryCategory: async (data) => {
     // 从 localStorage 获取保存的语言设置
-    const savedLocale = localStorage.getItem(`${ STORAGE_PREFIX }userLocale`) || 'zh_CN'
+    const savedLocale = localStorage.getItem(`${STORAGE_PREFIX}userLocale`) || 'zh_CN'
     const result = await request({
       url: '/prompt/delete_f_group',
       method: 'post',
@@ -90,7 +90,7 @@ export const tagsApi = {
   // 添加子分类
   addSubCategory: async (data) => {
     // 从 localStorage 获取保存的语言设置
-    const savedLocale = localStorage.getItem(`${ STORAGE_PREFIX }userLocale`) || 'zh_CN'
+    const savedLocale = localStorage.getItem(`${STORAGE_PREFIX}userLocale`) || 'zh_CN'
     const result = await request({
       url: '/prompt/add_new_s_group',
       method: 'post',
@@ -103,7 +103,7 @@ export const tagsApi = {
   // 编辑子分类
   editSubCategory: async (data) => {
     // 从 localStorage 获取保存的语言设置
-    const savedLocale = localStorage.getItem(`${ STORAGE_PREFIX }userLocale`) || 'zh_CN'
+    const savedLocale = localStorage.getItem(`${STORAGE_PREFIX}userLocale`) || 'zh_CN'
     const result = await request({
       url: '/prompt/edit_s_group',
       method: 'post',
@@ -116,7 +116,7 @@ export const tagsApi = {
   // 删除子分类
   deleteSubCategory: async (data) => {
     // 从 localStorage 获取保存的语言设置
-    const savedLocale = localStorage.getItem(`${ STORAGE_PREFIX }userLocale`) || 'zh_CN'
+    const savedLocale = localStorage.getItem(`${STORAGE_PREFIX}userLocale`) || 'zh_CN'
     const result = await request({
       url: '/prompt/delete_s_group',
       method: 'post',
@@ -129,7 +129,7 @@ export const tagsApi = {
   // 添加提示词
   addNewTags: async (data) => {
     // 从 localStorage 获取保存的语言设置
-    const savedLocale = localStorage.getItem(`${ STORAGE_PREFIX }userLocale`) || 'zh_CN'
+    const savedLocale = localStorage.getItem(`${STORAGE_PREFIX}userLocale`) || 'zh_CN'
     const result = await request({
       url: '/prompt/new_tags',
       method: 'post',
@@ -142,7 +142,7 @@ export const tagsApi = {
   // 编辑提示词
   editTags: async (data) => {
     // 从 localStorage 获取保存的语言设置
-    const savedLocale = localStorage.getItem(`${ STORAGE_PREFIX }userLocale`) || 'zh_CN'
+    const savedLocale = localStorage.getItem(`${STORAGE_PREFIX}userLocale`) || 'zh_CN'
     const result = await request({
       url: '/prompt/edit_tags',
       method: 'post',
@@ -155,7 +155,7 @@ export const tagsApi = {
   // 删除提示词
   deleteTags: async (data) => {
     // 从 localStorage 获取保存的语言设置
-    const savedLocale = localStorage.getItem(`${ STORAGE_PREFIX }userLocale`) || 'zh_CN'
+    const savedLocale = localStorage.getItem(`${STORAGE_PREFIX}userLocale`) || 'zh_CN'
     const result = await request({
       url: '/prompt/delete_tags',
       method: 'post',
@@ -168,7 +168,7 @@ export const tagsApi = {
   // 批量删除提示词
   batchDeleteTags: async (data) => {
     // 从 localStorage 获取保存的语言设置
-    const savedLocale = localStorage.getItem(`${ STORAGE_PREFIX }userLocale`) || 'zh_CN'
+    const savedLocale = localStorage.getItem(`${STORAGE_PREFIX}userLocale`) || 'zh_CN'
     const result = await request({
       url: '/prompt/batch_delete_tags',
       method: 'post',
@@ -181,7 +181,7 @@ export const tagsApi = {
   // 移动标签
   moveTag: async (data) => {
     // 从 localStorage 获取保存的语言设置
-    const savedLocale = localStorage.getItem(`${ STORAGE_PREFIX }userLocale`) || 'zh_CN'
+    const savedLocale = localStorage.getItem(`${STORAGE_PREFIX}userLocale`) || 'zh_CN'
     const result = await request({
       url: '/prompt/move_tag',
       method: 'post',
@@ -192,8 +192,8 @@ export const tagsApi = {
   },
 
   // 获取选择的标签列表
-  getTagsGroupList: async () => {
-    return await request({
+  getTagsGroupList: () => {
+    return request({
       url: '/prompt/get_groups_list',
       method: 'post'
     })
@@ -216,7 +216,7 @@ export const tagsApi = {
   // 移动主分组
   moveMainGroup: async (data) => {
     // 从 localStorage 获取保存的语言设置
-    const savedLocale = localStorage.getItem(`${ STORAGE_PREFIX }userLocale`) || 'zh_CN'
+    const savedLocale = localStorage.getItem(`${STORAGE_PREFIX}userLocale`) || 'zh_CN'
     const result = await request({
       url: '/prompt/move_group',
       method: 'post',
@@ -229,7 +229,7 @@ export const tagsApi = {
   // 移动子分组
   moveSubGroup: async (data) => {
     // 从 localStorage 获取保存的语言设置
-    const savedLocale = localStorage.getItem(`${ STORAGE_PREFIX }userLocale`) || 'zh_CN'
+    const savedLocale = localStorage.getItem(`${STORAGE_PREFIX}userLocale`) || 'zh_CN'
     const result = await request({
       url: '/prompt/move_subgroup',
       method: 'post',
@@ -239,31 +239,35 @@ export const tagsApi = {
     return result
   },
 
-  getTagMainGroup: async () => {
-    return await request({
+  getTagMainGroup: () => {
+    return request({
       url: '/prompt/get_tag_groups',
       method: 'post'
     })
   },
 
-  getTagSubGroup: async (p_uuid) => {
-    return await request({
+  // eslint-disable-next-line camelcase
+  getTagSubGroup: (p_uuid) => {
+    return request({
       url: '/prompt/get_tag_subgroups',
       method: 'post',
+      // eslint-disable-next-line camelcase
       data: { p_uuid }
     })
   },
 
-  getTagList: async (g_uuid) => {
-    return await request({
+  // eslint-disable-next-line camelcase
+  getTagList: (g_uuid) => {
+    return request({
       url: '/prompt/get_tag_tags',
       method: 'post',
+      // eslint-disable-next-line camelcase
       data: { g_uuid }
     })
   },
 
-  searchTag: async (keyword) => {
-    return await request({
+  searchTag: (keyword) => {
+    return request({
       url: '/prompt/search_tags',
       method: 'post',
       data: { keyword }

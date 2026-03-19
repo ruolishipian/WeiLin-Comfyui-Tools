@@ -16,9 +16,7 @@
         <div class="weilin_prompt_ui_window-title">
           {{ title }}
         </div>
-        <button class="weilin_prompt_ui_close-btn" @click="close">
-×
-</button>
+        <button class="weilin_prompt_ui_close-btn" @click="close">×</button>
       </div>
 
       <!-- 内容区域 -->
@@ -37,235 +35,244 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
-import { useI18n } from 'vue-i18n'
+  import { ref, onMounted, onUnmounted, watch } from 'vue'
+  import { useI18n } from 'vue-i18n'
 
-const props = defineProps({
-  title: {
-    type: String,
-    required: true
-  },
-  position: {
-    type: Object,
-    required: true
-  },
-  size: {
-    type: Object,
-    required: true
-  },
-  zIndex: {
-    type: Number,
-    default: 1
-  },
-  name: {
-    type: String,
-    default: 'default_window_name'
-  }
-})
-
-const { t } = useI18n()
-
-const emit = defineEmits(['update:position', 'update:size', 'active', 'close'])
-
-// 当前位置和大小状态
-const currentPosition = ref({ x: 0, y: 0 })
-const currentSize = ref({ width: 600, height: 400 })
-
-// 监听 props 中的 position 变化 - 优化：移除频繁的postMessage
-watch(
-  () => props.position,
-  (newPosition) => {
-    if (newPosition) {
-      currentPosition.value = { ...newPosition }
+  const props = defineProps({
+    title: {
+      type: String,
+      required: true
+    },
+    position: {
+      type: Object,
+      required: true
+    },
+    size: {
+      type: Object,
+      required: true
+    },
+    zIndex: {
+      type: Number,
+      default: 1
+    },
+    name: {
+      type: String,
+      default: 'default_window_name'
     }
-  },
-  { immediate: true, deep: true }
-)
-
-// 监听 props 中的 size 变化 - 优化：移除频繁的postMessage
-watch(
-  () => props.size,
-  (newSize) => {
-    if (newSize) {
-      currentSize.value = { ...newSize }
-    }
-  },
-  { immediate: true, deep: true }
-)
-
-// 优化：使用节流函数限制滚动事件频率
-let scrollThrottleTimer = null
-const handleScroll = () => {
-  if (scrollThrottleTimer) {return}
-  scrollThrottleTimer = setTimeout(() => {
-    window.parent.postMessage({ type: `weilin_prompt_ui_window_change_${ props.name }_scroll` }, '*')
-    scrollThrottleTimer = null
-  }, 100)
-}
-
-// 在组件挂载时初始化位置和大小
-onMounted(() => {
-  // 设置初始位置
-  if (props.position) {
-    const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
-    const minLeftSpace = 100 // 左侧保留的最小空间
-
-    // 边界检测
-    let x = props.position.x
-    let y = props.position.y
-
-    // 确保左侧保留至少窗口宽度100px的位置
-    x = Math.max(minLeftSpace - (props.size?.width || currentSize.value.width), x)
-    // 确保右侧保留最少100px的位置
-    x = Math.min(x, viewportWidth - 100)
-    // 确保顶部不超出边界
-    y = Math.max(100, y)
-    // 确保底部保留最少100px的位置
-    y = Math.min(y, viewportHeight - 100)
-
-    currentPosition.value = { x, y }
-  }
-
-  // 设置初始大小
-  if (props.size) {
-    currentSize.value = { ...props.size }
-  }
-})
-
-// 组件卸载时清理定时器
-onUnmounted(() => {
-  if (scrollThrottleTimer) {
-    clearTimeout(scrollThrottleTimer)
-    scrollThrottleTimer = null
-  }
-})
-
-// 拖动相关状态和方法
-const isDragging = ref(false)
-const dragOffset = ref({ x: 0, y: 0 })
-
-// 优化：使用 requestAnimationFrame 优化拖动性能
-let dragRafId = null
-
-const startDrag = (event) => {
-  isDragging.value = true
-  dragOffset.value = {
-    x: event.clientX - currentPosition.value.x,
-    y: event.clientY - currentPosition.value.y
-  }
-  document.addEventListener('mousemove', handleDrag)
-  document.addEventListener('mouseup', stopDrag)
-}
-
-const handleDrag = (event) => {
-  if (!isDragging.value) {return}
-
-  // 取消之前的动画帧
-  if (dragRafId) {
-    cancelAnimationFrame(dragRafId)
-  }
-
-  // 使用 requestAnimationFrame 优化性能
-  dragRafId = requestAnimationFrame(() => {
-    const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
-    const minLeftSpace = 100 // 左侧保留的最小空间
-
-    let newX = event.clientX - dragOffset.value.x
-    let newY = event.clientY - dragOffset.value.y
-
-    // 确保左侧保留至少窗口宽度100px的位置
-    newX = Math.max(minLeftSpace - currentSize.value.width, newX)
-    // 确保右侧保留最少100px的位置
-    newX = Math.min(newX, viewportWidth - 100)
-    // 确保顶部不超出边界
-    newY = Math.max(100, newY)
-    // 确保底部保留最少100px的位置
-    newY = Math.min(newY, viewportHeight - 100)
-
-    const newPosition = {
-      x: newX,
-      y: newY
-    }
-
-    currentPosition.value = newPosition
-    emit('update:position', newPosition)
   })
-}
 
-const stopDrag = () => {
-  isDragging.value = false
-  document.removeEventListener('mousemove', handleDrag)
-  document.removeEventListener('mouseup', stopDrag)
-  if (dragRafId) {
-    cancelAnimationFrame(dragRafId)
-    dragRafId = null
-  }
-}
+  const { t } = useI18n()
 
-// 调整大小相关状态和方法
-const isResizing = ref(false)
-const resizeStartPos = ref({ x: 0, y: 0 })
-const resizeStartSize = ref({ width: 0, height: 0 })
+  const emit = defineEmits(['update:position', 'update:size', 'active', 'close'])
 
-// 优化：使用 requestAnimationFrame 优化调整大小性能
-let resizeRafId = null
+  // 当前位置和大小状态
+  const currentPosition = ref({ x: 0, y: 0 })
+  const currentSize = ref({ width: 600, height: 400 })
 
-const startResize = (event) => {
-  isResizing.value = true
-  resizeStartPos.value = { x: event.clientX, y: event.clientY }
-  resizeStartSize.value = { ...currentSize.value }
-  document.addEventListener('mousemove', handleResize)
-  document.addEventListener('mouseup', stopResize)
-}
+  // 监听 props 中的 position 变化 - 优化：移除频繁的postMessage
+  watch(
+    () => props.position,
+    (newPosition) => {
+      if (newPosition) {
+        currentPosition.value = { ...newPosition }
+      }
+    },
+    { immediate: true, deep: true }
+  )
 
-const handleResize = (event) => {
-  if (!isResizing.value) {return}
+  // 监听 props 中的 size 变化 - 优化：移除频繁的postMessage
+  watch(
+    () => props.size,
+    (newSize) => {
+      if (newSize) {
+        currentSize.value = { ...newSize }
+      }
+    },
+    { immediate: true, deep: true }
+  )
 
-  // 取消之前的动画帧
-  if (resizeRafId) {
-    cancelAnimationFrame(resizeRafId)
-  }
-
-  // 使用 requestAnimationFrame 优化性能
-  resizeRafId = requestAnimationFrame(() => {
-    const deltaX = event.clientX - resizeStartPos.value.x
-    const deltaY = event.clientY - resizeStartPos.value.y
-    const newSize = {
-      width: Math.max(200, resizeStartSize.value.width + deltaX),
-      height: Math.max(200, resizeStartSize.value.height + deltaY)
+  // 优化：使用节流函数限制滚动事件频率
+  let scrollThrottleTimer = null
+  const handleScroll = () => {
+    if (scrollThrottleTimer) {
+      return
     }
-    currentSize.value = newSize
-    emit('update:size', newSize)
-  })
-}
-
-const stopResize = () => {
-  isResizing.value = false
-  document.removeEventListener('mousemove', handleResize)
-  document.removeEventListener('mouseup', stopResize)
-  if (resizeRafId) {
-    cancelAnimationFrame(resizeRafId)
-    resizeRafId = null
+    scrollThrottleTimer = setTimeout(() => {
+      window.parent.postMessage(
+        { type: `weilin_prompt_ui_window_change_${props.name}_scroll` },
+        '*'
+      )
+      scrollThrottleTimer = null
+    }, 100)
   }
-}
 
-const setActive = () => {
-  emit('active')
-}
+  // 在组件挂载时初始化位置和大小
+  onMounted(() => {
+    // 设置初始位置
+    if (props.position) {
+      const viewportWidth = window.innerWidth
+      const viewportHeight = window.innerHeight
+      const minLeftSpace = 100 // 左侧保留的最小空间
 
-const close = () => {
-  emit('close')
-}
+      // 边界检测
+      let x = props.position.x
+      let y = props.position.y
 
-// 处理标题栏点击
-const handleHeaderMouseDown = (event) => {
-  // 先设置为活动窗口
-  setActive()
-  // 然后开始拖动
-  startDrag(event)
-}
+      // 确保左侧保留至少窗口宽度100px的位置
+      x = Math.max(minLeftSpace - (props.size?.width || currentSize.value.width), x)
+      // 确保右侧保留最少100px的位置
+      x = Math.min(x, viewportWidth - 100)
+      // 确保顶部不超出边界
+      y = Math.max(100, y)
+      // 确保底部保留最少100px的位置
+      y = Math.min(y, viewportHeight - 100)
+
+      currentPosition.value = { x, y }
+    }
+
+    // 设置初始大小
+    if (props.size) {
+      currentSize.value = { ...props.size }
+    }
+  })
+
+  // 组件卸载时清理定时器
+  onUnmounted(() => {
+    if (scrollThrottleTimer) {
+      clearTimeout(scrollThrottleTimer)
+      scrollThrottleTimer = null
+    }
+  })
+
+  // 拖动相关状态和方法
+  const isDragging = ref(false)
+  const dragOffset = ref({ x: 0, y: 0 })
+
+  // 优化：使用 requestAnimationFrame 优化拖动性能
+  let dragRafId = null
+
+  const startDrag = (event) => {
+    isDragging.value = true
+    dragOffset.value = {
+      x: event.clientX - currentPosition.value.x,
+      y: event.clientY - currentPosition.value.y
+    }
+    document.addEventListener('mousemove', handleDrag)
+    document.addEventListener('mouseup', stopDrag)
+  }
+
+  const handleDrag = (event) => {
+    if (!isDragging.value) {
+      return
+    }
+
+    // 取消之前的动画帧
+    if (dragRafId) {
+      cancelAnimationFrame(dragRafId)
+    }
+
+    // 使用 requestAnimationFrame 优化性能
+    dragRafId = requestAnimationFrame(() => {
+      const viewportWidth = window.innerWidth
+      const viewportHeight = window.innerHeight
+      const minLeftSpace = 100 // 左侧保留的最小空间
+
+      let newX = event.clientX - dragOffset.value.x
+      let newY = event.clientY - dragOffset.value.y
+
+      // 确保左侧保留至少窗口宽度100px的位置
+      newX = Math.max(minLeftSpace - currentSize.value.width, newX)
+      // 确保右侧保留最少100px的位置
+      newX = Math.min(newX, viewportWidth - 100)
+      // 确保顶部不超出边界
+      newY = Math.max(100, newY)
+      // 确保底部保留最少100px的位置
+      newY = Math.min(newY, viewportHeight - 100)
+
+      const newPosition = {
+        x: newX,
+        y: newY
+      }
+
+      currentPosition.value = newPosition
+      emit('update:position', newPosition)
+    })
+  }
+
+  const stopDrag = () => {
+    isDragging.value = false
+    document.removeEventListener('mousemove', handleDrag)
+    document.removeEventListener('mouseup', stopDrag)
+    if (dragRafId) {
+      cancelAnimationFrame(dragRafId)
+      dragRafId = null
+    }
+  }
+
+  // 调整大小相关状态和方法
+  const isResizing = ref(false)
+  const resizeStartPos = ref({ x: 0, y: 0 })
+  const resizeStartSize = ref({ width: 0, height: 0 })
+
+  // 优化：使用 requestAnimationFrame 优化调整大小性能
+  let resizeRafId = null
+
+  const startResize = (event) => {
+    isResizing.value = true
+    resizeStartPos.value = { x: event.clientX, y: event.clientY }
+    resizeStartSize.value = { ...currentSize.value }
+    document.addEventListener('mousemove', handleResize)
+    document.addEventListener('mouseup', stopResize)
+  }
+
+  const handleResize = (event) => {
+    if (!isResizing.value) {
+      return
+    }
+
+    // 取消之前的动画帧
+    if (resizeRafId) {
+      cancelAnimationFrame(resizeRafId)
+    }
+
+    // 使用 requestAnimationFrame 优化性能
+    resizeRafId = requestAnimationFrame(() => {
+      const deltaX = event.clientX - resizeStartPos.value.x
+      const deltaY = event.clientY - resizeStartPos.value.y
+      const newSize = {
+        width: Math.max(200, resizeStartSize.value.width + deltaX),
+        height: Math.max(200, resizeStartSize.value.height + deltaY)
+      }
+      currentSize.value = newSize
+      emit('update:size', newSize)
+    })
+  }
+
+  const stopResize = () => {
+    isResizing.value = false
+    document.removeEventListener('mousemove', handleResize)
+    document.removeEventListener('mouseup', stopResize)
+    if (resizeRafId) {
+      cancelAnimationFrame(resizeRafId)
+      resizeRafId = null
+    }
+  }
+
+  const setActive = () => {
+    emit('active')
+  }
+
+  const close = () => {
+    emit('close')
+  }
+
+  // 处理标题栏点击
+  const handleHeaderMouseDown = (event) => {
+    // 先设置为活动窗口
+    setActive()
+    // 然后开始拖动
+    startDrag(event)
+  }
 </script>
 
 <style scoped>
@@ -274,7 +281,7 @@ const handleHeaderMouseDown = (event) => {
     background: var(--weilin-prompt-ui-primary-bg);
     border: 1px solid var(--weilin-prompt-ui-border-color);
     border-radius: 8px;
-    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 12px 0 rgb(0 0 0 / 0.1);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -317,8 +324,7 @@ const handleHeaderMouseDown = (event) => {
 
   .weilin_prompt_ui_window-content {
     flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden auto;
     padding: 16px;
     background: var(--weilin-prompt-ui-primary-bg);
   }

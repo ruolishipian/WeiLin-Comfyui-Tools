@@ -81,103 +81,103 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { cloudApi } from '@/api/cloud'
-import message from '@/utils/message'
+  import { ref, onMounted } from 'vue'
+  import { useI18n } from 'vue-i18n'
+  import { cloudApi } from '@/api/cloud'
+  import message from '@/utils/message'
 
-const { t } = useI18n()
-const fileList = ref([])
-const currentPath = ref('tags')
-const mainPath = ref('tags')
-const installedPackages = ref([])
+  const { t } = useI18n()
+  const fileList = ref([])
+  const currentPath = ref('tags')
+  const mainPath = ref('tags')
+  const installedPackages = ref([])
 
-// 获取文件树
-const getTree = async (path) => {
-  try {
-    const res = await cloudApi.getTreeFromCloud(path)
-    fileList.value = res.data
-  } catch (error) {
-    console.error('获取文件树失败:', error)
-    message({ type: 'warn', str: 'message.networkError' })
-  }
-}
-
-// 获取已安装的包
-const getInstalledPackages = async () => {
-  try {
-    const res = await cloudApi.getLocalInstallPackage()
-    installedPackages.value = res.data || []
-  } catch (error) {
-    console.error('获取已安装包列表失败:', error)
-    message({ type: 'warn', str: 'message.networkError' })
-  }
-}
-
-// 检查包是否已安装
-const isPackageInstalled = (path) => {
-  // console.log(installedPackages.value)
-  return installedPackages.value.some((pkg) => pkg === path)
-}
-
-// 安装包
-const installPackage = async (path) => {
-  try {
-    const item = fileList.value.find((item) => item.path === path)
-    if (item) {
-      item.isInstalling = true
-      await cloudApi.installSelectPackage(mainPath.value, [path]).then(() => {
-        getInstalledPackages()
-        message({ type: 'success', str: 'message.installPackageSuccess' })
-      })
-    }
-  } catch (error) {
-    console.error('安装包失败:', error)
-    message({ type: 'warn', str: 'message.installPackageFail' })
-  } finally {
-    const item = fileList.value.find((item) => item.path === path)
-    if (item) {
-      item.isInstalling = false
+  // 获取文件树
+  const getTree = async (path) => {
+    try {
+      const res = await cloudApi.getTreeFromCloud(path)
+      fileList.value = res.data
+    } catch (error) {
+      console.error('获取文件树失败:', error)
+      message({ type: 'warn', str: 'message.networkError' })
     }
   }
-}
 
-const goBack = () => {
-  const pathParts = currentPath.value.split('/')
-  if (pathParts.length > 1) {
-    currentPath.value = pathParts.slice(0, -1).join('/')
+  // 获取已安装的包
+  const getInstalledPackages = async () => {
+    try {
+      const res = await cloudApi.getLocalInstallPackage()
+      installedPackages.value = res.data || []
+    } catch (error) {
+      console.error('获取已安装包列表失败:', error)
+      message({ type: 'warn', str: 'message.networkError' })
+    }
+  }
+
+  // 检查包是否已安装
+  const isPackageInstalled = (path) => {
+    // console.log(installedPackages.value)
+    return installedPackages.value.some((pkg) => pkg === path)
+  }
+
+  // 安装包
+  const installPackage = async (path) => {
+    try {
+      const item = fileList.value.find((item) => item.path === path)
+      if (item) {
+        item.isInstalling = true
+        await cloudApi.installSelectPackage(mainPath.value, [path]).then(() => {
+          getInstalledPackages()
+          message({ type: 'success', str: 'message.installPackageSuccess' })
+        })
+      }
+    } catch (error) {
+      console.error('安装包失败:', error)
+      message({ type: 'warn', str: 'message.installPackageFail' })
+    } finally {
+      const item = fileList.value.find((item) => item.path === path)
+      if (item) {
+        item.isInstalling = false
+      }
+    }
+  }
+
+  const goBack = () => {
+    const pathParts = currentPath.value.split('/')
+    if (pathParts.length > 1) {
+      currentPath.value = pathParts.slice(0, -1).join('/')
+      getTree(currentPath.value)
+    }
+  }
+
+  // 刷新文件树
+  const refreshTree = () => {
+    getTree(currentPath.value)
+    getInstalledPackages()
+  }
+
+  // 打开目录
+  const openDirectory = (path) => {
+    currentPath.value = path
+    getTree(path)
+  }
+
+  const openTagDatabase = () => {
+    mainPath.value = 'tags'
+    currentPath.value = 'tags'
     getTree(currentPath.value)
   }
-}
 
-// 刷新文件树
-const refreshTree = () => {
-  getTree(currentPath.value)
-  getInstalledPackages()
-}
+  const openDanbooruDatabase = () => {
+    mainPath.value = 'danbooru'
+    currentPath.value = 'danbooru'
+    getTree(currentPath.value)
+  }
 
-// 打开目录
-const openDirectory = (path) => {
-  currentPath.value = path
-  getTree(path)
-}
-
-const openTagDatabase = () => {
-  mainPath.value = 'tags'
-  currentPath.value = 'tags'
-  getTree(currentPath.value)
-}
-
-const openDanbooruDatabase = () => {
-  mainPath.value = 'danbooru'
-  currentPath.value = 'danbooru'
-  getTree(currentPath.value)
-}
-
-onMounted(() => {
-  getTree(currentPath.value)
-  getInstalledPackages()
-})
+  onMounted(() => {
+    getTree(currentPath.value)
+    getInstalledPackages()
+  })
 </script>
 
 <style scoped>
@@ -244,8 +244,6 @@ onMounted(() => {
     padding: 4px 8px;
     background: var(--weilin-prompt-ui-secondary-bg);
     border: 1px solid var(--weilin-prompt-ui-border-color);
-    border-radius: 4px;
-    color: var(--weilin-prompt-ui-primary-text);
     border-radius: 4px;
     cursor: pointer;
     color: var(--text-color);

@@ -10,8 +10,10 @@
 
 .weilin_prompt_ui_main-content {
   height: auto;
+
   /* 高度自动调整 */
   transition: width 0.3s ease;
+
   /* 添加过渡效果 */
 }
 
@@ -40,7 +42,7 @@
 .input-area:focus {
   outline: none;
   border-color: var(--weilin-prompt-ui-primary-color);
-  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+  box-shadow: 0 0 0 2px rgb(24 144 255 / 0.1);
 }
 
 .input-area::placeholder {
@@ -56,12 +58,14 @@
   justify-content: space-between;
   gap: 8px;
 }
+
 .update-label-bar .token-counter {
   position: static;
   background: transparent;
   padding: 0;
   color: var(--weilin-prompt-ui-secondary-text);
 }
+
 .update-label-btn {
   height: 32px;
   padding: 0 14px;
@@ -78,17 +82,21 @@
     transform 0.05s ease,
     background 0.15s ease;
 }
+
 .update-label-btn:hover:enabled {
   filter: brightness(1.08);
 }
+
 .update-label-btn.is-dirty {
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--weilin-prompt-ui-primary-color) 35%, transparent),
     0 0 10px color-mix(in srgb, var(--weilin-prompt-ui-primary-color) 40%, transparent);
 }
+
 .update-label-btn:active:enabled {
   transform: translateY(1px);
 }
+
 .update-label-btn:disabled {
   opacity: 0.65;
   cursor: not-allowed;
@@ -141,14 +149,14 @@
   box-sizing: border-box;
   background: var(--weilin-prompt-ui-input-bg);
   color: var(--weilin-prompt-ui-primary-text);
-  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+  box-shadow: 0 0 0 2px rgb(24 144 255 / 0.1);
   transition: all 0.2s ease;
 }
 
 .token-item input:focus {
   outline: none;
   border-color: #40a9ff;
-  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  box-shadow: 0 0 0 2px rgb(24 144 255 / 0.2);
 }
 
 .line-break {
@@ -170,15 +178,19 @@
 
 .newline-token::after {
   content: '';
+
   /* 插入空内容 */
   width: 100%;
+
   /* 占满剩余空间 */
   order: 1;
+
   /* 确保它在.br-class之后 */
 }
 
 .newline-token ~ .token-item-box {
   order: 2;
+
   /* 让.br-class之后的元素换行 */
 }
 
@@ -315,7 +327,7 @@
 }
 
 .delete-btn:hover {
-  background-color: rgba(255, 77, 79, 0.1);
+  background-color: rgb(255 77 79 / 0.1);
 }
 
 .delete-btn svg {
@@ -556,6 +568,7 @@
   box-sizing: border-box;
   max-height: 600px;
   min-height: 200px;
+
   /* 确保有足够的最小高度 */
   overflow: hidden;
   display: flex;
@@ -691,13 +704,13 @@
   width: 450px;
   max-height: 350px;
   overflow-y: auto;
-  background-color: var(--background-color);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.1);
   padding: 8px 0;
   margin-top: 4px;
   background-color: var(--weilin-prompt-ui-primary-bg);
+
   /* 添加最大宽度限制 */
   max-width: calc(100% - 16px);
 }
@@ -766,7 +779,7 @@
 .prompt-input-translate-area {
   margin-top: 10px;
   display: flex;
-  flex-wrap: nowrap;
+  flex-flow: row-reverse nowrap;
   overflow-x: auto;
   white-space: nowrap;
   align-items: center;
@@ -774,16 +787,17 @@
   padding-bottom: 4px;
   padding-left: 10px;
   scrollbar-width: thin; /* Firefox */
-  flex-direction: row-reverse;
 }
 
 .prompt-input-translate-area::-webkit-scrollbar {
   height: 8px;
 }
+
 .prompt-input-translate-area::-webkit-scrollbar-thumb {
   background: #e0e0e0;
   border-radius: 4px;
 }
+
 .prompt-input-translate-area::-webkit-scrollbar-track {
   background: transparent;
 }
@@ -886,7 +900,7 @@
 
 .quick-delete-btn:hover {
   opacity: 1;
-  background: rgba(255, 77, 79, 0.1);
+  background: rgb(255 77 79 / 0.1);
 }
 
 /* 操作按钮 */
@@ -931,13 +945,13 @@
   position: fixed;
   z-index: 1000;
   transform: translateX(-50%);
-  background-color: rgba(0, 0, 0, 0.8);
+  background-color: rgb(0 0 0 / 0.8);
   color: white;
   padding: 8px 12px;
   border-radius: 4px;
   font-size: 14px;
   max-width: 300px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.2);
   pointer-events: none;
 }
 
@@ -956,16 +970,17 @@
   right: 10px;
   font-size: 12px;
   color: #888;
-  background-color: rgba(255, 255, 255, 0.7);
+  background-color: rgb(255 255 255 / 0.7);
   padding: 2px 5px;
   border-radius: 3px;
   pointer-events: none;
+
   /* 确保不会干扰文本输入 */
 }
 
 /* 暗色主题适配 */
 #weilin_comfyui_tools_prompt_ui_div[data-theme='dark'] .token-counter {
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgb(0 0 0 / 0.5);
   color: #ccc;
 }
 
@@ -987,8 +1002,8 @@
 
 /* Lora标签样式 */
 .lora-tag {
-  background-color: rgba(64, 158, 255, 0.1) !important;
-  border: 1px solid rgba(64, 158, 255, 0.5) !important;
+  background-color: rgb(64 158 255 / 0.1) !important;
+  border: 1px solid rgb(64 158 255 / 0.5) !important;
   border-radius: 4px;
 }
 
@@ -1076,10 +1091,7 @@
 .token-item-box-disabled::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background: linear-gradient(
     45deg,
     transparent calc(50% - 1px),
@@ -1105,7 +1117,7 @@
 .token-item-box-selected {
   border: 2px solid #4285f4 !important;
   box-shadow: 0 0 8px #4285f455;
-  background-color: rgba(66, 133, 244, 0.08) !important;
+  background-color: rgb(66 133 244 / 0.08) !important;
   transition:
     border-color 0.2s,
     box-shadow 0.2s,
@@ -1126,10 +1138,12 @@
 .center-container::-webkit-scrollbar {
   height: 8px;
 }
+
 .center-container::-webkit-scrollbar-thumb {
   background: #e0e0e0;
   border-radius: 4px;
 }
+
 .center-container::-webkit-scrollbar-track {
   background: transparent;
 }
@@ -1164,7 +1178,7 @@
 .quick-delete-btn {
   background: transparent;
   border: none;
-  padding: 2px 2px;
+  padding: 2px;
   margin-left: 2px;
   cursor: pointer;
   border-radius: 3px;
@@ -1173,13 +1187,16 @@
   transition: background 0.2s;
   vertical-align: middle;
 }
+
 .quick-delete-btn:hover {
   background: #fff1f0;
 }
+
 .quick-delete-btn svg {
   display: block;
   transition: filter 0.2s;
 }
+
 .quick-delete-btn:active svg {
   filter: brightness(0.85);
 }

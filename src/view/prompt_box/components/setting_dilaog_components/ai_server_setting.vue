@@ -17,9 +17,7 @@
           disabled
           class="weilin-comfyui-common-select"
         >
-          <option value="https://api.siliconflow.cn/v1">
-硅基AI
-</option>
+          <option value="https://api.siliconflow.cn/v1">硅基AI</option>
         </select>
       </div>
       <div class="weilin-comfyui-setting-item">
@@ -126,130 +124,130 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { aiServerApi } from '@/api/ai_server'
-import { translatorApi } from '@/api/translator'
-import { language } from '../translater'
-import message from '@/utils/message'
+  import { ref, onMounted } from 'vue'
+  import { useI18n } from 'vue-i18n'
+  import { aiServerApi } from '@/api/ai_server'
+  import { translatorApi } from '@/api/translator'
+  import { language } from '../translater'
+  import message from '@/utils/message'
 
-const { t } = useI18n()
+  const { t } = useI18n()
 
-// 翻译库设置
-const selectedTranslatorService = ref('')
-const sourceLanguage = ref('')
-const targetLanguage = ref('')
-const testTranslaterOutputText = ref('')
-const testTranslaterInputText = ref('')
+  // 翻译库设置
+  const selectedTranslatorService = ref('')
+  const sourceLanguage = ref('')
+  const targetLanguage = ref('')
+  const testTranslaterOutputText = ref('')
+  const testTranslaterInputText = ref('')
 
-const aiServerSettingData = ref({
-  api_key: '',
-  base_url: 'https://api.siliconflow.cn/v1',
-  model: '',
-  temperature: 0,
-  top_p: 0.7,
-  max_tokens: 4096
-})
-const aiModelsData = ref({ object: 'list', data: [] })
+  const aiServerSettingData = ref({
+    api_key: '',
+    base_url: 'https://api.siliconflow.cn/v1',
+    model: '',
+    temperature: 0,
+    top_p: 0.7,
+    max_tokens: 4096
+  })
+  const aiModelsData = ref({ object: 'list', data: [] })
 
-const updateAiServerSettingFunc = () => {
-  aiServerApi
-    .updateAiServerSetting(aiServerSettingData.value)
-    .then((res) => {
-      if (res.info === 'ok') {
-        message({ type: 'success', str: 'message.saveSuccess' })
-      } else {
-        message({ type: 'warn', str: 'message.saveFailed' })
-      }
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.saveFailed' })
-    })
-}
-
-const getAiServerSettingFunc = () => {
-  aiServerApi
-    .getAiServerSetting()
-    .then((res) => {
-      aiServerSettingData.value = res.data
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.getTranslaterFail' })
-    })
-}
-
-const getAiModelsFunc = () => {
-  aiServerApi
-    .getAiModels()
-    .then((res) => {
-      aiModelsData.value = res.data
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.getTranslaterFail' })
-    })
-}
-
-const getTranskateBuktSetting = () => {
-  translatorApi
-    .getTranslateBuktSetting()
-    .then((res) => {
-      selectedTranslatorService.value = res.data.translate_service
-      sourceLanguage.value = res.data.translate_source_lang
-      targetLanguage.value = res.data.translate_target_lang
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.getTranslaterFail' })
-    })
-}
-
-const saveTranslaterSetting = () => {
-  translatorApi
-    .saveTranslateSetting(
-      selectedTranslatorService.value,
-      sourceLanguage.value,
-      targetLanguage.value
-    )
-    .then((res) => {
-      // console.log(res)
-      if (res.info === 'ok') {
-        message({ type: 'success', str: 'message.saveSuccess' })
-      } else {
-        message({ type: 'warn', str: 'message.saveFailed' })
-      }
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.saveFailed' })
-    })
-}
-
-// 翻译文本
-const translaterTextTest = () => {
-  // testTranslaterOutputText.value = ''
-  // let needTranslateData = { text: testTranslaterInputText.value, translate: '' }
-  // const jsonString = JSON.stringify(needTranslateData)
-
-  translatorApi
-    .translaterInputText('', testTranslaterInputText.value)
-    .then((res) => {
-      if (res) {
-        if (res.data) {
-          // const jsonData = JSON.parse(res.data)
-          // console.log(jsonData)
-          // token.translate = jsonData.translate
-          testTranslaterOutputText.value = res.data
+  const updateAiServerSettingFunc = () => {
+    aiServerApi
+      .updateAiServerSetting(aiServerSettingData.value)
+      .then((res) => {
+        if (res.info === 'ok') {
+          message({ type: 'success', str: 'message.saveSuccess' })
+        } else {
+          message({ type: 'warn', str: 'message.saveFailed' })
         }
-      }
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.translaterTestFail' })
-    })
-}
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.saveFailed' })
+      })
+  }
 
-onMounted(() => {
-  getAiServerSettingFunc()
-  getAiModelsFunc()
-  getTranskateBuktSetting()
-})
+  const getAiServerSettingFunc = () => {
+    aiServerApi
+      .getAiServerSetting()
+      .then((res) => {
+        aiServerSettingData.value = res.data
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.getTranslaterFail' })
+      })
+  }
+
+  const getAiModelsFunc = () => {
+    aiServerApi
+      .getAiModels()
+      .then((res) => {
+        aiModelsData.value = res.data
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.getTranslaterFail' })
+      })
+  }
+
+  const getTranskateBuktSetting = () => {
+    translatorApi
+      .getTranslateBuktSetting()
+      .then((res) => {
+        selectedTranslatorService.value = res.data.translate_service
+        sourceLanguage.value = res.data.translate_source_lang
+        targetLanguage.value = res.data.translate_target_lang
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.getTranslaterFail' })
+      })
+  }
+
+  const saveTranslaterSetting = () => {
+    translatorApi
+      .saveTranslateSetting(
+        selectedTranslatorService.value,
+        sourceLanguage.value,
+        targetLanguage.value
+      )
+      .then((res) => {
+        // console.log(res)
+        if (res.info === 'ok') {
+          message({ type: 'success', str: 'message.saveSuccess' })
+        } else {
+          message({ type: 'warn', str: 'message.saveFailed' })
+        }
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.saveFailed' })
+      })
+  }
+
+  // 翻译文本
+  const translaterTextTest = () => {
+    // testTranslaterOutputText.value = ''
+    // let needTranslateData = { text: testTranslaterInputText.value, translate: '' }
+    // const jsonString = JSON.stringify(needTranslateData)
+
+    translatorApi
+      .translaterInputText('', testTranslaterInputText.value)
+      .then((res) => {
+        if (res) {
+          if (res.data) {
+            // const jsonData = JSON.parse(res.data)
+            // console.log(jsonData)
+            // token.translate = jsonData.translate
+            testTranslaterOutputText.value = res.data
+          }
+        }
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.translaterTestFail' })
+      })
+  }
+
+  onMounted(() => {
+    getAiServerSettingFunc()
+    getAiModelsFunc()
+    getTranskateBuktSetting()
+  })
 </script>
 
 <style scoped>

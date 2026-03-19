@@ -16,75 +16,76 @@
 </template>
 
 <script setup>
-import { ref, computed, defineProps, defineEmits } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { setLocale } from '@/i18n'
-import { useTagStore } from '@/stores/tagStore'
-import { languageApi } from '@/api/language'
-import message from '@/utils/message'
+  import { ref, computed, defineEmits } from 'vue'
+  import { useI18n } from 'vue-i18n'
+  import { setLocale } from '@/i18n'
+  import { useTagStore } from '@/stores/tagStore'
+  import { languageApi } from '@/api/language'
+  import message from '@/utils/message'
 
-const { t } = useI18n()
-const selectorRef = ref(null)
-const tagStore = useTagStore()
-const currentLang = computed(() => tagStore.userSetting.user_lang)
+  // eslint-disable-next-line no-unused-vars
+  const { t } = useI18n()
+  const selectorRef = ref(null)
+  const tagStore = useTagStore()
+  const currentLang = computed(() => tagStore.userSetting.user_lang)
 
-const languages = [
-  { code: 'zh_CN', name: '简体中文' },
-  { code: 'en_US', name: 'English' }
-  // { code: 'ja_JP', name: '日本語' },
-  // { code: 'ko_KR', name: '한국어' },
-  // { code: 'ru_RU', name: 'Русский' },
-  // { code: 'es_ES', name: 'Español' },
-  // { code: 'fr_FR', name: 'Français' },
-  // { code: 'de_DE', name: 'Deutsch' },
-  // { code: 'it_IT', name: 'Italiano' },
-  // { code: 'pt_PT', name: 'Português' },
-]
+  const languages = [
+    { code: 'zh_CN', name: '简体中文' },
+    { code: 'en_US', name: 'English' }
+    // { code: 'ja_JP', name: '日本語' },
+    // { code: 'ko_KR', name: '한국어' },
+    // { code: 'ru_RU', name: 'Русский' },
+    // { code: 'es_ES', name: 'Español' },
+    // { code: 'fr_FR', name: 'Français' },
+    // { code: 'de_DE', name: 'Deutsch' },
+    // { code: 'it_IT', name: 'Italiano' },
+    // { code: 'pt_PT', name: 'Português' },
+  ]
 
-const emit = defineEmits(['close'])
+  const emit = defineEmits(['close'])
 
-const switchLanguage = (locale) => {
-  setLanguage(locale)
-  emit('close', {})
-}
-
-const setLanguage = (lang) => {
-  languageApi
-    .setUserLanguage(lang)
-    .then((res) => {
-      setLocale(lang)
-      window.postMessage(
-        {
-          type: 'weilin_prompt_ui_tag_manager_refresh'
-        },
-        '*'
-      )
-      window.postMessage(
-        {
-          type: 'weilin_prompt_ui_refresh_all_data'
-        },
-        '*'
-      )
-      message({ type: 'success', str: 'message.setLanguageSuccess' })
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.setLanguageFailed' })
-    })
-}
-
-// 暴露给父组件的方法，用于设置位置
-const setPosition = (buttonRect) => {
-  if (!selectorRef.value) {
-    return
+  const switchLanguage = (locale) => {
+    setLanguage(locale)
+    emit('close', {})
   }
 
-  const selector = selectorRef.value
-  selector.style.position = 'fixed'
-  selector.style.top = `${ buttonRect.bottom }px`
-  //   selector.style.left = `${buttonRect.left}px`
-}
+  const setLanguage = (lang) => {
+    languageApi
+      .setUserLanguage(lang)
+      .then(() => {
+        setLocale(lang)
+        window.postMessage(
+          {
+            type: 'weilin_prompt_ui_tag_manager_refresh'
+          },
+          '*'
+        )
+        window.postMessage(
+          {
+            type: 'weilin_prompt_ui_refresh_all_data'
+          },
+          '*'
+        )
+        message({ type: 'success', str: 'message.setLanguageSuccess' })
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.setLanguageFailed' })
+      })
+  }
 
-defineExpose({ setPosition })
+  // 暴露给父组件的方法，用于设置位置
+  const setPosition = (buttonRect) => {
+    if (!selectorRef.value) {
+      return
+    }
+
+    const selector = selectorRef.value
+    selector.style.position = 'fixed'
+    selector.style.top = `${buttonRect.bottom}px`
+    //   selector.style.left = `${buttonRect.left}px`
+  }
+
+  defineExpose({ setPosition })
 </script>
 
 <style scoped>

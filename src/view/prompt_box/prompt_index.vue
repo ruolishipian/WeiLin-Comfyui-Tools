@@ -10,8 +10,10 @@
     <!-- Lora栈 -->
     <LoraStack
       v-if="props.promptManager === 'prompt'"
+      ref="loraStackRef"
       :is-open="loraOpen"
       :selected-loras="selectedLoras"
+      @update:selected-loras="selectedLoras = $event"
       @close="closeLora"
     />
     <!-- 主标签管理器（左侧边栏） -->
@@ -331,9 +333,7 @@
         ></textarea>
 
         <!-- 添加token计数器 -->
-        <div class="token-counter">
-{{ tokenCount }} tokens
-</div>
+        <div class="token-counter">{{ tokenCount }} tokens</div>
 
         <style>
           .token-counter {
@@ -343,12 +343,16 @@
             z-index: 10;
             color: #aaa;
             background-color: #f0f0f0;
+
             /* 灰色背景，可调整深浅 */
             padding: 2px 6px;
+
             /* 给文字一点内边距，看起来更清晰 */
             border-radius: 4px;
+
             /* 圆角，可选 */
             user-select: none;
+
             /* 禁止文字被选中 */
           }
         </style>
@@ -365,9 +369,7 @@
             maxHeight: `${saveAutoCompleteHeight}px`
           }"
         >
-          <button class="close-autocomplete-btn" @click.stop="closeAutocomplete">
-×
-</button>
+          <button class="close-autocomplete-btn" @click.stop="closeAutocomplete">×</button>
           <div
             v-for="(item, index) in autocompleteResults"
             :key="index"
@@ -695,7 +697,9 @@
       <!-- 添加悬浮提示框 -->
       <div v-if="showTagTipsBox" class="tag-tips-box" :style="tagTipsPosition">
         <div class="tag-tips-content">
-          <p v-html="t('promptBox.tagTips')"></p>
+          <p class="tag-tips-text">
+            {{ t('promptBox.tagTips') }}
+          </p>
         </div>
       </div>
 
@@ -729,17 +733,27 @@
               class="weight-input"
               @change="applyLoraWeights"
             />
-            <span class="weight-label">{{ t('promptBox.modelWeight') }}</span>
+            <span class="weight-label">{{ t('loraManager.modelWeight') }}</span>
           </div>
           <div class="weight-control">
             <input
               type="number"
-              v-model="loraTextWeight"
+              v-model="loraClipWeight"
               step="0.1"
               class="weight-input"
               @change="applyLoraWeights"
             />
-            <span class="weight-label">{{ t('promptBox.textWeight') }}</span>
+            <span class="weight-label">{{ t('loraManager.textEncoderWeight') }}</span>
+          </div>
+          <div class="weight-control">
+            <input
+              type="number"
+              v-model="loraTriggerWeight"
+              step="0.1"
+              class="weight-input"
+              @change="applyLoraWeights"
+            />
+            <span class="weight-label">{{ t('loraManager.triggerWeight') }}</span>
           </div>
         </div>
 
@@ -768,9 +782,7 @@
         <div class="bracket-btn-group" v-if="!tokens[activeControls]?.isLoraTag">
           <div class="bracket-btn-container">
             <!-- 括号按钮 -->
-            <div class="bracket-btn">
-()
-</div>
+            <div class="bracket-btn">()</div>
             <!-- 加减号按钮组 -->
             <div class="vertical-btn-group">
               <button
@@ -791,9 +803,7 @@
           </div>
 
           <div class="bracket-btn-container">
-            <div class="bracket-btn">
-[]
-</div>
+            <div class="bracket-btn">[]</div>
             <div class="vertical-btn-group">
               <button
                 class="vertical-btn"
@@ -813,9 +823,7 @@
           </div>
 
           <div class="bracket-btn-container">
-            <div class="bracket-btn">
-{}
-</div>
+            <div class="bracket-btn">{}</div>
             <div class="vertical-btn-group">
               <button
                 class="vertical-btn"
@@ -961,431 +969,432 @@
 </template>
 
 <script setup>
-import {
-  ref,
-  watch,
-  onBeforeUpdate,
-  onMounted,
-  onUnmounted,
-  onBeforeUnmount,
-  nextTick,
-  computed
-} from 'vue'
-import { useI18n } from 'vue-i18n'
-import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
-import SettingDialog from './components/setting_dialog.vue'
-import ThemeSwitch from '@/components/ThemeSwitch.vue'
-import TagManager from '@/view/tag_manager/tag_index.vue' // 导入 TagManager 组件
-import LoraStack from './components/lora_stack.vue'
-import MainLabelManager from './components/main_label_manager.vue'
-import { translatorApi } from '@/api/translator'
-import { historyApi } from '@/api/history'
-import message from '@/utils/message'
-import { autocompleteApi } from '@/api/autocomplete'
-import LoraManager from '@/view/lora_manager/lora_index.vue'
-import RandomSetting from './components/random_setting.vue'
-import { randomTagApi } from '@/api/random_tag'
-import pako from 'pako'
-import favourItem from './components/favour.vue'
+  import {
+    ref,
+    watch,
+    onBeforeUpdate,
+    onMounted,
+    onUnmounted,
+    onBeforeUnmount,
+    nextTick,
+    computed
+  } from 'vue'
+  import { useI18n } from 'vue-i18n'
+  import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+  import SettingDialog from './components/setting_dialog.vue'
+  import ThemeSwitch from '@/components/ThemeSwitch.vue'
+  import TagManager from '@/view/tag_manager/tag_index.vue' // 导入 TagManager 组件
+  import LoraStack from './components/lora_stack.vue'
+  import MainLabelManager from './components/main_label_manager.vue'
+  import { translatorApi } from '@/api/translator'
+  import { historyApi } from '@/api/history'
+  import message from '@/utils/message'
+  import { autocompleteApi } from '@/api/autocomplete'
+  import LoraManager from '@/view/lora_manager/lora_index.vue'
+  import RandomSetting from './components/random_setting.vue'
+  import { randomTagApi } from '@/api/random_tag'
+  import pako from 'pako'
+  import favourItem from './components/favour.vue'
 
-const randomSettingItem = ref(null)
+  const randomSettingItem = ref(null)
 
-const prefix = 'weilin_prompt_ui_'
-const { t } = useI18n()
+  const prefix = 'weilin_prompt_ui_'
+  const { t } = useI18n()
 
-const autocompleteContainerRef = ref()
-const inputAreaRef = ref()
-const autocompletePosition = ref({ top: 0, left: 0 })
+  const autocompleteContainerRef = ref()
+  const inputAreaRef = ref()
+  const autocompletePosition = ref({ top: 0, left: 0 })
 
-// 在data或ref部分添加
-const tokenCount = ref(0)
+  // 在data或ref部分添加
+  const tokenCount = ref(0)
 
-const props = defineProps({
-  promptManager: {
-    type: String,
-    default: 'prompt_global'
-  },
-  hasPromptLoraStack: {
-    type: Boolean,
-    default: false
-  }
-})
-
-const parentCneterBox = ref(null)
-
-// 输入prompt信息
-const inputText = ref('')
-const tokens = ref([])
-const tokenInputRefs = {}
-const activeControls = ref(null)
-const isOverControls = ref(false)
-const controlsPosition = ref({
-  top: '0px',
-  left: '0px'
-})
-const showLanguageSelector = ref(false)
-const settingDialog = ref(null)
-const langBtnRef = ref(null)
-const languageSwitcherRef = ref(null)
-
-// Lora选择信息
-const currentEditNodeId = ref('') // 当前编辑的节点ID
-const selectedLoras = ref([])
-const loraOpen = ref(false)
-
-// 添加自动补全相关的 ref
-const showAutocomplete = ref(false)
-const autocompleteResults = ref([])
-const selectedAutocompleteIndex = ref(0)
-const selectedItemRef = ref(null)
-const saveAutoCompleteWidth = ref(localStorage.getItem('weilin_prompt_ui_auto_box_width') || 450)
-const saveAutoCompleteHeight = ref(
-  localStorage.getItem('weilin_prompt_ui_auto_box_height') || 350
-)
-
-const translateText = ref('')
-
-// 框选功能相关变量
-const isSelecting = ref(false)
-const selectionStart = ref({ x: 0, y: 0 })
-const selectionEnd = ref({ x: 0, y: 0 })
-const selectedTokens = ref([])
-const selectionBoxId = 'weilin-selection-box'
-const tokensContainerRef = ref(null)
-const isBoxSelectMode = ref(false) // 标记当前是否在框选模式
-const isPotentialBoxSelection = ref(false) // 标记潜在的框选操作，用于区分点击和拖动
-const showSelectionActions = ref(false)
-const selectionActionsPosition = ref({ top: '0px', left: '0px' })
-// 用于防止更新操作频繁触发的标志
-const isUpdatingSelectionBox = ref(false) // 控制选择框更新
-const isUpdatingSelectedTokens = ref(false) // 控制标签选中状态更新
-// 用于节流的时间戳
-const lastUpdateTime = ref(0)
-const throttleInterval = 16 // 约60fps
-
-const showTagTipsBox = ref(false)
-const tagTipsPosition = ref({
-  top: '0px',
-  left: '0px'
-})
-
-// 控制标签删除按钮是否显示的状态
-const showDeleteButton = ref(
-  localStorage.getItem('weilin_prompt_ui_show_delete_button') !== 'false'
-)
-
-// 保存删除按钮设置到localStorage
-const saveShowDeleteButtonSetting = () => {
-  localStorage.setItem('weilin_prompt_ui_show_delete_button', String(showDeleteButton.value))
-}
-
-// 切换删除按钮显示状态
-const toggleDeleteButton = () => {
-  showDeleteButton.value = !showDeleteButton.value
-  saveShowDeleteButtonSetting()
-}
-
-// 监听删除按钮设置的变化
-const handleStorageChange = (e) => {
-  if (e.key === 'weilin_prompt_ui_show_delete_button') {
-    showDeleteButton.value = e.newValue !== 'false'
-  }
-}
-
-// 组件挂载时添加监听器
-onMounted(() => {
-  window.addEventListener('storage', handleStorageChange)
-  window.addEventListener('storage', handleFunctionTogglesStorageChange)
-})
-
-// 组件卸载时移除监听器
-onUnmounted(() => {
-  window.removeEventListener('storage', handleStorageChange)
-  window.removeEventListener('storage', handleFunctionTogglesStorageChange)
-})
-
-// 添加防抖相关的变量
-const debounceTimeout = ref(null) // 用于存储 setTimeout 的 ID
-const proceTimeout = ref(null)
-const lastInputValue = ref('') // 用于存储上一次的输入内容
-
-// 在data或ref部分添加一个计数器用于生成唯一ID
-const tokenIdCounter = ref(0)
-
-// 控制左侧标签管理器是否可见的状态
-const isLabelManagerVisible = ref(true)
-
-// 用于本地存储的键名
-const STORAGE_KEY_SIDEBAR_VISIBLE = 'weilin_prompt_ui_sidebar_visible'
-
-// 功能开关状态变量 - 从localStorage读取初始值，默认值都为true
-const isClearAllEnabled = ref(
-  localStorage.getItem('weilin_function_toggles_clearAll') !== 'false'
-)
-const isDeleteButtonEnabled = ref(
-  localStorage.getItem('weilin_function_toggles_deleteButton') !== 'false'
-)
-const isRandomTagEnabled = ref(
-  localStorage.getItem('weilin_function_toggles_randomTag') !== 'false'
-)
-const isRandomTagSettingsEnabled = ref(
-  localStorage.getItem('weilin_function_toggles_randomTagSettings') !== 'false'
-)
-const isTranslateTagEnabled = ref(
-  localStorage.getItem('weilin_function_toggles_translateTag') !== 'false'
-)
-const isClearDisabledEnabled = ref(
-  localStorage.getItem('weilin_function_toggles_clearDisabled') !== 'false'
-)
-
-// 监听功能开关变化并保存到 localStorage
-watch(
-  [
-    isClearAllEnabled,
-    isDeleteButtonEnabled,
-    isRandomTagEnabled,
-    isRandomTagSettingsEnabled,
-    isTranslateTagEnabled,
-    isClearDisabledEnabled
-  ],
-  ([clearAll, deleteButton, randomTag, randomTagSettings, translateTag, clearDisabled]) => {
-    localStorage.setItem('weilin_function_toggles_clearAll', String(clearAll))
-    localStorage.setItem('weilin_function_toggles_deleteButton', String(deleteButton))
-    localStorage.setItem('weilin_function_toggles_randomTag', String(randomTag))
-    localStorage.setItem('weilin_function_toggles_randomTagSettings', String(randomTagSettings))
-    localStorage.setItem('weilin_function_toggles_translateTag', String(translateTag))
-    localStorage.setItem('weilin_function_toggles_clearDisabled', String(clearDisabled))
-  }
-)
-
-// 监听功能开关设置的存储变化
-const handleFunctionTogglesStorageChange = (e) => {
-  if (e.key === 'weilin_function_toggles_clearAll') {
-    isClearAllEnabled.value = e.newValue !== 'false'
-  } else if (e.key === 'weilin_function_toggles_deleteButton') {
-    isDeleteButtonEnabled.value = e.newValue !== 'false'
-  } else if (e.key === 'weilin_function_toggles_randomTag') {
-    isRandomTagEnabled.value = e.newValue !== 'false'
-  } else if (e.key === 'weilin_function_toggles_randomTagSettings') {
-    isRandomTagSettingsEnabled.value = e.newValue !== 'false'
-  } else if (e.key === 'weilin_function_toggles_translateTag') {
-    isTranslateTagEnabled.value = e.newValue !== 'false'
-  } else if (e.key === 'weilin_function_toggles_clearDisabled') {
-    isClearDisabledEnabled.value = e.newValue !== 'false'
-  }
-}
-
-// 切换标签管理器的显示状态
-const toggleLabelManager = () => {
-  isLabelManagerVisible.value = !isLabelManagerVisible.value
-}
-
-// 监听状态变化并保存到 localStorage
-watch(isLabelManagerVisible, (newValue) => {
-  localStorage.setItem(STORAGE_KEY_SIDEBAR_VISIBLE, String(newValue))
-})
-
-// 组件挂载时，从 localStorage 读取并恢复状态
-onMounted(() => {
-  const savedState = localStorage.getItem(STORAGE_KEY_SIDEBAR_VISIBLE)
-  // 默认值为 true (显示)，如果存储了 'false' 则为 false
-  isLabelManagerVisible.value = savedState !== 'false'
-  // ... 其他 onMounted 逻辑
-})
-
-// 生成唯一ID的函数
-const generateUniqueId = () => {
-  tokenIdCounter.value++
-  return `token_${ tokenIdCounter.value }_${ Date.now() }`
-}
-
-const toggleLora = () => {
-  loraOpen.value = !loraOpen.value
-}
-
-const closeLora = () => {
-  loraOpen.value = false
-}
-
-// 左侧主标签管理器交互与主内容宽度计算
-const mainLabelManagerRef = ref(null)
-const selectedMainLabelId = ref(null)
-const unsavedChanges = ref(false)
-// 记录/恢复最后选中的主标签
-const LAST_LABEL_KEY = `weilin_prompt_ui_last_main_label_id_${ props.promptManager || 'default' }`
-const MAIN_LABELS_STORAGE_KEY = 'weilin_prompt_ui_main_labels_v1'
-// --- 修改 mainContentWidth 计算属性 ---
-const mainContentWidth = computed(() => {
-  // 根据 isLabelManagerVisible 决定左侧标签管理器的宽度
-  const labelManagerWidth = isLabelManagerVisible.value ? 280 : 0
-  const left = (loraOpen.value ? 300 : 0) + labelManagerWidth // Lora(可变) + 主标签管理器(可变)
-  return `calc(100% - ${ left }px)`
-})
-// const mainContentWidth = computed(() => {
-//   const left = (loraOpen.value ? 300 : 0) + 280 // Lora(可变) + 主标签管理器(固定)
-//   return `calc(100% - ${left}px)`
-// })
-
-let suppressUnsavedOnce = false
-const onSelectMainLabel = (item) => {
-  // console.log('onSelectMainLabel', item)
-  if (!item) {
-    selectedMainLabelId.value = null
-    inputText.value = ''
-    nextTick(() => {
-      if (inputAreaRef.value) {
-        inputAreaRef.value.value = ''
-        handleInput({ target: inputAreaRef.value })
-      }
-    })
-    unsavedChanges.value = false
-    return
-  }
-  selectedMainLabelId.value = item.id
-  suppressUnsavedOnce = true
-  inputText.value = item.content || ''
-  nextTick(() => {
-    if (inputAreaRef.value) {
-      inputAreaRef.value.value = inputText.value
-      // 模拟输入事件，触发 tokens 解析与渲染
-      handleInput({ target: inputAreaRef.value })
+  const props = defineProps({
+    promptManager: {
+      type: String,
+      default: 'prompt_global'
+    },
+    hasPromptLoraStack: {
+      type: Boolean,
+      default: false
     }
   })
-  unsavedChanges.value = false
-}
 
-// 将输入框的变更回写到选中的主标签
-// 仅做“有未保存变更”的标记，不再自动写回标签
-watch(inputText, (v) => {
-  if (suppressUnsavedOnce) {
-    suppressUnsavedOnce = false
-    return
+  const parentCneterBox = ref(null)
+
+  // 输入prompt信息
+  const inputText = ref('')
+  const tokens = ref([])
+  const tokenInputRefs = {}
+  const activeControls = ref(null)
+  const isOverControls = ref(false)
+  const controlsPosition = ref({
+    top: '0px',
+    left: '0px'
+  })
+  const showLanguageSelector = ref(false)
+  const settingDialog = ref(null)
+  const langBtnRef = ref(null)
+  const languageSwitcherRef = ref(null)
+
+  // Lora选择信息
+  const currentEditNodeId = ref('') // 当前编辑的节点ID
+  const selectedLoras = ref([])
+  const loraOpen = ref(false)
+  const loraStackRef = ref(null) // LoraStack 组件引用
+
+  // 添加自动补全相关的 ref
+  const showAutocomplete = ref(false)
+  const autocompleteResults = ref([])
+  const selectedAutocompleteIndex = ref(0)
+  const selectedItemRef = ref(null)
+  const saveAutoCompleteWidth = ref(localStorage.getItem('weilin_prompt_ui_auto_box_width') || 450)
+  const saveAutoCompleteHeight = ref(
+    localStorage.getItem('weilin_prompt_ui_auto_box_height') || 350
+  )
+
+  const translateText = ref('')
+
+  // 框选功能相关变量
+  const isSelecting = ref(false)
+  const selectionStart = ref({ x: 0, y: 0 })
+  const selectionEnd = ref({ x: 0, y: 0 })
+  const selectedTokens = ref([])
+  const selectionBoxId = 'weilin-selection-box'
+  const tokensContainerRef = ref(null)
+  const isBoxSelectMode = ref(false) // 标记当前是否在框选模式
+  const isPotentialBoxSelection = ref(false) // 标记潜在的框选操作，用于区分点击和拖动
+  const showSelectionActions = ref(false)
+  const selectionActionsPosition = ref({ top: '0px', left: '0px' })
+  // 用于防止更新操作频繁触发的标志
+  const isUpdatingSelectionBox = ref(false) // 控制选择框更新
+  const isUpdatingSelectedTokens = ref(false) // 控制标签选中状态更新
+  // 用于节流的时间戳
+  const lastUpdateTime = ref(0)
+  const throttleInterval = 16 // 约60fps
+
+  const showTagTipsBox = ref(false)
+  const tagTipsPosition = ref({
+    top: '0px',
+    left: '0px'
+  })
+
+  // 控制标签删除按钮是否显示的状态
+  const showDeleteButton = ref(
+    localStorage.getItem('weilin_prompt_ui_show_delete_button') !== 'false'
+  )
+
+  // 保存删除按钮设置到localStorage
+  const saveShowDeleteButtonSetting = () => {
+    localStorage.setItem('weilin_prompt_ui_show_delete_button', String(showDeleteButton.value))
   }
-  unsavedChanges.value = true
-})
-// 在标签 tokens 序列变更时标记为有未保存变更（初始化期间除外）
-// 优化：使用浅层watch减少性能开销
-watch(
-  tokens,
-  () => {
-    if (!suppressUnsavedOnce) {
-      unsavedChanges.value = true
+
+  // 切换删除按钮显示状态
+  const toggleDeleteButton = () => {
+    showDeleteButton.value = !showDeleteButton.value
+    saveShowDeleteButtonSetting()
+  }
+
+  // 监听删除按钮设置的变化
+  const handleStorageChange = (e) => {
+    if (e.key === 'weilin_prompt_ui_show_delete_button') {
+      showDeleteButton.value = e.newValue !== 'false'
     }
-  },
-  { deep: false } // 改为浅层watch，提升性能
-)
-
-// 监听并持久化最后选中的主标签 ID
-watch(selectedMainLabelId, (id) => {
-  try {
-    localStorage.setItem(LAST_LABEL_KEY, id || '')
-  } catch (e) {
-    // 忽略存储错误
   }
-})
 
-// 恢复最后一次选中的主标签
-function restoreLastSelectedMainLabel() {
-  try {
-    const lastId = localStorage.getItem(LAST_LABEL_KEY)
-    if (!lastId) {
+  // 组件挂载时添加监听器
+  onMounted(() => {
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('storage', handleFunctionTogglesStorageChange)
+  })
+
+  // 组件卸载时移除监听器
+  onUnmounted(() => {
+    window.removeEventListener('storage', handleStorageChange)
+    window.removeEventListener('storage', handleFunctionTogglesStorageChange)
+  })
+
+  // 添加防抖相关的变量
+  const debounceTimeout = ref(null) // 用于存储 setTimeout 的 ID
+  const proceTimeout = ref(null)
+  const lastInputValue = ref('') // 用于存储上一次的输入内容
+
+  // 在data或ref部分添加一个计数器用于生成唯一ID
+  const tokenIdCounter = ref(0)
+
+  // 控制左侧标签管理器是否可见的状态
+  const isLabelManagerVisible = ref(true)
+
+  // 用于本地存储的键名
+  const STORAGE_KEY_SIDEBAR_VISIBLE = 'weilin_prompt_ui_sidebar_visible'
+
+  // 功能开关状态变量 - 从localStorage读取初始值，默认值都为true
+  const isClearAllEnabled = ref(
+    localStorage.getItem('weilin_function_toggles_clearAll') !== 'false'
+  )
+  const isDeleteButtonEnabled = ref(
+    localStorage.getItem('weilin_function_toggles_deleteButton') !== 'false'
+  )
+  const isRandomTagEnabled = ref(
+    localStorage.getItem('weilin_function_toggles_randomTag') !== 'false'
+  )
+  const isRandomTagSettingsEnabled = ref(
+    localStorage.getItem('weilin_function_toggles_randomTagSettings') !== 'false'
+  )
+  const isTranslateTagEnabled = ref(
+    localStorage.getItem('weilin_function_toggles_translateTag') !== 'false'
+  )
+  const isClearDisabledEnabled = ref(
+    localStorage.getItem('weilin_function_toggles_clearDisabled') !== 'false'
+  )
+
+  // 监听功能开关变化并保存到 localStorage
+  watch(
+    [
+      isClearAllEnabled,
+      isDeleteButtonEnabled,
+      isRandomTagEnabled,
+      isRandomTagSettingsEnabled,
+      isTranslateTagEnabled,
+      isClearDisabledEnabled
+    ],
+    ([clearAll, deleteButton, randomTag, randomTagSettings, translateTag, clearDisabled]) => {
+      localStorage.setItem('weilin_function_toggles_clearAll', String(clearAll))
+      localStorage.setItem('weilin_function_toggles_deleteButton', String(deleteButton))
+      localStorage.setItem('weilin_function_toggles_randomTag', String(randomTag))
+      localStorage.setItem('weilin_function_toggles_randomTagSettings', String(randomTagSettings))
+      localStorage.setItem('weilin_function_toggles_translateTag', String(translateTag))
+      localStorage.setItem('weilin_function_toggles_clearDisabled', String(clearDisabled))
+    }
+  )
+
+  // 监听功能开关设置的存储变化
+  const handleFunctionTogglesStorageChange = (e) => {
+    if (e.key === 'weilin_function_toggles_clearAll') {
+      isClearAllEnabled.value = e.newValue !== 'false'
+    } else if (e.key === 'weilin_function_toggles_deleteButton') {
+      isDeleteButtonEnabled.value = e.newValue !== 'false'
+    } else if (e.key === 'weilin_function_toggles_randomTag') {
+      isRandomTagEnabled.value = e.newValue !== 'false'
+    } else if (e.key === 'weilin_function_toggles_randomTagSettings') {
+      isRandomTagSettingsEnabled.value = e.newValue !== 'false'
+    } else if (e.key === 'weilin_function_toggles_translateTag') {
+      isTranslateTagEnabled.value = e.newValue !== 'false'
+    } else if (e.key === 'weilin_function_toggles_clearDisabled') {
+      isClearDisabledEnabled.value = e.newValue !== 'false'
+    }
+  }
+
+  // 切换标签管理器的显示状态
+  const toggleLabelManager = () => {
+    isLabelManagerVisible.value = !isLabelManagerVisible.value
+  }
+
+  // 监听状态变化并保存到 localStorage
+  watch(isLabelManagerVisible, (newValue) => {
+    localStorage.setItem(STORAGE_KEY_SIDEBAR_VISIBLE, String(newValue))
+  })
+
+  // 组件挂载时，从 localStorage 读取并恢复状态
+  onMounted(() => {
+    const savedState = localStorage.getItem(STORAGE_KEY_SIDEBAR_VISIBLE)
+    // 默认值为 true (显示)，如果存储了 'false' 则为 false
+    isLabelManagerVisible.value = savedState !== 'false'
+    // ... 其他 onMounted 逻辑
+  })
+
+  // 生成唯一ID的函数
+  const generateUniqueId = () => {
+    tokenIdCounter.value++
+    return `token_${tokenIdCounter.value}_${Date.now()}`
+  }
+
+  const toggleLora = () => {
+    loraOpen.value = !loraOpen.value
+  }
+
+  const closeLora = () => {
+    loraOpen.value = false
+  }
+
+  // 左侧主标签管理器交互与主内容宽度计算
+  const mainLabelManagerRef = ref(null)
+  const selectedMainLabelId = ref(null)
+  const unsavedChanges = ref(false)
+  // 记录/恢复最后选中的主标签
+  const LAST_LABEL_KEY = `weilin_prompt_ui_last_main_label_id_${props.promptManager || 'default'}`
+  const MAIN_LABELS_STORAGE_KEY = 'weilin_prompt_ui_main_labels_v1'
+  // --- 修改 mainContentWidth 计算属性 ---
+  const mainContentWidth = computed(() => {
+    // 根据 isLabelManagerVisible 决定左侧标签管理器的宽度
+    const labelManagerWidth = isLabelManagerVisible.value ? 280 : 0
+    const left = (loraOpen.value ? 300 : 0) + labelManagerWidth // Lora(可变) + 主标签管理器(可变)
+    return `calc(100% - ${left}px)`
+  })
+  // const mainContentWidth = computed(() => {
+  //   const left = (loraOpen.value ? 300 : 0) + 280 // Lora(可变) + 主标签管理器(固定)
+  //   return `calc(100% - ${left}px)`
+  // })
+
+  let suppressUnsavedOnce = false
+  const onSelectMainLabel = (item) => {
+    // console.log('onSelectMainLabel', item)
+    if (!item) {
+      selectedMainLabelId.value = null
+      inputText.value = ''
+      nextTick(() => {
+        if (inputAreaRef.value) {
+          inputAreaRef.value.value = ''
+          handleInput({ target: inputAreaRef.value })
+        }
+      })
+      unsavedChanges.value = false
       return
     }
-    const raw = localStorage.getItem(MAIN_LABELS_STORAGE_KEY)
-    const arr = raw ? JSON.parse(raw) : []
-    const node = Array.isArray(arr) ? arr.find((x) => x && x.id === lastId) : null
-    if (!node) {
-      return
-    }
-    selectedMainLabelId.value = lastId
+    selectedMainLabelId.value = item.id
     suppressUnsavedOnce = true
-    inputText.value = node.content || ''
+    inputText.value = item.content || ''
     nextTick(() => {
       if (inputAreaRef.value) {
         inputAreaRef.value.value = inputText.value
+        // 模拟输入事件，触发 tokens 解析与渲染
         handleInput({ target: inputAreaRef.value })
       }
-
-      // 初始化渲染完毕，解除一次性抑制
-      suppressUnsavedOnce = false
     })
     unsavedChanges.value = false
-  } catch (e) {
-    // 忽略恢复错误
   }
-}
 
-onMounted(() => {
-  // 页面加载时尝试恢复上次的主标签选择
-  restoreLastSelectedMainLabel()
-  // 关闭页面前保存选中状态（兜底一次）
-  const saveLast = () => {
+  // 将输入框的变更回写到选中的主标签
+  // 仅做“有未保存变更”的标记，不再自动写回标签
+  watch(inputText, () => {
+    if (suppressUnsavedOnce) {
+      suppressUnsavedOnce = false
+      return
+    }
+    unsavedChanges.value = true
+  })
+  // 在标签 tokens 序列变更时标记为有未保存变更（初始化期间除外）
+  // 优化：使用浅层watch减少性能开销
+  watch(
+    tokens,
+    () => {
+      if (!suppressUnsavedOnce) {
+        unsavedChanges.value = true
+      }
+    },
+    { deep: false } // 改为浅层watch，提升性能
+  )
+
+  // 监听并持久化最后选中的主标签 ID
+  watch(selectedMainLabelId, (id) => {
     try {
-      localStorage.setItem(LAST_LABEL_KEY, selectedMainLabelId.value || '')
+      localStorage.setItem(LAST_LABEL_KEY, id || '')
     } catch (e) {
       // 忽略存储错误
     }
-  }
-  window.addEventListener('beforeunload', saveLast)
-  onBeforeUnmount(() => window.removeEventListener('beforeunload', saveLast))
-})
+  })
 
-// 点击“更新标签”时才把文本写回当前标签
-function updateSelectedLabel() {
-  if (!selectedMainLabelId.value) {
-    return
-  }
-  if (!mainLabelManagerRef.value?.updateSelectedContent) {
-    return
-  }
-  mainLabelManagerRef.value.updateSelectedContent(inputText.value)
-  unsavedChanges.value = false
-  showUpdatedToast()
-}
+  // 恢复最后一次选中的主标签
+  function restoreLastSelectedMainLabel() {
+    try {
+      const lastId = localStorage.getItem(LAST_LABEL_KEY)
+      if (!lastId) {
+        return
+      }
+      const raw = localStorage.getItem(MAIN_LABELS_STORAGE_KEY)
+      const arr = raw ? JSON.parse(raw) : []
+      const node = Array.isArray(arr) ? arr.find((x) => x && x.id === lastId) : null
+      if (!node) {
+        return
+      }
+      selectedMainLabelId.value = lastId
+      suppressUnsavedOnce = true
+      inputText.value = node.content || ''
+      nextTick(() => {
+        if (inputAreaRef.value) {
+          inputAreaRef.value.value = inputText.value
+          handleInput({ target: inputAreaRef.value })
+        }
 
-// 轻量提示框（toast）
-const toastVisible = ref(false)
-let toastTimer = null
-function showUpdatedToast() {
-  toastVisible.value = true
-  if (toastTimer) {
-    clearTimeout(toastTimer)
-  }
-  toastTimer = setTimeout(() => {
-    toastVisible.value = false
-  }, 1600)
-}
-onBeforeUnmount(() => {
-  if (toastTimer) {
-    clearTimeout(toastTimer)
-  }
-})
-
-const openSettings = () => {
-  settingDialog.value.open()
-}
-
-// 在 script 中添加相关方法
-const weightValue = ref(1)
-
-const applyWeight = () => {
-  if (activeControls.value === null) {
-    return
+        // 初始化渲染完毕，解除一次性抑制
+        suppressUnsavedOnce = false
+      })
+      unsavedChanges.value = false
+    } catch (e) {
+      // 忽略恢复错误
+    }
   }
 
-  const token = tokens.value[activeControls.value]
-  const text = token.text
+  onMounted(() => {
+    // 页面加载时尝试恢复上次的主标签选择
+    restoreLastSelectedMainLabel()
+    // 关闭页面前保存选中状态（兜底一次）
+    const saveLast = () => {
+      try {
+        localStorage.setItem(LAST_LABEL_KEY, selectedMainLabelId.value || '')
+      } catch (e) {
+        // 忽略存储错误
+      }
+    }
+    window.addEventListener('beforeunload', saveLast)
+    onBeforeUnmount(() => window.removeEventListener('beforeunload', saveLast))
+  })
 
-  // 检查括号是否完整
-  if (!isBracketComplete(text)) {
-    message({ type: 'warn', str: 'message.noFinishKuo' })
-    return
+  // 点击“更新标签”时才把文本写回当前标签
+  function updateSelectedLabel() {
+    if (!selectedMainLabelId.value) {
+      return
+    }
+    if (!mainLabelManagerRef.value?.updateSelectedContent) {
+      return
+    }
+    mainLabelManagerRef.value.updateSelectedContent(inputText.value)
+    unsavedChanges.value = false
+    showUpdatedToast()
   }
 
-  // 辅助函数：检查是否只有一层圆括号
-  const hasOnlySingleParentheses = (text) => {
-    return (
-      text.startsWith('(') &&
+  // 轻量提示框（toast）
+  const toastVisible = ref(false)
+  let toastTimer = null
+  function showUpdatedToast() {
+    toastVisible.value = true
+    if (toastTimer) {
+      clearTimeout(toastTimer)
+    }
+    toastTimer = setTimeout(() => {
+      toastVisible.value = false
+    }, 1600)
+  }
+  onBeforeUnmount(() => {
+    if (toastTimer) {
+      clearTimeout(toastTimer)
+    }
+  })
+
+  const openSettings = () => {
+    settingDialog.value.open()
+  }
+
+  // 在 script 中添加相关方法
+  const weightValue = ref(1)
+
+  const applyWeight = () => {
+    if (activeControls.value === null) {
+      return
+    }
+
+    const token = tokens.value[activeControls.value]
+    const text = token.text
+
+    // 检查括号是否完整
+    if (!isBracketComplete(text)) {
+      message({ type: 'warn', str: 'message.noFinishKuo' })
+      return
+    }
+
+    // 辅助函数：检查是否只有一层圆括号
+    const hasOnlySingleParentheses = (text) => {
+      return (
+        text.startsWith('(') &&
         text.endsWith(')') &&
         !text.slice(1, -1).includes('(') &&
         !text.slice(1, -1).includes(')') &&
@@ -1395,828 +1404,773 @@ const applyWeight = () => {
         !text.slice(1, -1).includes('}') &&
         !text.slice(1, -1).includes('<') &&
         !text.slice(1, -1).includes('>')
-    )
-  }
-
-  // 辅助函数：查找文本中的现有权重值
-  const getExistingWeight = (text) => {
-    const weightMatch = text.match(/:(-?\d+(\.\d+)?)$/) // 支持负数
-    return weightMatch ? parseFloat(weightMatch[1]) : null
-  }
-
-  // 辅助函数：从嵌套括号中提取最内层内容
-  const extractInnerContent = (text) => {
-    // 查找最内层的内容，不包括权重
-    const innerMatch = text.match(/^([\(\[\{\<]*)(.*?)(?::[\d.]+)?([\)\]\}\>]*)$/)
-    if (!innerMatch) {
-      return text
+      )
     }
 
-    const [, outerBrackets, content, outerCloseBrackets] = innerMatch
+    // 辅助函数：从嵌套括号中提取最内层内容
+    // eslint-disable-next-line no-unused-vars
+    const extractInnerContent = (text) => {
+      // 查找最内层的内容，不包括权重
+      // eslint-disable-next-line no-useless-escape
+      const innerMatch = text.match(/^([(\[{<]*)(.*?)(?::[\d.]+)?([)\]}>]*)$/)
+      if (!innerMatch) {
+        return text
+      }
 
-    // 如果内容中还有括号，递归处理
-    if (
-      /[\(\[\{\<].*[\)\]\}\>]/.test(content) &&
-        !content.includes('\\(') &&
-        !content.includes('\\)')
-    ) {
-      const innerContent = extractInnerContent(content)
-      return outerBrackets + innerContent + outerCloseBrackets
+      const [, outerBrackets, content, outerCloseBrackets] = innerMatch
+
+      // 如果内容中还有括号，递归处理
+      if (/[[{<].*[)}>]/.test(content) && !content.includes('\\(') && !content.includes('\\)')) {
+        const innerContent = extractInnerContent(content)
+        return outerBrackets + innerContent + outerCloseBrackets
+      }
+
+      return content
     }
 
-    return content
-  }
+    // 主要处理逻辑
+    let newText = text
 
-  // 主要处理逻辑
-  let newText = text
+    // 检查是否整个文本已经有权重值（在末尾）
+    const hasTrailingWeight = /:(-?\d+(\.\d+)?)$/.test(text)
 
-  // 检查是否整个文本已经有权重值（在末尾）
-  const hasTrailingWeight = /:(-?\d+(\.\d+)?)$/.test(text)
+    // 检查是否已经是带权重的格式：(内容:权重)
+    const weightedFormatMatch = text.match(/^\((.*?):(-?\d+(\.\d+)?)\)$/)
 
-  // 检查是否已经是带权重的格式：(内容:权重)
-  const weightedFormatMatch = text.match(/^\((.*?):(-?\d+(\.\d+)?)\)$/)
-
-  if (hasTrailingWeight || weightedFormatMatch) {
-    // 已经有权重的情况
-    if (weightValue.value === 1) {
-      // 权重为1时，移除权重标记和外层括号（如果有）
-      if (text.startsWith('(') && text.endsWith(')')) {
-        // 移除外层括号和权重
-        newText = text.slice(1, -1).replace(/:(\d+(\.\d+)?)$/, '')
+    if (hasTrailingWeight || weightedFormatMatch) {
+      // 已经有权重的情况
+      if (weightValue.value === 1) {
+        // 权重为1时，移除权重标记和外层括号（如果有）
+        if (text.startsWith('(') && text.endsWith(')')) {
+          // 移除外层括号和权重
+          newText = text.slice(1, -1).replace(/:(\d+(\.\d+)?)$/, '')
+        } else {
+          // 只有权重，没有外层括号，仅移除权重
+          newText = text.replace(/:(\d+(\.\d+)?)$/, '')
+        }
       } else {
-        // 只有权重，没有外层括号，仅移除权重
-        newText = text.replace(/:(\d+(\.\d+)?)$/, '')
+        // 权重不为1，替换权重值
+        // 确保只替换最外层的权重，不影响内部括号中的权重
+        if (weightedFormatMatch) {
+          // 完整的(内容:权重)格式
+          newText = `(${weightedFormatMatch[1]}:${weightValue.value})`
+        } else {
+          // 只有末尾有权重
+          newText = text.replace(/:(-?\d+(\.\d+)?)$/, `:${weightValue.value}`)
+        }
       }
     } else {
-      // 权重不为1，替换权重值
-      // 确保只替换最外层的权重，不影响内部括号中的权重
-      if (weightedFormatMatch) {
-        // 完整的(内容:权重)格式
-        newText = `(${ weightedFormatMatch[1] }:${ weightValue.value })`
-      } else {
-        // 只有末尾有权重
-        newText = text.replace(/:(-?\d+(\.\d+)?)$/, `:${ weightValue.value }`)
-      }
-    }
-  } else {
-    // 处理没有权重的情况
+      // 处理没有权重的情况
 
-    // 处理ask_(askzy)格式 -> (ask (askzy):1.1)
-    const underscoreBracketMatch = text.match(/^([^_]+)_(\([^)]+\))$/)
-    if (underscoreBracketMatch && !text.includes('\\(') && !text.includes('\\)')) {
-      const [, prefix, bracketContent] = underscoreBracketMatch
-      if (weightValue.value === 1) {
-        newText = text // 权重为1时保持原样
-      } else {
-        newText = `(${ prefix } ${ bracketContent }:${ weightValue.value })`
-      }
-    }
-    // 处理ask_\(askzy\)格式 -> (ask_\(askzy\):1.1)
-    else if (
-      text.includes('\\(') &&
+      // 处理ask_(askzy)格式 -> (ask (askzy):1.1)
+      const underscoreBracketMatch = text.match(/^([^_]+)_(\([^)]+\))$/)
+      if (underscoreBracketMatch && !text.includes('\\(') && !text.includes('\\)')) {
+        const [, prefix, bracketContent] = underscoreBracketMatch
+        if (weightValue.value === 1) {
+          newText = text // 权重为1时保持原样
+        } else {
+          newText = `(${prefix} ${bracketContent}:${weightValue.value})`
+        }
+      } else if (
+        // 处理ask_\(askzy\)格式 -> (ask_\(askzy\):1.1)
+        text.includes('\\(') &&
         text.includes('\\)') &&
-        !/[\(\)\[\]\{\}<>]/.test(text.replace(/\\[\(\)\[\]\{\}<>]/g, ''))
-    ) {
-      if (weightValue.value === 1) {
-        newText = text // 权重为1时保持原样
-      } else {
-        // 检查是否已经有外层括号
-        if (text.startsWith('(') && text.endsWith(')')) {
-          newText = text.replace(/\)$/, `:${ weightValue.value })`)
+        !/[()[\]{}<>]/.test(text.replace(/\\[()[\]{}<>]/g, ''))
+      ) {
+        if (weightValue.value === 1) {
+          newText = text // 权重为1时保持原样
         } else {
-          newText = `(${ text }:${ weightValue.value })`
+          // 检查是否已经有外层括号
+          if (text.startsWith('(') && text.endsWith(')')) {
+            newText = text.replace(/\)$/, `:${weightValue.value})`)
+          } else {
+            newText = `(${text}:${weightValue.value})`
+          }
+        }
+      } else if (!/[([{<)>}]/.test(text)) {
+        // 处理没有任何括号的情况
+        if (weightValue.value === 1) {
+          newText = text // 权重为1时保持原样
+        } else {
+          newText = `(${text}:${weightValue.value})`
+        }
+      } else if (weightValue.value === 1 && hasOnlySingleParentheses(text)) {
+        // 处理只有一层圆括号的情况，权重为1时移除括号
+        newText = text.slice(1, -1)
+      } else {
+        // 处理包含内部括号的情况，确保权重调整应用于整个文本
+        if (weightValue.value === 1) {
+          // 权重为1时，保持原样
+          newText = text
+        } else {
+          // 检查文本是否已经被括号包裹
+          if (text.startsWith('(') && text.endsWith(')')) {
+            // 已经有圆括号包裹，直接在末尾添加权重
+            newText = text.replace(/\)$/, `:${weightValue.value})`)
+          } else {
+            // 添加圆括号并在内部末尾添加权重
+            newText = `(${text}:${weightValue.value})`
+          }
         }
       }
     }
-    // 处理没有任何括号的情况
-    else if (!/[\(\[\{\<\)\]\}\>]/.test(text)) {
-      if (weightValue.value === 1) {
-        newText = text // 权重为1时保持原样
-      } else {
-        newText = `(${ text }:${ weightValue.value })`
+
+    tokens.value[activeControls.value].text = newText
+    updateInputText()
+  }
+
+  // Lora权重控制
+  const loraModelWeight = ref(0.5)
+  const loraClipWeight = ref(0.5)
+  const loraTriggerWeight = ref(0.5)
+
+  // 当选择一个Lora标签时，解析其权重
+  watch(activeControls, (newVal) => {
+    if (newVal !== null && tokens.value[newVal]?.isLoraTag) {
+      // 解析Lora标签格式: <wlr:LoraName:modelWeight:clipWeight:triggerWeight>
+      // 兼容旧格式: <wlr:LoraName:modelWeight:triggerWeight>
+      const text = tokens.value[newVal].text
+      const match4 = text.match(/<wlr:([^:]+):([^:]+):([^:]+):([^>]+)>/)
+      const match3 = text.match(/<wlr:([^:]+):([^:]+):([^>]+)>/)
+
+      if (match4) {
+        // 新格式4参数
+        loraModelWeight.value = parseFloat(match4[2])
+        loraClipWeight.value = parseFloat(match4[3])
+        loraTriggerWeight.value = parseFloat(match4[4])
+      } else if (match3) {
+        // 旧格式3参数
+        loraModelWeight.value = parseFloat(match3[2])
+        loraClipWeight.value = parseFloat(match3[3])
+        loraTriggerWeight.value = parseFloat(match3[3]) // 触发词权重 = CLIP权重
       }
     }
-    // 处理只有一层圆括号的情况，权重为1时移除括号
-    else if (weightValue.value === 1 && hasOnlySingleParentheses(text)) {
-      newText = text.slice(1, -1)
-    }
-    // 处理包含内部括号的情况，确保权重调整应用于整个文本
-    else {
-      if (weightValue.value === 1) {
-        // 权重为1时，保持原样
-        newText = text
-      } else {
-        // 检查文本是否已经被括号包裹
-        if (text.startsWith('(') && text.endsWith(')')) {
-          // 已经有圆括号包裹，直接在末尾添加权重
-          newText = text.replace(/\)$/, `:${ weightValue.value })`)
-        } else {
-          // 添加圆括号并在内部末尾添加权重
-          newText = `(${ text }:${ weightValue.value })`
-        }
+  })
+
+  // 应用Lora权重
+  const applyLoraWeights = () => {
+    if (activeControls.value !== null && tokens.value[activeControls.value]?.isLoraTag) {
+      const token = tokens.value[activeControls.value]
+      const text = token.text
+
+      // 格式: <wlr:LoraName:modelWeight:clipWeight:triggerWeight>
+      // 兼容旧格式: <wlr:LoraName:modelWeight:triggerWeight>
+      const match4 = text.match(/<wlr:([^:]+):([^:]+):([^:]+):([^>]+)>/)
+      const match3 = text.match(/<wlr:([^:]+):([^:]+):([^>]+)>/)
+
+      let loraName = ''
+      if (match4) {
+        loraName = match4[1]
+      } else if (match3) {
+        loraName = match3[1]
+      }
+
+      if (loraName) {
+        // 使用新格式4参数
+        const newText = `<wlr:${loraName}:${loraModelWeight.value}:${loraClipWeight.value}:${loraTriggerWeight.value}>`
+        token.text = newText
+        updateInputText()
       }
     }
   }
 
-  tokens.value[activeControls.value].text = newText
-  updateInputText()
-}
-
-// Lora权重控制
-const loraModelWeight = ref(0.5)
-const loraTextWeight = ref(0.5)
-
-// 当选择一个Lora标签时，解析其权重
-watch(activeControls, (newVal) => {
-  if (newVal !== null && tokens.value[newVal]?.isLoraTag) {
-    // 解析Lora标签格式 <wlr:LoraName:weight1:weight2>
-    const text = tokens.value[newVal].text
-    const match = text.match(/<wlr:([^:]+):([^:]+):([^>]+)>/)
-    if (match) {
-      loraModelWeight.value = parseFloat(match[2])
-      loraTextWeight.value = parseFloat(match[3])
+  // 修改wrapWith函数
+  const wrapWith = (bracketType) => {
+    if (activeControls.value === null) {
+      return
     }
-  }
-})
 
-// 应用Lora权重
-const applyLoraWeights = () => {
-  if (activeControls.value !== null && tokens.value[activeControls.value]?.isLoraTag) {
     const token = tokens.value[activeControls.value]
-    const match = token.text.match(/<wlr:([^:]+):([^:]+):([^>]+)>/)
-    if (match) {
-      const loraName = match[1]
-      // 创建新的Lora标签文本
-      const newText = `<wlr:${ loraName }:${ loraModelWeight.value }:${ loraTextWeight.value }>`
-      // 更新token文本
-      token.text = newText
-      // 更新输入文本
-      updateInputText()
-    }
-  }
-}
+    let text = token.text
 
-// 修改wrapWith函数
-const wrapWith = (bracketType) => {
-  if (activeControls.value === null) {
-    return
-  }
+    // 定义括号对
+    const bracketPair = {
+      '(': ')',
+      '[': ']',
+      '{': '}',
+      '<': '>'
+    }[bracketType]
 
-  const token = tokens.value[activeControls.value]
-  let text = token.text
+    text = `${bracketType}${text}${bracketPair}`
 
-  // 定义括号对
-  const bracketPair = {
-    '(': ')',
-    '[': ']',
-    '{': '}',
-    '<': '>'
-  }[bracketType]
-
-  text = `${ bracketType }${ text }${ bracketPair }`
-
-  tokens.value[activeControls.value].text = text
-
-  finishPromptPutItHistory()
-}
-
-const removeLayer = (bracketType) => {
-  if (activeControls.value === null) {
-    return
-  }
-  const token = tokens.value[activeControls.value]
-  let text = token.text
-
-  // 移除最外层对应类型的括号
-  const bracketPair = {
-    '(': ')',
-    '[': ']',
-    '{': '}',
-    '<': '>'
-  }
-
-  if (text.startsWith(bracketType) && text.endsWith(bracketPair[bracketType])) {
-    text = text.slice(1, -1)
     tokens.value[activeControls.value].text = text
+
     finishPromptPutItHistory()
   }
-}
 
-// 添加括号完整性检查函数
-const isBracketComplete = (text) => {
-  const stack = []
-  const bracketMap = {
-    '(': ')',
-    '[': ']',
-    '{': '}',
-    '<': '>'
+  const removeLayer = (bracketType) => {
+    if (activeControls.value === null) {
+      return
+    }
+    const token = tokens.value[activeControls.value]
+    let text = token.text
+
+    // 移除最外层对应类型的括号
+    const bracketPair = {
+      '(': ')',
+      '[': ']',
+      '{': '}',
+      '<': '>'
+    }
+
+    if (text.startsWith(bracketType) && text.endsWith(bracketPair[bracketType])) {
+      text = text.slice(1, -1)
+      tokens.value[activeControls.value].text = text
+      finishPromptPutItHistory()
+    }
   }
 
-  for (const char of text) {
-    if (bracketMap[char]) {
-      stack.push(char)
-    } else if (Object.values(bracketMap).includes(char)) {
-      if (stack.length === 0 || bracketMap[stack.pop()] !== char) {
-        return false
+  // 添加括号完整性检查函数
+  const isBracketComplete = (text) => {
+    const stack = []
+    const bracketMap = {
+      '(': ')',
+      '[': ']',
+      '{': '}',
+      '<': '>'
+    }
+
+    for (const char of text) {
+      if (bracketMap[char]) {
+        stack.push(char)
+      } else if (Object.values(bracketMap).includes(char)) {
+        if (stack.length === 0 || bracketMap[stack.pop()] !== char) {
+          return false
+        }
       }
     }
+
+    return stack.length === 0
   }
 
-  return stack.length === 0
-}
-
-const getClosingBracket = (bracketType) => {
-  switch (bracketType) {
-  case '(':
-    return ')'
-  case '[':
-    return ']'
-  case '{':
-    return '}'
-  default:
-    return ''
-  }
-}
-
-// 在更新前清除 refs
-onBeforeUpdate(() => {
-  for (const key in tokenInputRefs) {
-    delete tokenInputRefs[key]
-  }
-})
-
-// 添加判断是否为标点符号的函数
-const isPunctuation = (char) => {
-  // 匹配中文标点和英文标点
-  return /[\u2000-\u206F\u3000-\u303F\uFF00-\uFFEF!-/:-@\[-`{-~]/.test(char)
-}
-
-// 添加判断是否为英文的函数
-const isEnglish = (text) => {
-  return /^[a-zA-Z]+$/.test(text)
-}
-// 添加选择分割方式的变量
-const splitByPunctuation = ref(true) // 默认以标点符号分割
-const replaceUnderscoreWithSpace = ref(false) // 默认不替换下划线
-
-const isTextTranslatable = (text) => {
-  // 匹配包含任何语言的字母或字符
-  // 包括但不限于：中文、英文、日文、韩文、阿拉伯文、俄文等
-  // 排除纯数字、标点符号和特殊符号
-  return /[\p{L}]/u.test(text)
-}
-
-const extractText = (input) => {
-  // 匹配任意字符序列，直到遇到冒号
-  const match = input.match(/([^:]+):[\d.]+/)
-  // 如果找到了匹配项，则返回第一个捕获组，否则返回原输入
-  return match ? match[1] : input
-}
-
-const replaceTagsWithDesc = (text, tagMap) => {
-  // 确保 tagMap 是 Map 类型
-  if (!(tagMap instanceof Map)) {
-    throw new Error('tagMap 必须是 Map 类型')
-  }
-
-  // 将所有 tag 拼接成一个正则表达式
-  const tagsPattern = Array.from(tagMap.keys())
-    .map((tag) => {
-      // 确保 tag 是字符串
-      const tagStr = typeof tag === 'string' ? tag : String(tag)
-      // 转义正则表达式的特殊字符
-      return tagStr.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
+  // 在更新前清除 refs
+  onBeforeUpdate(() => {
+    Object.keys(tokenInputRefs).forEach((key) => {
+      delete tokenInputRefs[key]
     })
-    .join('|') // 用 | 连接所有 tag
-
-  // 创建全局不区分大小写的正则表达式
-  const regex = new RegExp(tagsPattern, 'gi')
-
-  // 使用 replace 和回调函数进行一次性替换
-  return text.replace(regex, (matchedTag) => {
-    // 查找对应的 desc
-    const tagInfo = tagMap.get(matchedTag.toLowerCase()) // 假设不区分大小写
-    return tagInfo ? tagInfo.desc : matchedTag // 如果找不到 desc，返回原 tag
   })
-}
 
-// 缓存计算样式,减少getComputedStyle调用
-let cachedStyles = null
-const getCachedStyles = (textarea) => {
-  if (!cachedStyles) {
-    cachedStyles = {
-      width: window.getComputedStyle(textarea).width,
-      font: window.getComputedStyle(textarea).font,
-      padding: window.getComputedStyle(textarea).padding
+  const isTextTranslatable = (text) => {
+    // 匹配包含任何语言的字母或字符
+    // 包括但不限于：中文、英文、日文、韩文、阿拉伯文、俄文等
+    // 排除纯数字、标点符号和特殊符号
+    return /[\p{L}]/u.test(text)
+  }
+
+  const extractText = (input) => {
+    // 匹配任意字符序列，直到遇到冒号
+    const match = input.match(/([^:]+):[\d.]+/)
+    // 如果找到了匹配项，则返回第一个捕获组，否则返回原输入
+    return match ? match[1] : input
+  }
+
+  // 缓存计算样式,减少getComputedStyle调用
+  let cachedStyles = null
+  const getCachedStyles = (textarea) => {
+    if (!cachedStyles) {
+      cachedStyles = {
+        width: window.getComputedStyle(textarea).width,
+        font: window.getComputedStyle(textarea).font,
+        padding: window.getComputedStyle(textarea).padding
+      }
     }
+    return cachedStyles
   }
-  return cachedStyles
-}
 
-let debounceTimer = null
-const calculateAutocompletePosition = async () => {
-  if (debounceTimer) {
-    clearTimeout(debounceTimer)
+  let debounceTimer = null
+  const calculateAutocompletePosition = () => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer)
+    }
+    debounceTimer = setTimeout(async () => {
+      if (!inputAreaRef.value) {
+        return
+      }
+
+      const textarea = inputAreaRef.value
+      const cursorPos = textarea.selectionStart
+      // console.log(textarea,cursorPos)
+
+      // 确保自动补全窗口已经渲染
+      await nextTick()
+
+      // 创建镜像元素计算光标位置
+      const text = textarea.value.substring(0, cursorPos)
+      const mirror = document.createElement('div')
+      mirror.style.position = 'absolute'
+      mirror.style.top = '0'
+      mirror.style.left = '0'
+      mirror.style.visibility = 'hidden'
+      mirror.style.whiteSpace = 'pre-wrap'
+      mirror.style.wordWrap = 'break-word'
+
+      // 使用缓存的样式
+      const styles = getCachedStyles(textarea)
+      mirror.style.width = styles.width
+      mirror.style.font = styles.font
+      mirror.style.padding = styles.padding
+
+      const textNode = document.createTextNode(text)
+      const cursorNode = document.createElement('span')
+      cursorNode.textContent = '|'
+
+      mirror.appendChild(textNode)
+      mirror.appendChild(cursorNode)
+      textarea.parentNode.appendChild(mirror)
+
+      // 获取光标相对于父容器的位置
+      const cursorRect = cursorNode.getBoundingClientRect()
+      const parentRect = textarea.parentNode.getBoundingClientRect()
+
+      // 计算初始位置
+      const top = cursorRect.top - parentRect.top + cursorRect.height
+      let left = cursorRect.left - parentRect.left
+
+      // 等待DOM更新完成
+      await nextTick()
+
+      if (autocompleteContainerRef.value) {
+        const autocompleteWidth = autocompleteContainerRef.value.offsetWidth
+        const textareaWidth = textarea.offsetWidth
+        const textareaLeft = textarea.getBoundingClientRect().left - parentRect.left
+
+        // 检查右边界
+        if (left + autocompleteWidth > textareaLeft + textareaWidth) {
+          left = textareaLeft + textareaWidth - autocompleteWidth
+        }
+
+        // 检查左边界
+        if (left < textareaLeft) {
+          left = textareaLeft
+        }
+
+        // 确保不会超出父容器
+        left = Math.max(0, Math.min(left, parentRect.width - autocompleteWidth))
+      }
+
+      // 清理临时元素
+      textarea.parentNode.removeChild(mirror)
+
+      autocompletePosition.value = { top, left }
+      debounceTimer = null
+    }, 100) // 增加防抖时间到100ms
   }
-  debounceTimer = setTimeout(async () => {
+
+  // 监听textarea样式变化,清除缓存
+  onMounted(() => {
+    const observer = new MutationObserver(() => {
+      cachedStyles = null
+    })
+    if (inputAreaRef.value) {
+      observer.observe(inputAreaRef.value, {
+        attributes: true,
+        attributeFilter: ['style', 'class']
+      })
+    }
+    // 在组件卸载时断开观察
+    onBeforeUnmount(() => {
+      observer.disconnect()
+    })
+  })
+
+  // 添加一个 ref 用于存储定时器
+  const historyTimer = ref(null)
+
+  // 处理输入事件
+  const handleInput = (event) => {
+    if (!event?.target) {
+      return
+    }
+
     if (!inputAreaRef.value) {
       return
     }
 
-    const textarea = inputAreaRef.value
-    const cursorPos = textarea.selectionStart
-    // console.log(textarea,cursorPos)
+    // 获取原始输入值和光标位置
+    const originalValue = event.target.value
+    const cursorPosition = event.target.selectionStart
+    const cursorEnd = event.target.selectionEnd
 
-    // 确保自动补全窗口已经渲染
-    await nextTick()
-
-    // 创建镜像元素计算光标位置
-    const text = textarea.value.substring(0, cursorPos)
-    const mirror = document.createElement('div')
-    mirror.style.position = 'absolute'
-    mirror.style.top = '0'
-    mirror.style.left = '0'
-    mirror.style.visibility = 'hidden'
-    mirror.style.whiteSpace = 'pre-wrap'
-    mirror.style.wordWrap = 'break-word'
-
-    // 使用缓存的样式
-    const styles = getCachedStyles(textarea)
-    mirror.style.width = styles.width
-    mirror.style.font = styles.font
-    mirror.style.padding = styles.padding
-
-    const textNode = document.createTextNode(text)
-    const cursorNode = document.createElement('span')
-    cursorNode.textContent = '|'
-
-    mirror.appendChild(textNode)
-    mirror.appendChild(cursorNode)
-    textarea.parentNode.appendChild(mirror)
-
-    // 获取光标相对于父容器的位置
-    const cursorRect = cursorNode.getBoundingClientRect()
-    const parentRect = textarea.parentNode.getBoundingClientRect()
-
-    // 计算初始位置
-    const top = cursorRect.top - parentRect.top + cursorRect.height
-    let left = cursorRect.left - parentRect.left
-
-    // 等待DOM更新完成
-    await nextTick()
-
-    if (autocompleteContainerRef.value) {
-      const autocompleteWidth = autocompleteContainerRef.value.offsetWidth
-      const textareaWidth = textarea.offsetWidth
-      const textareaLeft = textarea.getBoundingClientRect().left - parentRect.left
-
-      // 检查右边界
-      if (left + autocompleteWidth > textareaLeft + textareaWidth) {
-        left = textareaLeft + textareaWidth - autocompleteWidth
+    // 1. 首先处理格式转换
+    const formatConversions = {
+      comma: {
+        enabled: localStorage.getItem('weilin_prompt_ui_comma_conversion') !== 'false',
+        pattern: /，/g,
+        replace: ','
+      },
+      period: {
+        enabled: localStorage.getItem('weilin_prompt_ui_period_conversion') !== 'false',
+        pattern: /。/g,
+        replace: '.'
+      },
+      bracket: {
+        enabled: localStorage.getItem('weilin_prompt_ui_bracket_conversion') !== 'false',
+        patterns: [
+          { pattern: /【/g, replace: '[' },
+          { pattern: /】/g, replace: ']' },
+          { pattern: /（/g, replace: '(' },
+          { pattern: /）/g, replace: ')' }
+        ]
+      },
+      angleBracket: {
+        enabled: localStorage.getItem('weilin_prompt_ui_angle_bracket_conversion') !== 'false',
+        patterns: [
+          { pattern: /《/g, replace: '<' },
+          { pattern: /》/g, replace: '>' }
+        ]
       }
-
-      // 检查左边界
-      if (left < textareaLeft) {
-        left = textareaLeft
-      }
-
-      // 确保不会超出父容器
-      left = Math.max(0, Math.min(left, parentRect.width - autocompleteWidth))
+      // 下划线转换已移至补全确认时执行
     }
 
-    // 清理临时元素
-    textarea.parentNode.removeChild(mirror)
+    // 记录每个替换操作前光标位置的字符
+    let beforeCursor = originalValue.substring(0, cursorPosition)
+    let processedValue = originalValue
 
-    autocompletePosition.value = { top, left }
-    debounceTimer = null
-  }, 100) // 增加防抖时间到100ms
-}
-
-// 监听textarea样式变化,清除缓存
-onMounted(() => {
-  const observer = new MutationObserver(() => {
-    cachedStyles = null
-  })
-  if (inputAreaRef.value) {
-    observer.observe(inputAreaRef.value, {
-      attributes: true,
-      attributeFilter: ['style', 'class']
+    // 应用所有转换
+    Object.values(formatConversions).forEach((conversion) => {
+      if (conversion.enabled) {
+        if (conversion.pattern) {
+          // 处理单个模式的替换
+          beforeCursor = beforeCursor.replace(conversion.pattern, conversion.replace)
+          processedValue = processedValue.replace(conversion.pattern, conversion.replace)
+        } else if (conversion.patterns) {
+          // 处理多个模式的替换
+          conversion.patterns.forEach(({ pattern, replace }) => {
+            beforeCursor = beforeCursor.replace(pattern, replace)
+            processedValue = processedValue.replace(pattern, replace)
+          })
+        }
+      }
     })
-  }
-  // 在组件卸载时断开观察
-  onBeforeUnmount(() => {
-    observer.disconnect()
-  })
-})
 
-// 添加一个 ref 用于存储定时器
-const historyTimer = ref(null)
+    // 2. 直接更新输入框值
+    inputText.value = processedValue
 
-// 处理输入事件
-const handleInput = (event) => {
-  if (!event?.target) {
-    return
-  }
+    // 3. 立即计算并设置新的光标位置
+    // 使用转换后的beforeCursor长度作为新的光标位置
+    const newCursorPosition = beforeCursor.length
+    const selectionDiff = cursorEnd - cursorPosition
+    const newCursorEnd = newCursorPosition + selectionDiff
 
-  if (!inputAreaRef.value) {
-    return
-  }
-
-  // 获取原始输入值和光标位置
-  const originalValue = event.target.value
-  const cursorPosition = event.target.selectionStart
-  const cursorEnd = event.target.selectionEnd
-
-  // 1. 首先处理格式转换
-  const formatConversions = {
-    comma: {
-      enabled: localStorage.getItem('weilin_prompt_ui_comma_conversion') !== 'false',
-      pattern: /，/g,
-      replace: ','
-    },
-    period: {
-      enabled: localStorage.getItem('weilin_prompt_ui_period_conversion') !== 'false',
-      pattern: /。/g,
-      replace: '.'
-    },
-    bracket: {
-      enabled: localStorage.getItem('weilin_prompt_ui_bracket_conversion') !== 'false',
-      patterns: [
-        { pattern: /【/g, replace: '[' },
-        { pattern: /】/g, replace: ']' },
-        { pattern: /（/g, replace: '(' },
-        { pattern: /）/g, replace: ')' }
-      ]
-    },
-    angleBracket: {
-      enabled: localStorage.getItem('weilin_prompt_ui_angle_bracket_conversion') !== 'false',
-      patterns: [
-        { pattern: /《/g, replace: '<' },
-        { pattern: /》/g, replace: '>' }
-      ]
-    }
-    // 下划线转换已移至补全确认时执行
-  }
-
-  // 记录每个替换操作前光标位置的字符
-  let beforeCursor = originalValue.substring(0, cursorPosition)
-  let processedValue = originalValue
-
-  // 应用所有转换
-  Object.values(formatConversions).forEach((conversion) => {
-    if (conversion.enabled) {
-      if (conversion.pattern) {
-        // 处理单个模式的替换
-        beforeCursor = beforeCursor.replace(conversion.pattern, conversion.replace)
-        processedValue = processedValue.replace(conversion.pattern, conversion.replace)
-      } else if (conversion.patterns) {
-        // 处理多个模式的替换
-        conversion.patterns.forEach(({ pattern, replace }) => {
-          beforeCursor = beforeCursor.replace(pattern, replace)
-          processedValue = processedValue.replace(pattern, replace)
-        })
+    // 确保DOM更新后立即设置光标位置
+    nextTick(() => {
+      if (inputAreaRef.value) {
+        inputAreaRef.value.setSelectionRange(newCursorPosition, newCursorEnd)
+        // 确保输入框获得焦点
+        inputAreaRef.value.focus()
       }
-    }
-  })
+    })
 
-  // 2. 直接更新输入框值
-  inputText.value = processedValue
+    // 4. 精确获取当前输入内容用于补全
+    const textBeforeCursor = processedValue.substring(0, newCursorPosition)
 
-  // 3. 立即计算并设置新的光标位置
-  // 使用转换后的beforeCursor长度作为新的光标位置
-  const newCursorPosition = beforeCursor.length
-  const selectionDiff = cursorEnd - cursorPosition
-  const newCursorEnd = newCursorPosition + selectionDiff
-
-  // 确保DOM更新后立即设置光标位置
-  nextTick(() => {
-    if (inputAreaRef.value) {
-      inputAreaRef.value.setSelectionRange(newCursorPosition, newCursorEnd)
-      // 确保输入框获得焦点
-      inputAreaRef.value.focus()
-    }
-  })
-
-  // 4. 精确获取当前输入内容用于补全
-  const textBeforeCursor = processedValue.substring(0, newCursorPosition)
-
-  // 检查是否启用了逗号关闭补全窗口功能
-  const isCommaCloseAutocompleteEnabled =
+    // 检查是否启用了逗号关闭补全窗口功能
+    const isCommaCloseAutocompleteEnabled =
       localStorage.getItem('weilin_prompt_ui_comma_close_autocomplete') === 'true'
 
-  // 检查是否刚刚输入了逗号或空格
-  const lastChar = newCursorPosition > 0 ? textBeforeCursor[newCursorPosition - 1] : ''
-  const justTypedDelimiter = lastChar === ',' || lastChar === ' '
+    // 检查是否刚刚输入了逗号或空格
+    const lastChar = newCursorPosition > 0 ? textBeforeCursor[newCursorPosition - 1] : ''
+    const justTypedDelimiter = lastChar === ',' || lastChar === ' '
 
-  // 如果输入了逗号或空格，并且启用了该功能，立即关闭补全列表
-  if (justTypedDelimiter && isCommaCloseAutocompleteEnabled) {
-    showAutocomplete.value = false
-    // 防抖处理 - 用于在逗号或空格后开始输入新内容时触发补全
+    // 如果输入了逗号或空格，并且启用了该功能，立即关闭补全列表
+    if (justTypedDelimiter && isCommaCloseAutocompleteEnabled) {
+      showAutocomplete.value = false
+      // 防抖处理 - 用于在逗号或空格后开始输入新内容时触发补全
+      if (debounceTimeout.value) {
+        clearTimeout(debounceTimeout.value)
+      }
+      debounceTimeout.value = setTimeout(() => {
+        // 获取当前光标位置
+        const currentCursorPos = inputAreaRef.value?.selectionStart || 0
+        const currentText = inputText.value || ''
+        const textBeforeCursor = currentText.substring(0, currentCursorPos)
+
+        // 查找当前单词起始位置
+        let wordStart = currentCursorPos
+        while (wordStart > 0 && !/[,\s]/.test(textBeforeCursor[wordStart - 1])) {
+          wordStart--
+        }
+
+        const currentWord = textBeforeCursor.substring(wordStart, currentCursorPos).trim()
+
+        // 触发自动补全
+        if (currentWord) {
+          triggerAutocomplete(currentWord)
+        }
+        postMessageToWindowsPrompt()
+      }, 300)
+      // 计算token数量
+      tokenCount.value = calculateTokens(inputText.value)
+      return
+    }
+
+    // 查找当前输入的单词起始位置
+    let wordStart = newCursorPosition
+    while (wordStart > 0 && !/[,\s]/.test(textBeforeCursor[wordStart - 1])) {
+      wordStart--
+    }
+
+    const currentWord = textBeforeCursor.substring(wordStart, newCursorPosition).trim()
+
+    // 5. 防抖处理
     if (debounceTimeout.value) {
       clearTimeout(debounceTimeout.value)
     }
+
     debounceTimeout.value = setTimeout(() => {
-      // 获取当前光标位置
-      const currentCursorPos = inputAreaRef.value?.selectionStart || 0
-      const currentText = inputText.value || ''
-      const textBeforeCursor = currentText.substring(0, currentCursorPos)
-
-      // 查找当前单词起始位置
-      let wordStart = currentCursorPos
-      while (wordStart > 0 && !/[,\s]/.test(textBeforeCursor[wordStart - 1])) {
-        wordStart--
-      }
-
-      const currentWord = textBeforeCursor.substring(wordStart, currentCursorPos).trim()
-
-      // 触发自动补全
       if (currentWord) {
         triggerAutocomplete(currentWord)
       }
       postMessageToWindowsPrompt()
     }, 300)
-    // 计算token数量
+
+    // 计算token数量（简单实现，可根据实际分词算法调整）
     tokenCount.value = calculateTokens(inputText.value)
-    return
   }
 
-  // 查找当前输入的单词起始位置
-  let wordStart = newCursorPosition
-  while (wordStart > 0 && !/[,\s]/.test(textBeforeCursor[wordStart - 1])) {
-    wordStart--
-  }
-
-  const currentWord = textBeforeCursor.substring(wordStart, newCursorPosition).trim()
-
-  // 5. 防抖处理
-  if (debounceTimeout.value) {
-    clearTimeout(debounceTimeout.value)
-  }
-
-  debounceTimeout.value = setTimeout(() => {
-    if (currentWord) {
-      triggerAutocomplete(currentWord)
+  // 添加计算token的方法
+  const calculateTokens = (text) => {
+    if (!text) {
+      return 0
     }
-    postMessageToWindowsPrompt()
-  }, 300)
-
-  // 计算token数量（简单实现，可根据实际分词算法调整）
-  tokenCount.value = calculateTokens(inputText.value)
-}
-
-// 添加计算token的方法
-const calculateTokens = (text) => {
-  if (!text) {
-    return 0
+    // 简单实现：按空格分词
+    // 注意：实际的token计算应该使用与您模型匹配的分词器
+    return text.trim().split(/\s+/).length
   }
-  // 简单实现：按空格分词
-  // 注意：实际的token计算应该使用与您模型匹配的分词器
-  return text.trim().split(/\s+/).length
-}
 
-// 处理输入事件 ========== 主事件处理 ==========
-// 防抖处理processInput
-let processInputDebounceTimer = null
-const debouncedProcessInput = () => {
-  if (processInputDebounceTimer) {
-    clearTimeout(processInputDebounceTimer)
+  // 处理输入事件 ========== 主事件处理 ==========
+  // 防抖处理processInput
+  let processInputDebounceTimer = null
+  const debouncedProcessInput = () => {
+    if (processInputDebounceTimer) {
+      clearTimeout(processInputDebounceTimer)
+    }
+    processInputDebounceTimer = setTimeout(() => {
+      processInput()
+    }, 50) // 50ms防抖,让UI先更新
   }
-  processInputDebounceTimer = setTimeout(() => {
-    processInput()
-  }, 50) // 50ms防抖,让UI先更新
-}
 
-// 缓存localStorage设置,避免频繁读取
-const cachedSettings = {
-  isCommaConversionEnabled: localStorage.getItem('weilin_prompt_ui_comma_conversion') !== 'false',
-  isPeriodConversionEnabled:
+  // 缓存localStorage设置,避免频繁读取
+  const cachedSettings = {
+    isCommaConversionEnabled: localStorage.getItem('weilin_prompt_ui_comma_conversion') !== 'false',
+    isPeriodConversionEnabled:
       localStorage.getItem('weilin_prompt_ui_period_conversion') !== 'false',
-  isBracketConversionEnabled:
+    isBracketConversionEnabled:
       localStorage.getItem('weilin_prompt_ui_bracket_conversion') !== 'false',
-  isAngleBracketConversionEnabled:
+    isAngleBracketConversionEnabled:
       localStorage.getItem('weilin_prompt_ui_angle_bracket_conversion') !== 'false',
-  isUnderscoreToBracketEnabled:
+    isUnderscoreToBracketEnabled:
       localStorage.getItem('weilin_prompt_ui_underscore_to_bracket') === 'true'
-}
-
-// 初始化默认值
-if (!localStorage.getItem('weilin_prompt_ui_comma_conversion')) {
-  localStorage.setItem('weilin_prompt_ui_comma_conversion', 'true')
-  cachedSettings.isCommaConversionEnabled = true
-}
-if (!localStorage.getItem('weilin_prompt_ui_period_conversion')) {
-  localStorage.setItem('weilin_prompt_ui_period_conversion', 'true')
-  cachedSettings.isPeriodConversionEnabled = true
-}
-if (!localStorage.getItem('weilin_prompt_ui_bracket_conversion')) {
-  localStorage.setItem('weilin_prompt_ui_bracket_conversion', 'true')
-  cachedSettings.isBracketConversionEnabled = true
-}
-if (!localStorage.getItem('weilin_prompt_ui_angle_bracket_conversion')) {
-  localStorage.setItem('weilin_prompt_ui_angle_bracket_conversion', 'true')
-  cachedSettings.isAngleBracketConversionEnabled = true
-}
-if (!localStorage.getItem('weilin_prompt_ui_underscore_to_bracket')) {
-  localStorage.setItem('weilin_prompt_ui_underscore_to_bracket', 'false')
-  cachedSettings.isUnderscoreToBracketEnabled = false
-}
-
-const processInput = async () => {
-  // 使用缓存的设置
-  const isCommaConversionEnabled = cachedSettings.isCommaConversionEnabled
-  const isPeriodConversionEnabled = cachedSettings.isPeriodConversionEnabled
-  const isBracketConversionEnabled = cachedSettings.isBracketConversionEnabled
-  const isAngleBracketConversionEnabled = cachedSettings.isAngleBracketConversionEnabled
-  const isUnderscoreToBracketEnabled = cachedSettings.isUnderscoreToBracketEnabled
-
-  if (isCommaConversionEnabled) {
-    inputText.value = inputText.value.replace(/，/g, ',')
-  }
-  if (isPeriodConversionEnabled) {
-    inputText.value = inputText.value.replace(/。/g, '.')
-  }
-  if (isBracketConversionEnabled) {
-    inputText.value = inputText.value
-      .replace(/【/g, '[') // 中文左方括号
-      .replace(/】/g, ']') // 中文右方括号
-      .replace(/（/g, '(') // 中文左圆括号
-      .replace(/）/g, ')') // 中文右圆括号
-  }
-  if (isAngleBracketConversionEnabled) {
-    // 替换中文书名号为英文尖括号
-    inputText.value = inputText.value
-      .replace(/《/g, '<') // 中文左书名号
-      .replace(/》/g, '>') // 中文右书名号
   }
 
-  // 下划线转空格的逻辑已移至补全确认时执行
+  // 初始化默认值
+  if (!localStorage.getItem('weilin_prompt_ui_comma_conversion')) {
+    localStorage.setItem('weilin_prompt_ui_comma_conversion', 'true')
+    cachedSettings.isCommaConversionEnabled = true
+  }
+  if (!localStorage.getItem('weilin_prompt_ui_period_conversion')) {
+    localStorage.setItem('weilin_prompt_ui_period_conversion', 'true')
+    cachedSettings.isPeriodConversionEnabled = true
+  }
+  if (!localStorage.getItem('weilin_prompt_ui_bracket_conversion')) {
+    localStorage.setItem('weilin_prompt_ui_bracket_conversion', 'true')
+    cachedSettings.isBracketConversionEnabled = true
+  }
+  if (!localStorage.getItem('weilin_prompt_ui_angle_bracket_conversion')) {
+    localStorage.setItem('weilin_prompt_ui_angle_bracket_conversion', 'true')
+    cachedSettings.isAngleBracketConversionEnabled = true
+  }
+  if (!localStorage.getItem('weilin_prompt_ui_underscore_to_bracket')) {
+    localStorage.setItem('weilin_prompt_ui_underscore_to_bracket', 'false')
+    cachedSettings.isUnderscoreToBracketEnabled = false
+  }
 
-  // 处理文本分割
-  const text = inputText.value
-  let segments = []
+  const processInput = async () => {
+    // 使用缓存的设置
+    const isCommaConversionEnabled = cachedSettings.isCommaConversionEnabled
+    const isPeriodConversionEnabled = cachedSettings.isPeriodConversionEnabled
+    const isBracketConversionEnabled = cachedSettings.isBracketConversionEnabled
+    const isAngleBracketConversionEnabled = cachedSettings.isAngleBracketConversionEnabled
+    // eslint-disable-next-line no-unused-vars
+    const isUnderscoreToBracketEnabled = cachedSettings.isUnderscoreToBracketEnabled
 
-  // 首先记录所有隐藏token的原始位置
-  const hiddenTokensWithOriginalIndex = tokens.value
-    .map((token, originalIndex) => ({
-      token,
-      originalIndex, // 保存原始绝对位置
-      currentIndex: originalIndex // 初始时currentIndex与originalIndex相同
-    }))
-    .filter(({ token }) => token.isHidden)
-
-  // 递归函数处理嵌套括号
-  const parseNestedBrackets = (str, startIndex = 0) => {
-    const segments = []
-    let i = startIndex
-    let buffer = ''
-    const bracketStack = []
-
-    while (i < str.length) {
-      const char = str[i]
-
-      // 处理开括号
-      // if ('([{<'.includes(char)) {
-      //   // 检测前一个字符是否是逗号或空格，或者是否是字符串开头
-      //   const prevChar = i > 0 ? str[i - 1] : '';
-      //   const isValidStart = prevChar === '' || prevChar === ',' || prevChar === ' ';
-
-      //   if (isValidStart) {
-      //     if (bracketStack.length === 0 && buffer.trim()) {
-      //       // 如果这是第一层括号且缓冲区不为空，按逗号分割并添加
-      //       segments.push(...buffer.split(',').filter(Boolean).map(s => s.trim()));
-      //       buffer = '';
-      //     }
-      //     bracketStack.push(char);
-      //     buffer += char;
-      //   } else {
-      //     // 如果不是有效开始，按普通字符处理
-      //     buffer += char;
-      //   }
-      // }
-      // // 处理闭括号
-      // else if (')]}>'.includes(char)) {
-      //   const lastBracket = bracketStack[bracketStack.length - 1];
-      //   if (('(' === lastBracket && ')' === char) ||
-      //     ('[' === lastBracket && ']' === char) ||
-      //     ('{' === lastBracket && '}' === char) ||
-      //     ('<' === lastBracket && '>' === char)) {
-
-      //     // 只有在存在对应的开括号时才进行后续检测
-      //     if (bracketStack.length > 0) {
-      //       // 检测后一个字符是否是逗号或空格，或者是否是字符串结尾
-      //       const nextChar = i < str.length - 1 ? str[i + 1] : '';
-      //       const isValidEnd = nextChar === '' || nextChar === ',' || nextChar === ' ';
-
-      //       if (isValidEnd) {
-      //         bracketStack.pop();
-      //         buffer += char;
-
-      //         // 如果括号全部匹配完成，添加整个括号内容
-      //         if (bracketStack.length === 0) {
-      //           segments.push(buffer.trim());
-      //           buffer = '';
-      //         }
-      //       } else {
-      //         // 如果不是有效结束，按普通字符处理
-      //         buffer += char;
-      //       }
-      //     }
-      //   }
-      // }
-
-      // 处理换行符
-      if (char === '\n') {
-        if (buffer.trim()) {
-          segments.push(buffer.trim())
-          buffer = ''
-        }
-        segments.push('\n')
-        i++
-        continue
-      }
-
-      // 处理普通字符
-      if (bracketStack.length === 0 && char === ',') {
-        if (buffer.trim()) {
-          segments.push(buffer.trim())
-        }
-        buffer = ''
-      } else {
-        buffer += char
-      }
-      i++
+    if (isCommaConversionEnabled) {
+      inputText.value = inputText.value.replace(/，/g, ',')
+    }
+    if (isPeriodConversionEnabled) {
+      inputText.value = inputText.value.replace(/。/g, '.')
+    }
+    if (isBracketConversionEnabled) {
+      inputText.value = inputText.value
+        .replace(/【/g, '[') // 中文左方括号
+        .replace(/】/g, ']') // 中文右方括号
+        .replace(/（/g, '(') // 中文左圆括号
+        .replace(/）/g, ')') // 中文右圆括号
+    }
+    if (isAngleBracketConversionEnabled) {
+      // 替换中文书名号为英文尖括号
+      inputText.value = inputText.value
+        .replace(/《/g, '<') // 中文左书名号
+        .replace(/》/g, '>') // 中文右书名号
     }
 
-    // 处理剩余的缓冲区内容
-    if (buffer.trim()) {
-      if (bracketStack.length === 0) {
-        segments.push(
-          ...buffer
-            .split(',')
-            .filter(Boolean)
-            .map((s) => s.trim())
-        )
-      } else {
-        segments.push(buffer.trim())
-      }
-    }
+    // 下划线转空格的逻辑已移至补全确认时执行
 
-    return segments
-  }
+    // 处理文本分割
+    const text = inputText.value
+    let segments = []
 
-  // 解析文本得到分段
-  segments = parseNestedBrackets(text)
+    // 首先记录所有隐藏token的原始位置
+    const hiddenTokensWithOriginalIndex = tokens.value
+      .map((token, originalIndex) => ({
+        token,
+        originalIndex, // 保存原始绝对位置
+        currentIndex: originalIndex // 初始时currentIndex与originalIndex相同
+      }))
+      .filter(({ token }) => token.isHidden)
 
-  // 处理每个片段
-  const existingTokensMap = new Map()
-  tokens.value.forEach((token, index) => {
-    // 确保每个token都有唯一ID
-    if (!token.id) {
-      token.id = generateUniqueId()
-    }
-    existingTokensMap.set(index, token) // 使用索引作为key
-  })
+    // 递归函数处理嵌套括号
+    const parseNestedBrackets = (str, startIndex = 0) => {
+      const segments = []
+      let i = startIndex
+      let buffer = ''
+      const bracketStack = []
 
-  const result = []
+      while (i < str.length) {
+        const char = str[i]
 
-  // 然后处理剩余的segments（新增的token）
-  segments.forEach((segment) => {
-    if (segment === '\n') {
-      // 保留换行符作为特殊token
-      result.push({
-        id: generateUniqueId(),
-        text: '\n',
-        translate: '',
-        isPunctuation: false,
-        isEditing: false,
-        isHidden: false,
-        color: ''
-      })
-    } else if (segment.trim()) {
-      // 处理非空文本
-      const trimmedSegment = segment.trim()
-      // 检查是否是Lora标签格式 <wlr:LoraName:weight1:weight2>
-      const isLoraTag = /^<wlr:[^:]+:\d+(\.\d+)?:\d+(\.\d+)?>$/.test(trimmedSegment)
+        // 处理开括号
+        // if ('([{<'.includes(char)) {
+        //   // 检测前一个字符是否是逗号或空格，或者是否是字符串开头
+        //   const prevChar = i > 0 ? str[i - 1] : '';
+        //   const isValidStart = prevChar === '' || prevChar === ',' || prevChar === ' ';
 
-      // 优先匹配非隐藏的token
-      let matched = false
-      for (const [index, token] of existingTokensMap) {
-        if (token.text === trimmedSegment && !token.isHidden && !result.includes(token)) {
-          // 如果是已存在的token，确保更新其Lora标签状态
-          if (isLoraTag && !token.isLoraTag) {
-            token.isLoraTag = true
+        //   if (isValidStart) {
+        //     if (bracketStack.length === 0 && buffer.trim()) {
+        //       // 如果这是第一层括号且缓冲区不为空，按逗号分割并添加
+        //       segments.push(...buffer.split(',').filter(Boolean).map(s => s.trim()));
+        //       buffer = '';
+        //     }
+        //     bracketStack.push(char);
+        //     buffer += char;
+        //   } else {
+        //     // 如果不是有效开始，按普通字符处理
+        //     buffer += char;
+        //   }
+        // }
+        // // 处理闭括号
+        // else if (')]}>'.includes(char)) {
+        //   const lastBracket = bracketStack[bracketStack.length - 1];
+        //   if (('(' === lastBracket && ')' === char) ||
+        //     ('[' === lastBracket && ']' === char) ||
+        //     ('{' === lastBracket && '}' === char) ||
+        //     ('<' === lastBracket && '>' === char)) {
+
+        //     // 只有在存在对应的开括号时才进行后续检测
+        //     if (bracketStack.length > 0) {
+        //       // 检测后一个字符是否是逗号或空格，或者是否是字符串结尾
+        //       const nextChar = i < str.length - 1 ? str[i + 1] : '';
+        //       const isValidEnd = nextChar === '' || nextChar === ',' || nextChar === ' ';
+
+        //       if (isValidEnd) {
+        //         bracketStack.pop();
+        //         buffer += char;
+
+        //         // 如果括号全部匹配完成，添加整个括号内容
+        //         if (bracketStack.length === 0) {
+        //           segments.push(buffer.trim());
+        //           buffer = '';
+        //         }
+        //       } else {
+        //         // 如果不是有效结束，按普通字符处理
+        //         buffer += char;
+        //       }
+        //     }
+        //   }
+        // }
+
+        // 处理换行符
+        if (char === '\n') {
+          if (buffer.trim()) {
+            segments.push(buffer.trim())
+            buffer = ''
           }
-          result.push(token)
-          existingTokensMap.delete(index)
-          matched = true
-          break
+          segments.push('\n')
+          i++
+          continue
+        }
+
+        // 处理普通字符
+        if (bracketStack.length === 0 && char === ',') {
+          if (buffer.trim()) {
+            segments.push(buffer.trim())
+          }
+          buffer = ''
+        } else {
+          buffer += char
+        }
+        i++
+      }
+
+      // 处理剩余的缓冲区内容
+      if (buffer.trim()) {
+        if (bracketStack.length === 0) {
+          segments.push(
+            ...buffer
+              .split(',')
+              .filter(Boolean)
+              .map((s) => s.trim())
+          )
+        } else {
+          segments.push(buffer.trim())
         }
       }
 
-      // 如果没有匹配到非隐藏token，再尝试匹配隐藏token
-      if (!matched) {
+      return segments
+    }
+
+    // 解析文本得到分段
+    segments = parseNestedBrackets(text)
+
+    // 处理每个片段
+    const existingTokensMap = new Map()
+    tokens.value.forEach((token, index) => {
+      // 确保每个token都有唯一ID
+      if (!token.id) {
+        token.id = generateUniqueId()
+      }
+      existingTokensMap.set(index, token) // 使用索引作为key
+    })
+
+    const result = []
+
+    // 然后处理剩余的segments（新增的token）
+    segments.forEach((segment) => {
+      if (segment === '\n') {
+        // 保留换行符作为特殊token
+        result.push({
+          id: generateUniqueId(),
+          text: '\n',
+          translate: '',
+          isPunctuation: false,
+          isEditing: false,
+          isHidden: false,
+          color: ''
+        })
+      } else if (segment.trim()) {
+        // 处理非空文本
+        const trimmedSegment = segment.trim()
+        // 检查是否是Lora标签格式
+        // 格式: <wlr:LoraName:modelWeight:clipWeight:triggerWeight> (新格式4参数)
+        // 兼容: <wlr:LoraName:modelWeight:triggerWeight> (旧格式3参数)
+        const isLoraTag = /^<wlr:[^:]+:\d+(\.\d+)?:\d+(\.\d+)?(:\d+(\.\d+)?)?>$/.test(
+          trimmedSegment
+        )
+
+        // 优先匹配非隐藏的token
+        let matched = false
         for (const [index, token] of existingTokensMap) {
-          if (token.text === trimmedSegment && !result.includes(token)) {
+          if (token.text === trimmedSegment && !token.isHidden && !result.includes(token)) {
             // 如果是已存在的token，确保更新其Lora标签状态
             if (isLoraTag && !token.isLoraTag) {
               token.isLoraTag = true
@@ -2227,453 +2181,450 @@ const processInput = async () => {
             break
           }
         }
+
+        // 如果没有匹配到非隐藏token，再尝试匹配隐藏token
+        if (!matched) {
+          for (const [index, token] of existingTokensMap) {
+            if (token.text === trimmedSegment && !result.includes(token)) {
+              // 如果是已存在的token，确保更新其Lora标签状态
+              if (isLoraTag && !token.isLoraTag) {
+                token.isLoraTag = true
+              }
+              result.push(token)
+              existingTokensMap.delete(index)
+              matched = true
+              break
+            }
+          }
+        }
+
+        if (!matched) {
+          result.push({
+            id: generateUniqueId(),
+            text: trimmedSegment,
+            translate: '',
+            isPunctuation: false,
+            isEditing: false,
+            isHidden: false,
+            color: '',
+            isLoraTag: isLoraTag // 添加Lora标签标识
+          })
+        }
+      }
+    })
+
+    // 使用ID来跟踪已处理的隐藏token
+    const processedHiddenTokenIds = new Set()
+
+    //重新插入隐藏token到它们原来的位置
+    hiddenTokensWithOriginalIndex.forEach(({ token, originalIndex }) => {
+      // 如果这个token已经处理过，跳过
+      if (processedHiddenTokenIds.has(token.id)) {
+        return
       }
 
-      if (!matched) {
-        result.push({
-          id: generateUniqueId(),
-          text: trimmedSegment,
-          translate: '',
-          isPunctuation: false,
-          isEditing: false,
-          isHidden: false,
-          color: '',
-          isLoraTag: isLoraTag // 添加Lora标签标识
-        })
+      // 标记这个token已经处理
+      processedHiddenTokenIds.add(token.id)
+
+      // 检查结果中是否已经包含这个隐藏token
+      const alreadyExists = result.some((t) => t.id === token.id)
+
+      // 如果已经存在，不再添加
+      if (alreadyExists) {
+        return
       }
-    }
-  })
 
-  // 使用ID来跟踪已处理的隐藏token
-  const processedHiddenTokenIds = new Set()
+      let insertIndex = originalIndex
 
-  //重新插入隐藏token到它们原来的位置
-  hiddenTokensWithOriginalIndex.forEach(({ token, originalIndex }) => {
-    // 如果这个token已经处理过，跳过
-    if (processedHiddenTokenIds.has(token.id)) {
-      return
-    }
+      // 确保插入位置有效
+      while (insertIndex > result.length) {
+        insertIndex--
+      }
 
-    // 标记这个token已经处理
-    processedHiddenTokenIds.add(token.id)
+      // 如果所有尝试都失败，插入到最后
+      if (insertIndex < 0) {
+        result.push(token)
+      } else {
+        result.splice(insertIndex, 0, token)
+      }
+    })
 
-    // 检查结果中是否已经包含这个隐藏token
-    const alreadyExists = result.some((t) => t.id === token.id)
+    tokens.value = result
 
-    // 如果已经存在，不再添加
-    if (alreadyExists) {
-      return
-    }
-
-    let insertIndex = originalIndex
-
-    // 确保插入位置有效
-    while (insertIndex > result.length) {
-      insertIndex--
-    }
-
-    // 如果所有尝试都失败，插入到最后
-    if (insertIndex < 0) {
-      result.push(token)
-    } else {
-      result.splice(insertIndex, 0, token)
-    }
-  })
-
-  tokens.value = result
-
-  // 更新输入文本，保持原有格式，但排除隐藏的tokens
-  inputText.value =
+    // 更新输入文本，保持原有格式，但排除隐藏的tokens
+    inputText.value =
       tokens.value.length > 0
         ? tokens.value.reduce((acc, token, index) => {
-          // 如果token是隐藏的，不添加到输入文本中
-          if (token.isHidden) {
-            return acc
-          }
+            // 如果token是隐藏的，不添加到输入文本中
+            if (token.isHidden) {
+              return acc
+            }
 
-          // 如果是换行符，不加逗号
-          if (token.text === '\n') {
-            // 查找前一个非隐藏token
-            const prevNonHiddenIndex = findPrevNonHiddenIndex(index)
-            const prevToken = prevNonHiddenIndex !== -1 ? tokens.value[prevNonHiddenIndex] : null
+            // 如果是换行符，不加逗号
+            if (token.text === '\n') {
+              // 查找前一个非隐藏token
+              const prevNonHiddenIndex = findPrevNonHiddenIndex(index)
+              // eslint-disable-next-line no-unused-vars
+              const prevToken = prevNonHiddenIndex !== -1 ? tokens.value[prevNonHiddenIndex] : null
 
-            // 直接返回换行符，不添加额外的逗号
-            // 因为前一个token在处理时已经根据shouldAddComma添加了逗号
-            return acc + token.text
-          }
+              // 直接返回换行符，不添加额外的逗号
+              // 因为前一个token在处理时已经根据shouldAddComma添加了逗号
+              return acc + token.text
+            }
 
-          // 第一个非隐藏token不加逗号前缀
-          if (acc === '') {
+            // 第一个非隐藏token不加逗号前缀
+            if (acc === '') {
+              // 查找下一个非隐藏token
+              let nextNonHiddenIndex = index + 1
+              while (
+                nextNonHiddenIndex < tokens.value.length &&
+                tokens.value[nextNonHiddenIndex]?.isHidden
+              ) {
+                nextNonHiddenIndex++
+              }
+
+              // 判断是否是最后一个非隐藏token或者下一个是换行符
+              const isLastToken = nextNonHiddenIndex >= tokens.value.length
+              const nextToken =
+                nextNonHiddenIndex < tokens.value.length ? tokens.value[nextNonHiddenIndex] : null
+              const shouldAddComma = isLastToken || (nextToken && nextToken.text === '\n')
+
+              return token.text + (shouldAddComma ? ',' : '')
+            }
+
             // 查找下一个非隐藏token
             let nextNonHiddenIndex = index + 1
             while (
               nextNonHiddenIndex < tokens.value.length &&
-                tokens.value[nextNonHiddenIndex]?.isHidden
+              tokens.value[nextNonHiddenIndex]?.isHidden
             ) {
               nextNonHiddenIndex++
             }
 
-            // 判断是否是最后一个非隐藏token或者下一个是换行符
+            // 判断是否是最后一个非隐藏token
             const isLastToken = nextNonHiddenIndex >= tokens.value.length
             const nextToken =
-                nextNonHiddenIndex < tokens.value.length ? tokens.value[nextNonHiddenIndex] : null
-            const shouldAddComma = isLastToken || (nextToken && nextToken.text === '\n')
-
-            return token.text + (shouldAddComma ? ',' : '')
-          }
-
-          // 查找下一个非隐藏token
-          let nextNonHiddenIndex = index + 1
-          while (
-            nextNonHiddenIndex < tokens.value.length &&
-              tokens.value[nextNonHiddenIndex]?.isHidden
-          ) {
-            nextNonHiddenIndex++
-          }
-
-          // 判断是否是最后一个非隐藏token
-          const isLastToken = nextNonHiddenIndex >= tokens.value.length
-          const nextToken =
               nextNonHiddenIndex < tokens.value.length ? tokens.value[nextNonHiddenIndex] : null
 
-          // 如果是换行符前或者最后一个token，则添加逗号
-          const shouldAddComma = (nextToken && nextToken.text === '\n') || isLastToken
+            // 如果是换行符前或者最后一个token，则添加逗号
+            const shouldAddComma = (nextToken && nextToken.text === '\n') || isLastToken
 
-          // 前一个token是换行符，不加逗号前缀
-          const prevNonHiddenIndex = findPrevNonHiddenIndex(index)
-          if (prevNonHiddenIndex !== -1 && tokens.value[prevNonHiddenIndex].text === '\n') {
-            return acc + token.text + (shouldAddComma ? ',' : '')
-          }
+            // 前一个token是换行符，不加逗号前缀
+            const prevNonHiddenIndex = findPrevNonHiddenIndex(index)
+            if (prevNonHiddenIndex !== -1 && tokens.value[prevNonHiddenIndex].text === '\n') {
+              return acc + token.text + (shouldAddComma ? ',' : '')
+            }
 
-          // 其他情况加逗号和空格前缀
-          return `${ acc }, ${ token.text }${ shouldAddComma ? ',' : '' }`
-        }, '')
+            // 其他情况加逗号和空格前缀
+            return `${acc}, ${token.text}${shouldAddComma ? ',' : ''}`
+          }, '')
         : ''
 
-  // 处理历史记录
-  if (proceTimeout.value) {
-    clearTimeout(proceTimeout.value)
-  }
-  proceTimeout.value = setTimeout(() => {
-    // console.log('处理历史记录');
-    finishPromptPutItHistory()
-  }, 1000)
-  postMessageToWindowsPrompt()
+    // 处理历史记录
+    if (proceTimeout.value) {
+      clearTimeout(proceTimeout.value)
+    }
+    proceTimeout.value = setTimeout(() => {
+      // console.log('处理历史记录');
+      finishPromptPutItHistory()
+    }, 1000)
+    postMessageToWindowsPrompt()
 
-  // 处理翻译
-  const batchSize = 50 // 每批处理的数量
-  let currentIndex = 0
+    // 处理翻译
+    const batchSize = 50 // 每批处理的数量
+    let currentIndex = 0
 
-  while (currentIndex < tokens.value.length) {
-    const endIndex = Math.min(currentIndex + batchSize, tokens.value.length)
-    const promises = []
+    while (currentIndex < tokens.value.length) {
+      const endIndex = Math.min(currentIndex + batchSize, tokens.value.length)
+      const promises = []
 
-    for (let i = currentIndex; i < endIndex; i++) {
-      if (tokens.value[i].text.length > 0 && !tokens.value[i].translate) {
-        const cleanedTrSegment = tokens.value[i].text
-        const text = extractText(cleanedTrSegment.trim())
-        promises.push(
-          translatorApi.getTranslateLocal(text).then((res) => {
-            const translate = res
-            tokens.value[i].translate = translate.translated.translate
-            tokens.value[i].color = translate.translated.color
-          })
-        )
+      for (let i = currentIndex; i < endIndex; i++) {
+        if (tokens.value[i].text.length > 0 && !tokens.value[i].translate) {
+          const cleanedTrSegment = tokens.value[i].text
+          const text = extractText(cleanedTrSegment.trim())
+          promises.push(
+            translatorApi.getTranslateLocal(text).then((res) => {
+              const translate = res
+              tokens.value[i].translate = translate.translated.translate
+              tokens.value[i].color = translate.translated.color
+            })
+          )
+        }
       }
+
+      // eslint-disable-next-line no-await-in-loop
+      await Promise.all(promises)
+      currentIndex = endIndex
     }
 
-    await Promise.all(promises)
-    currentIndex = endIndex
+    // 处理翻译
+    // for (let i = 0; i < tokens.value.length; i++) {
+    //   if (tokens.value[i].text.length > 0 && !tokens.value[i].translate) {
+    //     let cleanedTrSegment = tokens.value[i].text;
+    //     const text = extractText(cleanedTrSegment.trim());
+    //     translatorApi.getTranslateLocal(text).then(res => {
+    //       const translate = res;
+    //       tokens.value[i].translate = translate.translated.translate;
+    //       tokens.value[i].color = translate.translated.color;
+    //     });
+    //   }
+    // }
+
+    // 计算token数量（简单实现，可根据实际分词算法调整）
+    tokenCount.value = calculateTokens(inputText.value)
   }
 
-  // 处理翻译
-  // for (let i = 0; i < tokens.value.length; i++) {
-  //   if (tokens.value[i].text.length > 0 && !tokens.value[i].translate) {
-  //     let cleanedTrSegment = tokens.value[i].text;
-  //     const text = extractText(cleanedTrSegment.trim());
-  //     translatorApi.getTranslateLocal(text).then(res => {
-  //       const translate = res;
-  //       tokens.value[i].translate = translate.translated.translate;
-  //       tokens.value[i].color = translate.translated.color;
-  //     });
-  //   }
-  // }
+  const oneClickTranslatePrompt = async () => {
+    // if (localStorage.getItem('weilin_prompt_ui_translater_setting') == 'translater') {
+    const batchSize = 50 // 每批处理的数量
+    let currentIndex = 0
+    let processedCount = 0
+    let totalCount = 0
 
-  // 计算token数量（简单实现，可根据实际分词算法调整）
-  tokenCount.value = calculateTokens(inputText.value)
-}
-
-const oneClickTranslatePrompt = async () => {
-  // if (localStorage.getItem('weilin_prompt_ui_translater_setting') == 'translater') {
-  const batchSize = 50 // 每批处理的数量
-  let currentIndex = 0
-  let processedCount = 0
-  let totalCount = 0
-
-  // 计算需要翻译的总数
-  for (let i = 0; i < tokens.value.length; i++) {
-    const token = tokens.value[i]
-    if (
-      token.translate &&
-        (token.translate === token.text || /[a-zA-Z]/.test(token.translate)) &&
-        !(typeof token.text === 'string' && token.text.startsWith('<wlr'))
-    ) {
-      totalCount++
-    }
-  }
-
-  console.log(`开始批量翻译，总共需要翻译 ${ totalCount } 个项目，批量大小: ${ batchSize }`)
-
-  while (currentIndex < tokens.value.length) {
-    const endIndex = Math.min(currentIndex + batchSize, tokens.value.length)
-    const batchData = []
-    const tokenIndices = []
-
-    // 收集本批次需要翻译的token
-    for (let i = currentIndex; i < endIndex; i++) {
+    // 计算需要翻译的总数
+    for (let i = 0; i < tokens.value.length; i++) {
       const token = tokens.value[i]
-      // 检查translate是否包含英文字符 /[a-zA-Z]/.test(token.translate)
       if (
         token.translate &&
+        (token.translate === token.text || /[a-zA-Z]/.test(token.translate)) &&
+        !(typeof token.text === 'string' && token.text.startsWith('<wlr'))
+      ) {
+        totalCount++
+      }
+    }
+
+    console.log(`开始批量翻译，总共需要翻译 ${totalCount} 个项目，批量大小: ${batchSize}`)
+
+    while (currentIndex < tokens.value.length) {
+      const endIndex = Math.min(currentIndex + batchSize, tokens.value.length)
+      const batchData = []
+      const tokenIndices = []
+
+      // 收集本批次需要翻译的token
+      for (let i = currentIndex; i < endIndex; i++) {
+        const token = tokens.value[i]
+        // 检查translate是否包含英文字符 /[a-zA-Z]/.test(token.translate)
+        if (
+          token.translate &&
           (token.translate === token.text || /[a-zA-Z]/.test(token.translate)) &&
           !(typeof token.text === 'string' && token.text.startsWith('<wlr'))
-      ) {
-        batchData.push(token.text)
-        tokenIndices.push(i)
+        ) {
+          batchData.push(token.text)
+          tokenIndices.push(i)
+        }
       }
-    }
 
-    if (batchData.length > 0) {
-      console.log(
-        `处理第 ${ Math.floor(currentIndex / batchSize) + 1 } 批，翻译 ${ batchData.length } 个项目`
-      )
-
-      // 批量翻译：将多个文本用换行符连接
-      const combinedText = batchData.join('\n')
-      try {
-        // 设置超时处理
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('翻译请求超时')), 30000)
+      if (batchData.length > 0) {
+        console.log(
+          `处理第 ${Math.floor(currentIndex / batchSize) + 1} 批，翻译 ${batchData.length} 个项目`
         )
 
-        const res = await Promise.race([
-          translatorApi.translaterText('', combinedText),
-          timeoutPromise
-        ])
+        // 批量翻译：将多个文本用换行符连接
+        const combinedText = batchData.join('\n')
+        try {
+          // 设置超时处理
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('翻译请求超时')), 30000)
+          )
 
-        if (res.data && res.data.length > 0) {
-          // 拆分翻译结果
-          const translatedResults = res.data.split('\n')
+          // eslint-disable-next-line no-await-in-loop
+          const res = await Promise.race([
+            translatorApi.translaterText('', combinedText),
+            timeoutPromise
+          ])
 
-          // 验证结果数量匹配
-          if (translatedResults.length === batchData.length) {
-            // 将翻译结果回填到对应的token
-            for (let j = 0; j < tokenIndices.length; j++) {
-              const tokenIndex = tokenIndices[j]
-              if (j < translatedResults.length && translatedResults[j].trim()) {
-                tokens.value[tokenIndex].translate = translatedResults[j].trim()
-                processedCount++
+          if (res.data && res.data.length > 0) {
+            // 拆分翻译结果
+            const translatedResults = res.data.split('\n')
+
+            // 验证结果数量匹配
+            if (translatedResults.length === batchData.length) {
+              // 将翻译结果回填到对应的token
+              for (let j = 0; j < tokenIndices.length; j++) {
+                const tokenIndex = tokenIndices[j]
+                if (j < translatedResults.length && translatedResults[j].trim()) {
+                  tokens.value[tokenIndex].translate = translatedResults[j].trim()
+                  processedCount++
+                }
               }
+              console.log(
+                `第 ${Math.floor(currentIndex / batchSize) + 1} 批翻译完成，已处理 ${processedCount}/${totalCount} 个`
+              )
+            } else {
+              throw new Error(
+                `翻译结果数量不匹配: 期望${batchData.length}个，实际${translatedResults.length}个`
+              )
             }
-            console.log(
-              `第 ${ Math.floor(currentIndex / batchSize) + 1 } 批翻译完成，已处理 ${ processedCount }/${ totalCount } 个`
-            )
           } else {
-            throw new Error(
-              `翻译结果数量不匹配: 期望${ batchData.length }个，实际${ translatedResults.length }个`
-            )
+            throw new Error('翻译返回结果为空')
           }
-        } else {
-          throw new Error('翻译返回结果为空')
-        }
-      } catch (e) {
-        console.error(`第 ${ Math.floor(currentIndex / batchSize) + 1 } 批批量翻译失败:`, e)
-        console.log('回退到逐个翻译模式...')
+        } catch (e) {
+          console.error(`第 ${Math.floor(currentIndex / batchSize) + 1} 批批量翻译失败:`, e)
+          console.log('回退到逐个翻译模式...')
 
-        // 回退到逐个翻译
-        let fallbackCount = 0
-        for (let j = 0; j < tokenIndices.length; j++) {
-          const tokenIndex = tokenIndices[j]
-          const textToTranslate = batchData[j]
+          // 回退到逐个翻译
+          let fallbackCount = 0
+          for (let j = 0; j < tokenIndices.length; j++) {
+            const tokenIndex = tokenIndices[j]
+            const textToTranslate = batchData[j]
 
-          try {
-            const res = await translatorApi.translaterText('', textToTranslate)
-            if (res.data && res.data.length > 0) {
-              tokens.value[tokenIndex].translate = res.data
-              processedCount++
-              fallbackCount++
+            try {
+              // eslint-disable-next-line no-await-in-loop
+              const res = await translatorApi.translaterText('', textToTranslate)
+              if (res.data && res.data.length > 0) {
+                tokens.value[tokenIndex].translate = res.data
+                processedCount++
+                fallbackCount++
+              }
+            } catch (fallbackError) {
+              console.error(`单个翻译失败 (${textToTranslate}):`, fallbackError)
             }
-          } catch (fallbackError) {
-            console.error(`单个翻译失败 (${ textToTranslate }):`, fallbackError)
           }
+          console.log(`回退翻译完成，成功 ${fallbackCount} 个`)
         }
-        console.log(`回退翻译完成，成功 ${ fallbackCount } 个`)
       }
+
+      currentIndex = endIndex
     }
 
-    currentIndex = endIndex
+    console.log(`批量翻译完成！总共处理 ${processedCount}/${totalCount} 个项目`)
+    // }
+
+    // else {
+
+    //   const batchSize = 2; // 每批最多2个
+    //   let currentIndex = 0;
+    //   const MAX_TOKEN_LENGTH = 20; // 超过20单独翻译
+
+    //   while (currentIndex < tokens.value.length) {
+    //     let batchTranslateData = [];
+    //     let batchTokenIds = [];
+    //     let batchTokenLength = 0;
+    //     let batchCount = 0;
+
+    //     // 收集本批次
+    //     for (let i = currentIndex; i < tokens.value.length; i++) {
+    //       const token = tokens.value[i];
+    //       if (
+    //         token.translate &&
+    //         /[a-zA-Z]/.test(token.translate) &&
+    //         !(typeof token.text === 'string' && token.text.startsWith('<wlr'))
+    //       ) {
+    //         const textToTranslate = token.text;
+    //         const textLen = textToTranslate.length;
+
+    //         if (textLen > MAX_TOKEN_LENGTH) {
+    //           // 单独翻译
+    //           const jsonString = JSON.stringify([{ index: token.id, text: textToTranslate, translate: '' }]);
+    //           await tryTranslate(jsonString, [token.id]);
+    //           currentIndex = i + 1;
+    //           break;
+    //         } else {
+    //           batchTranslateData.push({ index: token.id, text: textToTranslate, translate: '' });
+    //           batchTokenIds.push(token.id);
+    //           batchTokenLength += textLen;
+    //           batchCount++;
+    //         }
+    //       }
+
+    //       // 满2个就发起翻译
+    //       if (batchCount === batchSize) {
+    //         break;
+    //       }
+    //     }
+
+    //     if (batchTranslateData.length > 0) {
+    //       const jsonString = JSON.stringify(batchTranslateData);
+    //       await tryTranslate(jsonString, batchTokenIds);
+    //     }
+
+    //     // 跳过已处理的token
+    //     currentIndex += batchCount > 0 ? batchCount : 1;
+    //   }
+
+    // }
   }
 
-  console.log(`批量翻译完成！总共处理 ${ processedCount }/${ totalCount } 个项目`)
-  // }
-
-  // else {
-
-  //   const batchSize = 2; // 每批最多2个
-  //   let currentIndex = 0;
-  //   const MAX_TOKEN_LENGTH = 20; // 超过20单独翻译
-
-  //   while (currentIndex < tokens.value.length) {
-  //     let batchTranslateData = [];
-  //     let batchTokenIds = [];
-  //     let batchTokenLength = 0;
-  //     let batchCount = 0;
-
-  //     // 收集本批次
-  //     for (let i = currentIndex; i < tokens.value.length; i++) {
-  //       const token = tokens.value[i];
-  //       if (
-  //         token.translate &&
-  //         /[a-zA-Z]/.test(token.translate) &&
-  //         !(typeof token.text === 'string' && token.text.startsWith('<wlr'))
-  //       ) {
-  //         const textToTranslate = token.text;
-  //         const textLen = textToTranslate.length;
-
-  //         if (textLen > MAX_TOKEN_LENGTH) {
-  //           // 单独翻译
-  //           const jsonString = JSON.stringify([{ index: token.id, text: textToTranslate, translate: '' }]);
-  //           await tryTranslate(jsonString, [token.id]);
-  //           currentIndex = i + 1;
-  //           break;
-  //         } else {
-  //           batchTranslateData.push({ index: token.id, text: textToTranslate, translate: '' });
-  //           batchTokenIds.push(token.id);
-  //           batchTokenLength += textLen;
-  //           batchCount++;
-  //         }
-  //       }
-
-  //       // 满2个就发起翻译
-  //       if (batchCount === batchSize) {
-  //         break;
-  //       }
-  //     }
-
-  //     if (batchTranslateData.length > 0) {
-  //       const jsonString = JSON.stringify(batchTranslateData);
-  //       await tryTranslate(jsonString, batchTokenIds);
-  //     }
-
-  //     // 跳过已处理的token
-  //     currentIndex += batchCount > 0 ? batchCount : 1;
-  //   }
-
-  // }
-}
-
-const tryTranslate = async (jsonString, tokenIds) => {
-  let retry = 0
-  while (retry < 2) {
-    try {
-      const res = await translatorApi.translaterText(jsonString, '')
-      if (res && res.data) {
-        const jsonData = JSON.parse(res.data)
-        for (let j = 0; j < jsonData.length; j++) {
-          const item = jsonData[j]
-          const tokenIndex = tokens.value.findIndex((t) => t.id === item.index)
-          if (tokenIndex !== -1) {
-            tokens.value[tokenIndex].translate = item.translate
+  // eslint-disable-next-line no-unused-vars
+  const tryTranslate = async (jsonString) => {
+    let retry = 0
+    while (retry < 2) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const res = await translatorApi.translaterText(jsonString, '')
+        if (res && res.data) {
+          const jsonData = JSON.parse(res.data)
+          for (let j = 0; j < jsonData.length; j++) {
+            const item = jsonData[j]
+            const tokenIndex = tokens.value.findIndex((t) => t.id === item.index)
+            if (tokenIndex !== -1) {
+              tokens.value[tokenIndex].translate = item.translate
+            }
           }
+          return true // 成功
         }
-        return true // 成功
-      }
-      return false
-    } catch (e) {
-      retry++
-      if (retry >= 2) {
-        // 最多重试一次，失败则跳过
         return false
+      } catch (e) {
+        retry++
+        if (retry >= 2) {
+          // 最多重试一次，失败则跳过
+          return false
+        }
       }
     }
+    return false
   }
-  return false
-}
 
-const tempInputText = ref('')
+  const tempInputText = ref('')
 
-const finishPromptPutItHistory = () => {
-  // console.log('finishPromptPutItHistory 被调用', new Error().stack);
-  // 去除空格、换行和制表符
-  const trimmedInput = inputText.value.replace(/[\s\t\n]+/g, '')
-  if (selectedLoras.value.length > 0) {
-    if (trimmedInput.length > 0) {
-      const tempLora = selectedLoras.value.filter((lora) => !lora.hidden)
-      const putJson = {
-        prompt: inputText.value,
-        lora: '',
-        temp_prompt: tokens.value,
-        temp_lora: selectedLoras.value
-      }
-      if (tempLora.length > 0) {
-        putJson.lora = tempLora
-      }
-      const jsonStr = JSON.stringify(putJson)
-      if (tempInputText.value !== jsonStr) {
-        tempInputText.value = jsonStr
-        historyApi.saveHistory({ tag: jsonStr })
-      }
-    }
-  } else {
-    if (tempInputText.value !== inputText.value) {
-      const putJson = {
-        prompt: inputText.value,
-        lora: '',
-        temp_prompt: tokens.value,
-        temp_lora: ''
-      }
-      const jsonStr = JSON.stringify(putJson)
+  const finishPromptPutItHistory = () => {
+    // console.log('finishPromptPutItHistory 被调用', new Error().stack);
+    // 去除空格、换行和制表符
+    const trimmedInput = inputText.value.replace(/[\s\t\n]+/g, '')
+    if (selectedLoras.value.length > 0) {
       if (trimmedInput.length > 0) {
-        historyApi.saveHistory({ tag: jsonStr })
+        const tempLora = selectedLoras.value.filter((lora) => !lora.hidden)
+        const putJson = {
+          prompt: inputText.value,
+          lora: tempLora.length > 0 ? tempLora : '',
+          temp_prompt: tokens.value,
+          temp_lora: selectedLoras.value
+        }
+        const jsonStr = JSON.stringify(putJson)
+        if (tempInputText.value !== jsonStr) {
+          tempInputText.value = jsonStr
+          historyApi.saveHistory({ tag: jsonStr })
+        }
+      }
+    } else {
+      if (tempInputText.value !== inputText.value) {
+        const putJson = {
+          prompt: inputText.value,
+          lora: '',
+          temp_prompt: tokens.value,
+          temp_lora: [] // 修复：使用空数组而不是空字符串
+        }
+        const jsonStr = JSON.stringify(putJson)
+        if (trimmedInput.length > 0) {
+          historyApi.saveHistory({ tag: jsonStr })
+        }
       }
     }
+    postMessageToWindowsPrompt()
+    if (!suppressUnsavedOnce) {
+      unsavedChanges.value = true
+    }
   }
-  postMessageToWindowsPrompt()
-  if (!suppressUnsavedOnce) {
-    unsavedChanges.value = true
-  }
-}
 
-const postMessageToWindowsPrompt = () => {
-  if (selectedLoras.value.length > 0) {
-    tempInputText.value = inputText.value
+  const postMessageToWindowsPrompt = () => {
     const tempLora = selectedLoras.value.filter((lora) => !lora.hidden)
     const putJson = {
       prompt: inputText.value,
-      lora: '',
+      lora: tempLora.length > 0 ? tempLora : '',
       temp_prompt: tokens.value,
-      temp_lora: selectedLoras.value
+      temp_lora: selectedLoras.value.length > 0 ? selectedLoras.value : [] // 修复：使用空数组而不是空字符串
     }
-    if (tempLora.length > 0) {
-      putJson.lora = tempLora
-    }
-    const jsonStr = JSON.stringify(putJson)
-    window.postMessage(
-      {
-        type: 'weilin_prompt_ui_prompt_finish_prompt',
-        data: jsonStr
-      },
-      '*'
-    )
-    // console.log('postMessageToWindowsPrompt sent with lora:', jsonStr);
-  } else {
     tempInputText.value = inputText.value
-    const putJson = {
-      prompt: inputText.value,
-      lora: '',
-      temp_prompt: tokens.value,
-      temp_lora: ''
-    }
     const jsonStr = JSON.stringify(putJson)
     window.postMessage(
       {
@@ -2684,700 +2635,728 @@ const postMessageToWindowsPrompt = () => {
     )
     // console.log('postMessageToWindowsPrompt sent with lora:', jsonStr);
   }
-}
 
-// 显示控制栏
-const showControls = (index, event) => {
-  // 框选模式下不显示控制菜单
-  if (isBoxSelectMode.value) {
-    return
-  }
+  // 显示控制栏
+  const showControls = (index, event) => {
+    // 框选模式下不显示控制菜单
+    if (isBoxSelectMode.value) {
+      return
+    }
 
-  // 清除任何现有的定时器
-  if (hideTimeout.value) {
-    clearTimeout(hideTimeout.value)
-    hideTimeout.value = null
-  }
+    // 清除任何现有的定时器
+    if (hideTimeout.value) {
+      clearTimeout(hideTimeout.value)
+      hideTimeout.value = null
+    }
 
-  const rect = event.target.getBoundingClientRect()
-  controlsPosition.value = {
-    top: `${ rect.top - 50 }px`,
-    left: `${ rect.left + rect.width / 2 }px`
-  }
-  activeControls.value = index
+    const rect = event.target.getBoundingClientRect()
+    controlsPosition.value = {
+      top: `${rect.top - 50}px`,
+      left: `${rect.left + rect.width / 2}px`
+    }
+    activeControls.value = index
 
-  // 检测并设置权重值
-  const text = tokens.value[index].text
-  weightValue.value = findInnerWeight(text)
+    // 检测并设置权重值
+    const text = tokens.value[index].text
+    weightValue.value = findInnerWeight(text)
 
-  tagTipsPosition.value = {
-    top: `${ rect.bottom + window.scrollY + rect.height + 10 }px`,
-    left: `${ rect.left + rect.width / 2 }px`
-  }
-  if (!tokens.value[index].isLoraTag) {
-    showTagTipsBox.value = true
-  }
-}
-
-// 定义递归函数来查找最内层的权重
-const findInnerWeight = (content) => {
-  // 定义括号匹配正则表达式
-  const bracketPairs = [
-    { open: '(', close: ')' },
-    { open: '[', close: ']' },
-    { open: '{', close: '}' },
-    { open: '<', close: '>' }
-  ]
-
-  // 查找最内层内容
-  for (const pair of bracketPairs) {
-    if (content.startsWith(pair.open) && content.endsWith(pair.close)) {
-      // 递归查找内层内容
-      return findInnerWeight(content.slice(1, -1))
+    tagTipsPosition.value = {
+      top: `${rect.bottom + window.scrollY + rect.height + 10}px`,
+      left: `${rect.left + rect.width / 2}px`
+    }
+    if (!tokens.value[index].isLoraTag) {
+      showTagTipsBox.value = true
     }
   }
 
-  // 如果没有括号，直接匹配权重
-  const weightMatch = content.match(/:(\d+(\.\d+)?)$/)
-  return weightMatch ? parseFloat(weightMatch[1]) : 1
-}
+  // 定义递归函数来查找最内层的权重
+  const findInnerWeight = (content) => {
+    // 定义括号匹配正则表达式
+    const bracketPairs = [
+      { open: '(', close: ')' },
+      { open: '[', close: ']' },
+      { open: '{', close: '}' },
+      { open: '<', close: '>' }
+    ]
 
-const hideTimeout = ref(null)
-
-// 处理鼠标离开词组
-const handleMouseLeave = (index) => {
-  // 清除现有的定时器
-  if (hideTimeout.value) {
-    clearTimeout(hideTimeout.value)
-  }
-
-  // 设置新的定时器
-  hideTimeout.value = setTimeout(() => {
-    if (!isOverControls.value) {
-      hideControls()
-    }
-    hideTimeout.value = null
-  }, 100)
-
-  showTagTipsBox.value = false
-}
-
-// 处理鼠标离开控制栏
-const handleControlsLeave = () => {
-  isOverControls.value = false
-  handleMouseLeave(activeControls.value)
-  // 确保框选模式在离开控制栏后重置
-  setTimeout(() => {
-    if (!isOverControls.value) {
-      isBoxSelectMode.value = false
-    }
-  }, 100)
-}
-
-// 隐藏控制栏
-const hideControls = () => {
-  if (!isOverControls.value) {
-    activeControls.value = null
-  }
-}
-
-// 处理删除按钮点击
-const handleDelete = () => {
-  if (activeControls.value !== null) {
-    const index = activeControls.value
-    deleteToken(index)
-    // 删除后立即隐藏控制栏
-    activeControls.value = null
-    isOverControls.value = false
-  }
-}
-
-// 处理添加换行符
-const handelLineToken = () => {
-  if (activeControls.value !== null) {
-    const index = activeControls.value
-    // 在当前 token 后插入一个换行符 token
-    tokens.value.splice(index + 1, 0, {
-      id: generateUniqueId(),
-      text: '\n',
-      translate: '',
-      isPunctuation: false,
-      isEditing: false,
-      isHidden: false,
-      color: ''
-    })
-    updateInputText()
-  }
-}
-// 删除词组
-const deleteToken = (index) => {
-  const text = inputText.value
-  const targetToken = tokens.value[index]
-  let lastIndex = 0
-  let tokenPos = -1
-
-  // 查找要删除的词组位置
-  for (let i = 0; i < index; i++) {
-    const pos = text.indexOf(tokens.value[i].text, lastIndex)
-    if (pos !== -1) {
-      lastIndex = pos + tokens.value[i].text.length
-    }
-  }
-
-  // 找到目标词组的位置
-  if (targetToken.text === '\n' || targetToken.text === '\t') {
-    for (let i = lastIndex; i < text.length; i++) {
-      if (text[i] === targetToken.text) {
-        tokenPos = i
-        break
+    // 查找最内层内容
+    for (const pair of bracketPairs) {
+      if (content.startsWith(pair.open) && content.endsWith(pair.close)) {
+        // 递归查找内层内容
+        return findInnerWeight(content.slice(1, -1))
       }
     }
-  } else {
-    tokenPos = text.indexOf(targetToken.text, lastIndex)
+
+    // 如果没有括号，直接匹配权重
+    const weightMatch = content.match(/:(\d+(\.\d+)?)$/)
+    return weightMatch ? parseFloat(weightMatch[1]) : 1
   }
 
-  if (tokenPos !== -1) {
-    // 如果删除的是换行符，则替换为空格
-    const replacement = targetToken.text === '\n' ? ' ' : ''
-    const newText =
+  const hideTimeout = ref(null)
+
+  // 处理鼠标离开词组
+  const handleMouseLeave = () => {
+    // 清除现有的定时器
+    if (hideTimeout.value) {
+      clearTimeout(hideTimeout.value)
+    }
+
+    // 设置新的定时器
+    hideTimeout.value = setTimeout(() => {
+      if (!isOverControls.value) {
+        hideControls()
+      }
+      hideTimeout.value = null
+    }, 100)
+
+    showTagTipsBox.value = false
+  }
+
+  // 处理鼠标离开控制栏
+  const handleControlsLeave = () => {
+    isOverControls.value = false
+    handleMouseLeave(activeControls.value)
+    // 确保框选模式在离开控制栏后重置
+    setTimeout(() => {
+      if (!isOverControls.value) {
+        isBoxSelectMode.value = false
+      }
+    }, 100)
+  }
+
+  // 隐藏控制栏
+  const hideControls = () => {
+    if (!isOverControls.value) {
+      activeControls.value = null
+    }
+  }
+
+  // 处理删除按钮点击
+  const handleDelete = () => {
+    if (activeControls.value !== null) {
+      const index = activeControls.value
+      deleteToken(index)
+      // 删除后立即隐藏控制栏
+      activeControls.value = null
+      isOverControls.value = false
+    }
+  }
+
+  // 处理添加换行符
+  const handelLineToken = () => {
+    if (activeControls.value !== null) {
+      const index = activeControls.value
+      // 在当前 token 后插入一个换行符 token
+      tokens.value.splice(index + 1, 0, {
+        id: generateUniqueId(),
+        text: '\n',
+        translate: '',
+        isPunctuation: false,
+        isEditing: false,
+        isHidden: false,
+        color: ''
+      })
+      updateInputText()
+    }
+  }
+  // 删除词组
+  const deleteToken = (index) => {
+    const text = inputText.value
+    const targetToken = tokens.value[index]
+
+    // 检查是否是 Lora 标签，如果是则同步更新 selectedLoras
+    if (targetToken.isLoraTag) {
+      // 解析 Lora 标签获取 Lora 名称
+      const match4 = targetToken.text.match(/<wlr:([^:]+):([^:]+):([^:]+):([^>]+)>/)
+      const match3 = targetToken.text.match(/<wlr:([^:]+):([^:]+):([^>]+)>/)
+      let loraName = null
+      if (match4) {
+        loraName = match4[1]
+      } else if (match3) {
+        loraName = match3[1]
+      }
+
+      // 从 selectedLoras 中移除对应的 Lora
+      if (loraName) {
+        const loraIndex = selectedLoras.value.findIndex(
+          (lora) =>
+            lora.name === loraName ||
+            (lora.lora && lora.lora.replace('.safetensors', '') === loraName)
+        )
+        if (loraIndex > -1) {
+          selectedLoras.value = selectedLoras.value.filter((_, i) => i !== loraIndex)
+        }
+      }
+    }
+
+    let lastIndex = 0
+    let tokenPos = -1
+
+    // 查找要删除的词组位置
+    for (let i = 0; i < index; i++) {
+      const pos = text.indexOf(tokens.value[i].text, lastIndex)
+      if (pos !== -1) {
+        lastIndex = pos + tokens.value[i].text.length
+      }
+    }
+
+    // 找到目标词组的位置
+    if (targetToken.text === '\n' || targetToken.text === '\t') {
+      for (let i = lastIndex; i < text.length; i++) {
+        if (text[i] === targetToken.text) {
+          tokenPos = i
+          break
+        }
+      }
+    } else {
+      tokenPos = text.indexOf(targetToken.text, lastIndex)
+    }
+
+    if (tokenPos !== -1) {
+      // 如果删除的是换行符，则替换为空格
+      const replacement = targetToken.text === '\n' ? ' ' : ''
+      const newText =
         text.substring(0, tokenPos) +
         replacement +
         text.substring(tokenPos + targetToken.text.length)
-    inputText.value = newText
-  }
+      inputText.value = newText
+    }
 
-  tokens.value.splice(index, 1)
-  // 更新输入文本，保持原有格式，但排除隐藏的tokens
-  inputText.value =
+    tokens.value.splice(index, 1)
+    // 更新输入文本，保持原有格式，但排除隐藏的tokens
+    inputText.value =
       tokens.value.length > 0
         ? tokens.value.reduce((acc, token, index) => {
-          // 如果token是隐藏的，不添加到输入文本中
-          if (token.isHidden) {
-            return acc
-          }
+            // 如果token是隐藏的，不添加到输入文本中
+            if (token.isHidden) {
+              return acc
+            }
 
-          // 如果是换行符，不加逗号
-          if (token.text === '\n') {
-            // 查找前一个非隐藏token
-            const prevNonHiddenIndex = findPrevNonHiddenIndex(index)
-            const prevToken = prevNonHiddenIndex !== -1 ? tokens.value[prevNonHiddenIndex] : null
+            // 如果是换行符，不加逗号
+            if (token.text === '\n') {
+              // 查找前一个非隐藏token
+              const prevNonHiddenIndex = findPrevNonHiddenIndex(index)
+              // eslint-disable-next-line no-unused-vars
+              const prevToken = prevNonHiddenIndex !== -1 ? tokens.value[prevNonHiddenIndex] : null
 
-            // 直接返回换行符，不添加额外的逗号
-            // 因为前一个token在处理时已经根据shouldAddComma添加了逗号
-            return acc + token.text
-          }
+              // 直接返回换行符，不添加额外的逗号
+              // 因为前一个token在处理时已经根据shouldAddComma添加了逗号
+              return acc + token.text
+            }
 
-          // 第一个非隐藏token不加逗号前缀
-          if (acc === '') {
+            // 第一个非隐藏token不加逗号前缀
+            if (acc === '') {
+              // 查找下一个非隐藏token
+              let nextNonHiddenIndex = index + 1
+              while (
+                nextNonHiddenIndex < tokens.value.length &&
+                tokens.value[nextNonHiddenIndex]?.isHidden
+              ) {
+                nextNonHiddenIndex++
+              }
+
+              // 判断是否是最后一个非隐藏token或者下一个是换行符
+              const isLastToken = nextNonHiddenIndex >= tokens.value.length
+              const nextToken =
+                nextNonHiddenIndex < tokens.value.length ? tokens.value[nextNonHiddenIndex] : null
+              const shouldAddComma = isLastToken || (nextToken && nextToken.text === '\n')
+
+              return token.text + (shouldAddComma ? ',' : '')
+            }
+
             // 查找下一个非隐藏token
             let nextNonHiddenIndex = index + 1
             while (
               nextNonHiddenIndex < tokens.value.length &&
-                tokens.value[nextNonHiddenIndex]?.isHidden
+              tokens.value[nextNonHiddenIndex]?.isHidden
             ) {
               nextNonHiddenIndex++
             }
 
-            // 判断是否是最后一个非隐藏token或者下一个是换行符
+            // 判断是否是最后一个非隐藏token
             const isLastToken = nextNonHiddenIndex >= tokens.value.length
             const nextToken =
-                nextNonHiddenIndex < tokens.value.length ? tokens.value[nextNonHiddenIndex] : null
-            const shouldAddComma = isLastToken || (nextToken && nextToken.text === '\n')
-
-            return token.text + (shouldAddComma ? ',' : '')
-          }
-
-          // 查找下一个非隐藏token
-          let nextNonHiddenIndex = index + 1
-          while (
-            nextNonHiddenIndex < tokens.value.length &&
-              tokens.value[nextNonHiddenIndex]?.isHidden
-          ) {
-            nextNonHiddenIndex++
-          }
-
-          // 判断是否是最后一个非隐藏token
-          const isLastToken = nextNonHiddenIndex >= tokens.value.length
-          const nextToken =
               nextNonHiddenIndex < tokens.value.length ? tokens.value[nextNonHiddenIndex] : null
 
-          // 如果是换行符前或者最后一个token，则添加逗号
-          const shouldAddComma = (nextToken && nextToken.text === '\n') || isLastToken
+            // 如果是换行符前或者最后一个token，则添加逗号
+            const shouldAddComma = (nextToken && nextToken.text === '\n') || isLastToken
 
-          // 前一个token是换行符，不加逗号前缀
-          const prevNonHiddenIndex = findPrevNonHiddenIndex(index)
-          if (prevNonHiddenIndex !== -1 && tokens.value[prevNonHiddenIndex].text === '\n') {
-            return acc + token.text + (shouldAddComma ? ',' : '')
-          }
+            // 前一个token是换行符，不加逗号前缀
+            const prevNonHiddenIndex = findPrevNonHiddenIndex(index)
+            if (prevNonHiddenIndex !== -1 && tokens.value[prevNonHiddenIndex].text === '\n') {
+              return acc + token.text + (shouldAddComma ? ',' : '')
+            }
 
-          // 其他情况加逗号和空格前缀
-          return `${ acc }, ${ token.text }${ shouldAddComma ? ',' : '' }`
-        }, '')
+            // 其他情况加逗号和空格前缀
+            return `${acc}, ${token.text}${shouldAddComma ? ',' : ''}`
+          }, '')
         : ''
 
-  finishPromptPutItHistory()
-  unsavedChanges.value = true
-}
-
-// 处理词组编辑
-const handleTokenEdit = (index, event) => {
-  const text = inputText.value
-  let lastIndex = 0
-  let tokenPos = -1
-
-  // 查找要编辑的词组位置
-  for (let i = 0; i < index; i++) {
-    const pos = text.indexOf(tokens.value[i].text, lastIndex)
-    if (pos !== -1) {
-      lastIndex = pos + tokens.value[i].text.length
-    }
-  }
-
-  // 找到目标词组的原始位置
-  const oldText = tokens.value[index].text
-  tokenPos = text.indexOf(oldText, lastIndex)
-
-  if (tokenPos !== -1) {
-    // 更新输入框文本和词组文本
-    const newValue = event.target.value
-    const newText =
-        text.substring(0, tokenPos) + newValue + text.substring(tokenPos + oldText.length)
-    inputText.value = newText
-    tokens.value[index] = {
-      ...tokens.value[index],
-      text: newValue
-    }
-
     finishPromptPutItHistory()
-  }
-}
-
-// 修改 startEditing 函数，添加对标点符号的处理
-const startEditing = (index) => {
-  // 如果是标点符号，不允许编辑
-  if (tokens.value[index].isPunctuation) {
-    return
+    unsavedChanges.value = true
   }
 
-  tokens.value[index].isEditing = true
-  setTimeout(() => {
-    const input = tokenInputRefs[index]
-    if (input) {
-      input.focus()
-      const len = input.value.length
-      input.setSelectionRange(len, len)
-      adjustInputWidth(input)
-      input.addEventListener('input', () => adjustInputWidth(input))
+  // 处理词组编辑
+  const handleTokenEdit = (index, event) => {
+    const text = inputText.value
+    let lastIndex = 0
+    let tokenPos = -1
+
+    // 查找要编辑的词组位置
+    for (let i = 0; i < index; i++) {
+      const pos = text.indexOf(tokens.value[i].text, lastIndex)
+      if (pos !== -1) {
+        lastIndex = pos + tokens.value[i].text.length
+      }
+    }
+
+    // 找到目标词组的原始位置
+    const oldText = tokens.value[index].text
+    tokenPos = text.indexOf(oldText, lastIndex)
+
+    if (tokenPos !== -1) {
+      // 更新输入框文本和词组文本
+      const newValue = event.target.value
+      const newText =
+        text.substring(0, tokenPos) + newValue + text.substring(tokenPos + oldText.length)
+      inputText.value = newText
+      tokens.value[index] = {
+        ...tokens.value[index],
+        text: newValue
+      }
+
       finishPromptPutItHistory()
-      unsavedChanges.value = true
     }
-  })
-}
+  }
 
-// 调整输入框宽度
-const adjustInputWidth = (input) => {
-  // 创建一个临时的 span 元素来计算文本宽度
-  const span = document.createElement('span')
-  span.style.visibility = 'hidden'
-  span.style.position = 'absolute'
-  span.style.whiteSpace = 'pre'
-  // 复制输入框的样式
-  const computedStyle = window.getComputedStyle(input)
-  span.style.font = computedStyle.font
-  span.style.fontSize = computedStyle.fontSize
-  span.style.fontFamily = computedStyle.fontFamily
-  span.style.padding = computedStyle.padding
-  span.style.border = computedStyle.border
-  span.textContent = input.value || input.placeholder || ''
-
-  document.body.appendChild(span)
-  // 设置输入框宽度，添加一些额外空间以防止文字紧贴边框
-  const width = span.offsetWidth
-  input.style.width = `${ Math.max(width + 4, 20) }px`
-  document.body.removeChild(span)
-}
-
-// 完成编辑
-const finishEditing = (index) => {
-  tokens.value[index].isEditing = false
-}
-
-// 删除 watch 监听器，因为我们现在使用直接的输入事件处理
-
-// 监听词组的变化 - 优化：使用防抖减少更新频率
-let updateInputTextTimer = null
-watch(
-  tokens,
-  (newTokens) => {
-    if (updateInputTextTimer) {
-      clearTimeout(updateInputTextTimer)
+  // 修改 startEditing 函数，添加对标点符号的处理
+  const startEditing = (index) => {
+    // 如果是标点符号，不允许编辑
+    if (tokens.value[index].isPunctuation) {
+      return
     }
-    updateInputTextTimer = setTimeout(() => {
-      updateInputText()
-      updateInputTextTimer = null
-    }, 100)
-  },
-  { deep: false } // 改为浅层watch
-)
 
-// 优化：使用防抖减少selectedLoras的更新频率
-let selectedLorasTimer = null
-watch(
-  selectedLoras,
-  (newLoras) => {
-    if (selectedLorasTimer) {
-      clearTimeout(selectedLorasTimer)
-    }
-    selectedLorasTimer = setTimeout(() => {
-      finishPromptPutItHistory()
-      unsavedChanges.value = true
-      selectedLorasTimer = null
-    }, 200)
-  },
-  { deep: true }
-)
-
-// 切换语言选择器
-const toggleLanguageSelector = () => {
-  showLanguageSelector.value = !showLanguageSelector.value
-  if (showLanguageSelector.value) {
-    nextTick(() => {
-      const btnRect = langBtnRef.value.getBoundingClientRect()
-      languageSwitcherRef.value?.setPosition(btnRect)
+    tokens.value[index].isEditing = true
+    setTimeout(() => {
+      const input = tokenInputRefs[index]
+      if (input) {
+        input.focus()
+        const len = input.value.length
+        input.setSelectionRange(len, len)
+        adjustInputWidth(input)
+        input.addEventListener('input', () => adjustInputWidth(input))
+        finishPromptPutItHistory()
+        unsavedChanges.value = true
+      }
     })
   }
-}
 
-// 关闭语言选择器
-const closeLanguageSelector = () => {
-  showLanguageSelector.value = false
-}
+  // 调整输入框宽度
+  const adjustInputWidth = (input) => {
+    // 创建一个临时的 span 元素来计算文本宽度
+    const span = document.createElement('span')
+    span.style.visibility = 'hidden'
+    span.style.position = 'absolute'
+    span.style.whiteSpace = 'pre'
+    // 复制输入框的样式
+    const computedStyle = window.getComputedStyle(input)
+    span.style.font = computedStyle.font
+    span.style.fontSize = computedStyle.fontSize
+    span.style.fontFamily = computedStyle.fontFamily
+    span.style.padding = computedStyle.padding
+    span.style.border = computedStyle.border
+    span.textContent = input.value || input.placeholder || ''
 
-// 处理点击外部
-const handleClickOutside = (event) => {
-  if (
-    langBtnRef.value &&
+    document.body.appendChild(span)
+    // 设置输入框宽度，添加一些额外空间以防止文字紧贴边框
+    const width = span.offsetWidth
+    input.style.width = `${Math.max(width + 4, 20)}px`
+    document.body.removeChild(span)
+  }
+
+  // 完成编辑
+  const finishEditing = (index) => {
+    tokens.value[index].isEditing = false
+  }
+
+  // 删除 watch 监听器，因为我们现在使用直接的输入事件处理
+
+  // 监听词组的变化 - 优化：使用防抖减少更新频率
+  let updateInputTextTimer = null
+  watch(
+    tokens,
+    () => {
+      if (updateInputTextTimer) {
+        clearTimeout(updateInputTextTimer)
+      }
+      updateInputTextTimer = setTimeout(() => {
+        updateInputText()
+        updateInputTextTimer = null
+      }, 100)
+    },
+    { deep: false } // 改为浅层watch
+  )
+
+  // 优化：使用防抖减少selectedLoras的更新频率
+  let selectedLorasTimer = null
+  watch(
+    selectedLoras,
+    () => {
+      if (selectedLorasTimer) {
+        clearTimeout(selectedLorasTimer)
+      }
+      selectedLorasTimer = setTimeout(() => {
+        finishPromptPutItHistory()
+        unsavedChanges.value = true
+        selectedLorasTimer = null
+      }, 200)
+    },
+    { deep: true }
+  )
+
+  // 切换语言选择器
+  const toggleLanguageSelector = () => {
+    showLanguageSelector.value = !showLanguageSelector.value
+    if (showLanguageSelector.value) {
+      nextTick(() => {
+        const btnRect = langBtnRef.value.getBoundingClientRect()
+        languageSwitcherRef.value?.setPosition(btnRect)
+      })
+    }
+  }
+
+  // 关闭语言选择器
+  const closeLanguageSelector = () => {
+    showLanguageSelector.value = false
+  }
+
+  // 处理点击外部
+  const handleClickOutside = (event) => {
+    if (
+      langBtnRef.value &&
       !langBtnRef.value.contains(event.target) &&
       languageSwitcherRef.value &&
       !languageSwitcherRef.value.$el.contains(event.target)
-  ) {
-    closeLanguageSelector()
-  }
-  // 如果点击的不是补全窗口或输入框
-  if (
-    autocompleteContainerRef.value?.contains &&
+    ) {
+      closeLanguageSelector()
+    }
+    // 如果点击的不是补全窗口或输入框
+    if (
+      autocompleteContainerRef.value?.contains &&
       inputAreaRef.value?.contains &&
       !autocompleteContainerRef.value.contains(event.target) &&
       !inputAreaRef.value.contains(event.target)
-  ) {
-    showAutocomplete.value = false
-  }
-}
-
-// 打开标签管理器
-const openTagManager = () => {
-  // 发送消息给父窗口
-  window.parent.postMessage({ type: 'weilin_prompt_ui_openTagManager_prompt' }, '*')
-}
-
-const openLoraManager = () => {
-  // 发送消息给父窗口
-  window.parent.postMessage({ type: 'weilin_prompt_ui_openLoraManager' }, '*')
-}
-
-const openHistoryBox = () => {
-  // 发送消息给父窗口
-  window.parent.postMessage({ type: 'weilin_prompt_ui_openHistoryManager' }, '*')
-}
-
-// 添加折叠状态控制
-const showTagManager = ref(true)
-
-// 切换标签管理器显示状态
-const toggleTagManager = () => {
-  showTagManager.value = !showTagManager.value
-}
-
-// 添加折叠状态控制
-const showLoraManager = ref(false)
-
-// 切换Lora管理器显示状态
-const toggleLoraManager = () => {
-  showLoraManager.value = !showLoraManager.value
-}
-
-const resizeObserver = ref(null)
-
-const handleTextareaResize = () => {
-  if (inputAreaRef.value) {
-    const height = inputAreaRef.value.clientHeight
-    localStorage.setItem('weilinPromptTextAreaHeight', height)
-  }
-}
-
-// 防抖更新自动补全位置
-let updateAutocompleteDebounce = null
-const updateAutocompletePosition = () => {
-  if (updateAutocompleteDebounce) {
-    clearTimeout(updateAutocompleteDebounce)
-  }
-  updateAutocompleteDebounce = setTimeout(() => {
-    if (showAutocomplete.value) {
-      calculateAutocompletePosition()
+    ) {
+      showAutocomplete.value = false
     }
-  }, 150) // 150ms防抖
-}
-
-const setupCursorTracking = () => {
-  const textarea = inputAreaRef.value
-  if (!textarea) {
-    return
   }
 
-  // 添加光标位置变化监听
-  textarea.addEventListener('keyup', updateAutocompletePosition)
-  textarea.addEventListener('click', updateAutocompletePosition)
-  textarea.addEventListener('input', updateAutocompletePosition)
-}
-
-// 保存文本区域高度到localStorage
-const saveTextareaHeight = () => {
-  if (inputAreaRef.value) {
-    const height = inputAreaRef.value.style.height || `${ inputAreaRef.value.offsetHeight }px`
-    localStorage.setItem('weilinPromptTextAreaHeight', height)
+  // 打开标签管理器
+  const openTagManager = () => {
+    // 发送消息给父窗口
+    window.parent.postMessage({ type: 'weilin_prompt_ui_openTagManager_prompt' }, '*')
   }
-}
 
-// 从localStorage恢复文本区域高度
-const restoreTextareaHeight = () => {
-  const savedHeight = localStorage.getItem('weilinPromptTextAreaHeight')
-  if (savedHeight && inputAreaRef.value) {
-    inputAreaRef.value.style.height = savedHeight
+  const openLoraManager = () => {
+    // 发送消息给父窗口
+    window.parent.postMessage({ type: 'weilin_prompt_ui_openLoraManager' }, '*')
   }
-}
 
-// 添加消息监听
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-  window.addEventListener('message', handleMessage)
-  initTranslate()
-  setupCursorTracking()
+  const openHistoryBox = () => {
+    // 发送消息给父窗口
+    window.parent.postMessage({ type: 'weilin_prompt_ui_openHistoryManager' }, '*')
+  }
 
-  nextTick(() => {
-    restoreTextareaHeight()
+  // 添加折叠状态控制
+  const showTagManager = ref(true)
+
+  // 切换标签管理器显示状态
+  const toggleTagManager = () => {
+    showTagManager.value = !showTagManager.value
+  }
+
+  // 添加折叠状态控制
+  const showLoraManager = ref(false)
+
+  // 切换Lora管理器显示状态
+  const toggleLoraManager = () => {
+    showLoraManager.value = !showLoraManager.value
+  }
+
+  // eslint-disable-next-line no-unused-vars
+  const resizeObserver = ref(null)
+
+  // eslint-disable-next-line no-unused-vars
+  const handleTextareaResize = () => {
+    if (inputAreaRef.value) {
+      const height = inputAreaRef.value.clientHeight
+      localStorage.setItem('weilinPromptTextAreaHeight', height)
+    }
+  }
+
+  // 防抖更新自动补全位置
+  let updateAutocompleteDebounce = null
+  const updateAutocompletePosition = () => {
+    if (updateAutocompleteDebounce) {
+      clearTimeout(updateAutocompleteDebounce)
+    }
+    updateAutocompleteDebounce = setTimeout(() => {
+      if (showAutocomplete.value) {
+        calculateAutocompletePosition()
+      }
+    }, 150) // 150ms防抖
+  }
+
+  const setupCursorTracking = () => {
+    const textarea = inputAreaRef.value
+    if (!textarea) {
+      return
+    }
+
+    // 添加光标位置变化监听
+    textarea.addEventListener('keyup', updateAutocompletePosition)
+    textarea.addEventListener('click', updateAutocompletePosition)
+    textarea.addEventListener('input', updateAutocompletePosition)
+  }
+
+  // 保存文本区域高度到localStorage
+  const saveTextareaHeight = () => {
+    if (inputAreaRef.value) {
+      const height = inputAreaRef.value.style.height || `${inputAreaRef.value.offsetHeight}px`
+      localStorage.setItem('weilinPromptTextAreaHeight', height)
+    }
+  }
+
+  // 从localStorage恢复文本区域高度
+  const restoreTextareaHeight = () => {
+    const savedHeight = localStorage.getItem('weilinPromptTextAreaHeight')
+    if (savedHeight && inputAreaRef.value) {
+      inputAreaRef.value.style.height = savedHeight
+    }
+  }
+
+  // 添加消息监听
+  onMounted(() => {
+    document.addEventListener('click', handleClickOutside)
+    window.addEventListener('message', handleMessage)
+    initTranslate()
+    setupCursorTracking()
+
+    nextTick(() => {
+      restoreTextareaHeight()
+    })
+
+    // 添加框选功能的事件监听 - 修复嵌套nextTick问题
+    // 直接在主nextTick后绑定事件，不再使用嵌套的nextTick
+    setTimeout(() => {
+      // 优先通过ref获取元素
+      if (!tokensContainerRef.value) {
+        tokensContainerRef.value = document.querySelector('.tokens-container')
+      }
+
+      if (tokensContainerRef.value) {
+        // 移除可能存在的旧监听器，避免重复绑定
+        tokensContainerRef.value.removeEventListener('mousedown', handleMouseDown)
+        tokensContainerRef.value.removeEventListener('mousemove', handleMouseMove)
+        tokensContainerRef.value.removeEventListener('mouseup', handleMouseUp)
+        tokensContainerRef.value.removeEventListener('mouseleave', handleMouseUp)
+
+        // 重新绑定监听器
+        tokensContainerRef.value.addEventListener('mousedown', handleMouseDown)
+        tokensContainerRef.value.addEventListener('mousemove', handleMouseMove)
+        tokensContainerRef.value.addEventListener('mouseup', handleMouseUp)
+        tokensContainerRef.value.addEventListener('mouseleave', handleMouseUp)
+
+        // 确保容器有合适的样式允许框选
+        tokensContainerRef.value.style.userSelect = 'none'
+        tokensContainerRef.value.style.cursor = 'default'
+
+        console.log('框选功能事件监听器绑定成功')
+      } else {
+        console.warn('未能找到tokens-container元素，框选功能可能无法正常工作')
+      }
+    }, 100) // 短暂延迟确保DOM完全渲染
   })
 
-  // 添加框选功能的事件监听 - 修复嵌套nextTick问题
-  // 直接在主nextTick后绑定事件，不再使用嵌套的nextTick
-  setTimeout(() => {
-    // 优先通过ref获取元素
-    if (!tokensContainerRef.value) {
-      tokensContainerRef.value = document.querySelector('.tokens-container')
-    }
-
+  onBeforeUnmount(() => {
+    // 清理框选功能的事件监听器
     if (tokensContainerRef.value) {
-      // 移除可能存在的旧监听器，避免重复绑定
       tokensContainerRef.value.removeEventListener('mousedown', handleMouseDown)
       tokensContainerRef.value.removeEventListener('mousemove', handleMouseMove)
       tokensContainerRef.value.removeEventListener('mouseup', handleMouseUp)
       tokensContainerRef.value.removeEventListener('mouseleave', handleMouseUp)
-
-      // 重新绑定监听器
-      tokensContainerRef.value.addEventListener('mousedown', handleMouseDown)
-      tokensContainerRef.value.addEventListener('mousemove', handleMouseMove)
-      tokensContainerRef.value.addEventListener('mouseup', handleMouseUp)
-      tokensContainerRef.value.addEventListener('mouseleave', handleMouseUp)
-
-      // 确保容器有合适的样式允许框选
-      tokensContainerRef.value.style.userSelect = 'none'
-      tokensContainerRef.value.style.cursor = 'default'
-
-      console.log('框选功能事件监听器绑定成功')
-    } else {
-      console.warn('未能找到tokens-container元素，框选功能可能无法正常工作')
     }
-  }, 100) // 短暂延迟确保DOM完全渲染
-})
+    // 移除选择框
+    removeSelectionBox()
+  })
 
-onBeforeUnmount(() => {
-  // 清理框选功能的事件监听器
-  if (tokensContainerRef.value) {
-    tokensContainerRef.value.removeEventListener('mousedown', handleMouseDown)
-    tokensContainerRef.value.removeEventListener('mousemove', handleMouseMove)
-    tokensContainerRef.value.removeEventListener('mouseup', handleMouseUp)
-    tokensContainerRef.value.removeEventListener('mouseleave', handleMouseUp)
-  }
-  // 移除选择框
-  removeSelectionBox()
-})
+  // 处理鼠标按下事件，开始框选 - 增强稳定版
+  const handleMouseDown = (event) => {
+    // 只有在按下左键且没有Ctrl/Cmd键时才开始框选
+    if (event.button === 0 && !event.ctrlKey && !event.metaKey) {
+      // 检查点击目标是否在标签容器内且不是标签本身或控制元素
+      const tokenItem = event.target.closest(
+        '.token-item-box, .token-item, .lora-tag-icon, .newline-token, .tab-token, .delete-btn, .weight-control, .bracket-btn, .translate-button, .tag-tips-box, .token-controls'
+      )
+      const tokensContainer = tokensContainerRef.value
 
-// 处理鼠标按下事件，开始框选 - 增强稳定版
-const handleMouseDown = (event) => {
-  // 只有在按下左键且没有Ctrl/Cmd键时才开始框选
-  if (event.button === 0 && !event.ctrlKey && !event.metaKey) {
-    // 检查点击目标是否在标签容器内且不是标签本身或控制元素
-    const tokenItem = event.target.closest(
-      '.token-item-box, .token-item, .lora-tag-icon, .newline-token, .tab-token, .delete-btn, .weight-control, .bracket-btn, .translate-button, .tag-tips-box, .token-controls'
-    )
-    const tokensContainer = tokensContainerRef.value
+      // 如果点击的是空白区域，记录起始位置但不立即创建选择框
+      if (tokensContainer && !tokenItem) {
+        // 重置所有相关状态变量，确保开始新的框选操作前状态是干净的
+        isPotentialBoxSelection.value = false
+        isSelecting.value = false
+        isUpdatingSelectionBox.value = false
+        isUpdatingSelectedTokens.value = false
 
-    // 如果点击的是空白区域，记录起始位置但不立即创建选择框
-    if (tokensContainer && !tokenItem) {
-      // 重置所有相关状态变量，确保开始新的框选操作前状态是干净的
-      isPotentialBoxSelection.value = false
-      isSelecting.value = false
-      isUpdatingSelectionBox.value = false
-      isUpdatingSelectedTokens.value = false
+        // 在开始新的框选前，先关闭任何已存在的操作菜单
+        closeSelectionActions()
 
-      // 在开始新的框选前，先关闭任何已存在的操作菜单
-      closeSelectionActions()
+        // 移除任何可能残留的选择框
+        removeSelectionBox()
 
-      // 移除任何可能残留的选择框
-      removeSelectionBox()
+        // 获取容器的位置，将选择框限制在容器内
+        const containerRect = tokensContainer.getBoundingClientRect()
+        selectionStart.value = {
+          x: Math.max(event.clientX, containerRect.left),
+          y: Math.max(event.clientY, containerRect.top)
+        }
+        selectionEnd.value = {
+          x: Math.max(event.clientX, containerRect.left),
+          y: Math.max(event.clientY, containerRect.top)
+        }
 
-      // 获取容器的位置，将选择框限制在容器内
-      const containerRect = tokensContainer.getBoundingClientRect()
-      selectionStart.value = {
-        x: Math.max(event.clientX, containerRect.left),
-        y: Math.max(event.clientY, containerRect.top)
+        // 标记为潜在的框选操作，但不立即开始框选
+        isPotentialBoxSelection.value = true
+
+        // 记录日志以便调试
+        console.log('记录框选起始位置')
+
+        // 正常的左键点击应该允许默认行为，比如让文本框失焦
+        // 不再阻止默认行为和冒泡，以保留正常的左键功能
       }
-      selectionEnd.value = {
-        x: Math.max(event.clientX, containerRect.left),
-        y: Math.max(event.clientY, containerRect.top)
-      }
-
-      // 标记为潜在的框选操作，但不立即开始框选
-      isPotentialBoxSelection.value = true
-
-      // 记录日志以便调试
-      console.log('记录框选起始位置')
-
-      // 正常的左键点击应该允许默认行为，比如让文本框失焦
-      // 不再阻止默认行为和冒泡，以保留正常的左键功能
     }
   }
-}
 
-// 处理鼠标移动事件，更新框选区域 - 流畅版
-const handleMouseMove = (event) => {
-  // 如果是潜在的框选操作（已按下鼠标但尚未开始框选）
-  if (isPotentialBoxSelection.value && tokensContainerRef.value && !isSelecting.value) {
-    // 计算鼠标移动的距离
-    const moveDistance = Math.sqrt(
-      Math.pow(event.clientX - selectionStart.value.x, 2) +
+  // 处理鼠标移动事件，更新框选区域 - 流畅版
+  const handleMouseMove = (event) => {
+    // 如果是潜在的框选操作（已按下鼠标但尚未开始框选）
+    if (isPotentialBoxSelection.value && tokensContainerRef.value && !isSelecting.value) {
+      // 计算鼠标移动的距离
+      const moveDistance = Math.sqrt(
+        Math.pow(event.clientX - selectionStart.value.x, 2) +
           Math.pow(event.clientY - selectionStart.value.y, 2)
-    )
+      )
 
-    // 如果移动距离超过阈值（例如3像素），才真正开始框选
-    if (moveDistance > 3) {
+      // 如果移动距离超过阈值（例如3像素），才真正开始框选
+      if (moveDistance > 3) {
+        // 强制阻止默认行为和冒泡，防止浏览器默认的文本选择
+        event.preventDefault()
+        event.stopPropagation()
+
+        // 进入框选模式
+        isSelecting.value = true
+        isBoxSelectMode.value = true
+
+        // 清空选中的标签
+        selectedTokens.value = []
+
+        // 创建选择框元素
+        createSelectionBox()
+
+        console.log('开始实际框选')
+      }
+    }
+
+    // 已经处于框选模式，更新选择框
+    if (isSelecting.value && tokensContainerRef.value) {
       // 强制阻止默认行为和冒泡，防止浏览器默认的文本选择
       event.preventDefault()
       event.stopPropagation()
 
-      // 进入框选模式
-      isSelecting.value = true
-      isBoxSelectMode.value = true
+      // 获取容器的位置，将选择框限制在容器内
+      const containerRect = tokensContainerRef.value.getBoundingClientRect()
+      selectionEnd.value = {
+        x: Math.min(Math.max(event.clientX, containerRect.left), containerRect.right),
+        y: Math.min(Math.max(event.clientY, containerRect.top), containerRect.bottom)
+      }
 
-      // 清空选中的标签
-      selectedTokens.value = []
+      // 确保选择框至少有最小尺寸可见
+      const minSize = 5
+      if (Math.abs(selectionEnd.value.x - selectionStart.value.x) < minSize) {
+        selectionEnd.value.x = selectionStart.value.x + minSize
+      }
+      if (Math.abs(selectionEnd.value.y - selectionStart.value.y) < minSize) {
+        selectionEnd.value.y = selectionStart.value.y + minSize
+      }
 
-      // 创建选择框元素
-      createSelectionBox()
+      // 分离选择框更新和标签选中状态更新
+      // 1. 选择框更新：使用requestAnimationFrame保持流畅动画，不使用节流
+      // 添加防御性检查，确保即使isUpdatingSelectionBox被卡住也能继续更新
+      if (!isUpdatingSelectionBox.value || Date.now() - lastUpdateTime.value > 100) {
+        isUpdatingSelectionBox.value = true
+        requestAnimationFrame(() => {
+          updateSelectionBox()
+          isUpdatingSelectionBox.value = false
+        })
+      }
 
-      console.log('开始实际框选')
-    }
-  }
-
-  // 已经处于框选模式，更新选择框
-  if (isSelecting.value && tokensContainerRef.value) {
-    // 强制阻止默认行为和冒泡，防止浏览器默认的文本选择
-    event.preventDefault()
-    event.stopPropagation()
-
-    // 获取容器的位置，将选择框限制在容器内
-    const containerRect = tokensContainerRef.value.getBoundingClientRect()
-    selectionEnd.value = {
-      x: Math.min(Math.max(event.clientX, containerRect.left), containerRect.right),
-      y: Math.min(Math.max(event.clientY, containerRect.top), containerRect.bottom)
-    }
-
-    // 确保选择框至少有最小尺寸可见
-    const minSize = 5
-    if (Math.abs(selectionEnd.value.x - selectionStart.value.x) < minSize) {
-      selectionEnd.value.x = selectionStart.value.x + minSize
-    }
-    if (Math.abs(selectionEnd.value.y - selectionStart.value.y) < minSize) {
-      selectionEnd.value.y = selectionStart.value.y + minSize
-    }
-
-    // 分离选择框更新和标签选中状态更新
-    // 1. 选择框更新：使用requestAnimationFrame保持流畅动画，不使用节流
-    // 添加防御性检查，确保即使isUpdatingSelectionBox被卡住也能继续更新
-    if (!isUpdatingSelectionBox.value || Date.now() - lastUpdateTime.value > 100) {
-      isUpdatingSelectionBox.value = true
-      requestAnimationFrame(() => {
-        updateSelectionBox()
-        isUpdatingSelectionBox.value = false
-      })
-    }
-
-    // 2. 标签选中状态更新：使用节流控制，减少性能消耗
-    const currentTime = Date.now()
-    if (
-      !isUpdatingSelectedTokens.value &&
+      // 2. 标签选中状态更新：使用节流控制，减少性能消耗
+      const currentTime = Date.now()
+      if (
+        !isUpdatingSelectedTokens.value &&
         currentTime - lastUpdateTime.value > throttleInterval
-    ) {
-      lastUpdateTime.value = currentTime
-      isUpdatingSelectedTokens.value = true
-      requestAnimationFrame(() => {
-        updateSelectedTokens()
-        isUpdatingSelectedTokens.value = false
-      })
+      ) {
+        lastUpdateTime.value = currentTime
+        isUpdatingSelectedTokens.value = true
+        requestAnimationFrame(() => {
+          updateSelectedTokens()
+          isUpdatingSelectedTokens.value = false
+        })
+      }
     }
   }
-}
 
-// 处理鼠标释放事件，结束框选 - 稳定版
-const handleMouseUp = () => {
-  // 清理潜在的框选状态
-  isPotentialBoxSelection.value = false
+  // 处理鼠标释放事件，结束框选 - 稳定版
+  const handleMouseUp = () => {
+    // 清理潜在的框选状态
+    isPotentialBoxSelection.value = false
 
-  if (isSelecting.value) {
-    // 先保存选中的标签数量，然后才结束框选模式
-    const selectedCount = selectedTokens.value.length
+    if (isSelecting.value) {
+      // 先保存选中的标签数量，然后才结束框选模式
+      const selectedCount = selectedTokens.value.length
 
-    // 确保所有状态变量都被正确重置
-    isSelecting.value = false
-    isBoxSelectMode.value = false // 退出框选模式
-    isUpdatingSelectionBox.value = false
-    isUpdatingSelectedTokens.value = false
+      // 确保所有状态变量都被正确重置
+      isSelecting.value = false
+      isBoxSelectMode.value = false // 退出框选模式
+      isUpdatingSelectionBox.value = false
+      isUpdatingSelectedTokens.value = false
 
-    // 移除选择框
-    removeSelectionBox()
+      // 移除选择框
+      removeSelectionBox()
 
-    // 如果有选中的标签，显示操作菜单
-    if (selectedCount > 0) {
-      showSelectionActionsMenu()
+      // 如果有选中的标签，显示操作菜单
+      if (selectedCount > 0) {
+        showSelectionActionsMenu()
+      }
     }
   }
-}
 
-// 创建选择框元素 - 持久稳定版
-const createSelectionBox = () => {
-  try {
-    // 先检查是否已经有选择框存在
-    let selectionBox = document.getElementById(selectionBoxId)
-    if (selectionBox) {
-      // 如果存在，先移除它
-      document.body.removeChild(selectionBox)
-    }
+  // 创建选择框元素 - 持久稳定版
+  const createSelectionBox = () => {
+    try {
+      // 先检查是否已经有选择框存在
+      let selectionBox = document.getElementById(selectionBoxId)
+      if (selectionBox) {
+        // 如果存在，先移除它
+        document.body.removeChild(selectionBox)
+      }
 
-    // 创建新的选择框
-    selectionBox = document.createElement('div')
-    selectionBox.id = selectionBoxId
+      // 创建新的选择框
+      selectionBox = document.createElement('div')
+      selectionBox.id = selectionBoxId
 
-    // 增强选择框的可见性，使用更醒目的样式
-    selectionBox.style.cssText = `
+      // 增强选择框的可见性，使用更醒目的样式
+      selectionBox.style.cssText = `
       position: fixed;
       background-color: rgba(66, 133, 244, 0.4);
       border: 2px dashed #4285f4;
@@ -3389,173 +3368,174 @@ const createSelectionBox = () => {
       display: block;
     `
 
-    document.body.appendChild(selectionBox)
-    console.log('选择框已创建')
-    updateSelectionBox()
-  } catch (error) {
-    console.error('创建选择框失败:', error)
-    // 重置状态，确保后续操作不受影响
-    isUpdatingSelectionBox.value = false
+      document.body.appendChild(selectionBox)
+      console.log('选择框已创建')
+      updateSelectionBox()
+    } catch (error) {
+      console.error('创建选择框失败:', error)
+      // 重置状态，确保后续操作不受影响
+      isUpdatingSelectionBox.value = false
+    }
   }
-}
 
-// 更新选择框位置和大小 - 增强版
-const updateSelectionBox = () => {
-  try {
-    let selectionBox = document.getElementById(selectionBoxId)
-    // 如果选择框不存在，重新创建它
-    if (!selectionBox && isSelecting.value) {
-      createSelectionBox()
-      selectionBox = document.getElementById(selectionBoxId)
-      if (!selectionBox) {
-        return
+  // 更新选择框位置和大小 - 增强版
+  const updateSelectionBox = () => {
+    try {
+      let selectionBox = document.getElementById(selectionBoxId)
+      // 如果选择框不存在，重新创建它
+      if (!selectionBox && isSelecting.value) {
+        createSelectionBox()
+        selectionBox = document.getElementById(selectionBoxId)
+        if (!selectionBox) {
+          return
+        }
       }
+
+      const left = Math.min(selectionStart.value.x, selectionEnd.value.x)
+      const top = Math.min(selectionStart.value.y, selectionEnd.value.y)
+      const width = Math.abs(selectionEnd.value.x - selectionStart.value.x)
+      const height = Math.abs(selectionEnd.value.y - selectionStart.value.y)
+
+      // 确保选择框有足够的大小可见
+      const minSize = 5
+      const effectiveWidth = Math.max(width, minSize)
+      const effectiveHeight = Math.max(height, minSize)
+
+      if (selectionBox) {
+        selectionBox.style.left = `${left}px`
+        selectionBox.style.top = `${top}px`
+        selectionBox.style.width = `${effectiveWidth}px`
+        selectionBox.style.height = `${effectiveHeight}px`
+      }
+    } catch (error) {
+      console.error('更新选择框失败:', error)
+      // 重置状态，确保后续操作不受影响
+      isUpdatingSelectionBox.value = false
     }
-
-    const left = Math.min(selectionStart.value.x, selectionEnd.value.x)
-    const top = Math.min(selectionStart.value.y, selectionEnd.value.y)
-    const width = Math.abs(selectionEnd.value.x - selectionStart.value.x)
-    const height = Math.abs(selectionEnd.value.y - selectionStart.value.y)
-
-    // 确保选择框有足够的大小可见
-    const minSize = 5
-    const effectiveWidth = Math.max(width, minSize)
-    const effectiveHeight = Math.max(height, minSize)
-
-    if (selectionBox) {
-      selectionBox.style.left = `${ left }px`
-      selectionBox.style.top = `${ top }px`
-      selectionBox.style.width = `${ effectiveWidth }px`
-      selectionBox.style.height = `${ effectiveHeight }px`
-    }
-  } catch (error) {
-    console.error('更新选择框失败:', error)
-    // 重置状态，确保后续操作不受影响
-    isUpdatingSelectionBox.value = false
   }
-}
 
-// 移除选择框元素
-const removeSelectionBox = () => {
-  try {
-    const selectionBox = document.getElementById(selectionBoxId)
-    if (selectionBox) {
-      document.body.removeChild(selectionBox)
+  // 移除选择框元素
+  const removeSelectionBox = () => {
+    try {
+      const selectionBox = document.getElementById(selectionBoxId)
+      if (selectionBox) {
+        document.body.removeChild(selectionBox)
+      }
+    } catch (error) {
+      console.error('移除选择框失败:', error)
     }
-  } catch (error) {
-    console.error('移除选择框失败:', error)
   }
-}
 
-// 更新选中的标签索引（框选时使用）
-const updateSelectedTokens = () => {
-  selectedTokens.value = []
+  // 更新选中的标签索引（框选时使用）
+  const updateSelectedTokens = () => {
+    selectedTokens.value = []
 
-  const left = Math.min(selectionStart.value.x, selectionEnd.value.x)
-  const top = Math.min(selectionStart.value.y, selectionEnd.value.y)
-  const right = Math.max(selectionStart.value.x, selectionEnd.value.x)
-  const bottom = Math.max(selectionStart.value.y, selectionEnd.value.y)
-
-  // 获取所有类型的标签容器元素
-  const tokenBoxes = document.querySelectorAll('.token-item-box')
-
-  tokenBoxes.forEach((box, index) => {
-    // 获取标签内部的实际显示元素
-    const tokenElement = box.querySelector(
-      '.token-item, .lora-tag-icon, .newline-token, .tab-token'
-    )
-    if (!tokenElement) {
-      return
-    }
-
-    const rect = box.getBoundingClientRect()
-
-    // 检查标签是否与选择框有交集
-    const isInSelection =
-        rect.right >= left && rect.left <= right && rect.bottom >= top && rect.top <= bottom
-
-    if (isInSelection) {
-      selectedTokens.value.push(index)
-    }
-  })
-
-  // 应用选中样式
-  applySelectedStyle()
-}
-
-// 应用选中标签的视觉效果
-const applySelectedStyle = () => {
-  // 获取所有类型的标签容器元素
-  const tokenBoxes = document.querySelectorAll('.token-item-box')
-
-  // 避免重复操作DOM，先记录需要更新的元素
-  const toSelect = []
-  const toDeselect = []
-
-  tokenBoxes.forEach((box, index) => {
-    if (selectedTokens.value.includes(index)) {
-      toSelect.push(box)
-    } else {
-      toDeselect.push(box)
-    }
-  })
-
-  // 批量更新DOM，减少重排重绘
-  toSelect.forEach((box) => {
-    // 为整个标签容器添加选中类，通过CSS优先级确保显示在禁用样式之上
-    box.classList.add('token-item-box-selected')
-  })
-
-  toDeselect.forEach((box) => {
-    // 移除视觉反馈
-    box.classList.remove('token-item-box-selected')
-    // 清除之前可能设置的内联样式
-    box.style.border = ''
-    box.style.boxShadow = ''
-    box.style.backgroundColor = box.dataset.originalBgColor || ''
-  })
-}
-
-// 显示框选操作菜单
-const showSelectionActionsMenu = () => {
-  if (selectedTokens.value.length > 0) {
-    // 计算选择区域的中心位置作为菜单显示位置
     const left = Math.min(selectionStart.value.x, selectionEnd.value.x)
     const top = Math.min(selectionStart.value.y, selectionEnd.value.y)
     const right = Math.max(selectionStart.value.x, selectionEnd.value.x)
     const bottom = Math.max(selectionStart.value.y, selectionEnd.value.y)
 
-    // 设置菜单位置在选择区域中央
-    selectionActionsPosition.value = {
-      top: `${ top - 50 }px`,
-      left: `${ (left + right) / 2 }px`
+    // 获取所有类型的标签容器元素
+    const tokenBoxes = document.querySelectorAll('.token-item-box')
+
+    tokenBoxes.forEach((box, index) => {
+      // 获取标签内部的实际显示元素
+      const tokenElement = box.querySelector(
+        '.token-item, .lora-tag-icon, .newline-token, .tab-token'
+      )
+      if (!tokenElement) {
+        return
+      }
+
+      const rect = box.getBoundingClientRect()
+
+      // 检查标签是否与选择框有交集
+      const isInSelection =
+        rect.right >= left && rect.left <= right && rect.bottom >= top && rect.top <= bottom
+
+      if (isInSelection) {
+        selectedTokens.value.push(index)
+      }
+    })
+
+    // 应用选中样式
+    applySelectedStyle()
+  }
+
+  // 应用选中标签的视觉效果
+  const applySelectedStyle = () => {
+    // 获取所有类型的标签容器元素
+    const tokenBoxes = document.querySelectorAll('.token-item-box')
+
+    // 避免重复操作DOM，先记录需要更新的元素
+    const toSelect = []
+    const toDeselect = []
+
+    tokenBoxes.forEach((box, index) => {
+      if (selectedTokens.value.includes(index)) {
+        toSelect.push(box)
+      } else {
+        toDeselect.push(box)
+      }
+    })
+
+    // 批量更新DOM，减少重排重绘
+    toSelect.forEach((box) => {
+      // 为整个标签容器添加选中类，通过CSS优先级确保显示在禁用样式之上
+      box.classList.add('token-item-box-selected')
+    })
+
+    toDeselect.forEach((box) => {
+      // 移除视觉反馈
+      box.classList.remove('token-item-box-selected')
+      // 清除之前可能设置的内联样式
+      box.style.border = ''
+      box.style.boxShadow = ''
+      box.style.backgroundColor = box.dataset.originalBgColor || ''
+    })
+  }
+
+  // 显示框选操作菜单
+  const showSelectionActionsMenu = () => {
+    if (selectedTokens.value.length > 0) {
+      // 计算选择区域的中心位置作为菜单显示位置
+      const left = Math.min(selectionStart.value.x, selectionEnd.value.x)
+      const top = Math.min(selectionStart.value.y, selectionEnd.value.y)
+      const right = Math.max(selectionStart.value.x, selectionEnd.value.x)
+      // eslint-disable-next-line no-unused-vars
+      const bottom = Math.max(selectionStart.value.y, selectionEnd.value.y)
+
+      // 设置菜单位置在选择区域中央
+      selectionActionsPosition.value = {
+        top: `${top - 50}px`,
+        left: `${(left + right) / 2}px`
+      }
+
+      showSelectionActions.value = true
+
+      // 添加点击外部关闭菜单的事件监听
+      setTimeout(() => {
+        document.addEventListener('click', closeSelectionActionsOnClickOutside)
+      }, 0)
+    }
+  }
+
+  // 复制选中的标签文本
+  const copySelectedTokens = () => {
+    if (selectedTokens.value.length === 0) {
+      return
     }
 
-    showSelectionActions.value = true
+    // 按顺序获取选中标签的文本
+    const sortedIndices = [...selectedTokens.value].sort((a, b) => a - b)
+    const texts = sortedIndices.map((index) => tokens.value[index].text)
+    const combinedText = texts.join(', ')
 
-    // 添加点击外部关闭菜单的事件监听
-    setTimeout(() => {
-      document.addEventListener('click', closeSelectionActionsOnClickOutside)
-    }, 0)
-  }
-}
-
-// 复制选中的标签文本
-const copySelectedTokens = () => {
-  if (selectedTokens.value.length === 0) {
-    return
-  }
-
-  // 按顺序获取选中标签的文本
-  const sortedIndices = [...selectedTokens.value].sort((a, b) => a - b)
-  const texts = sortedIndices.map((index) => tokens.value[index].text)
-  const combinedText = texts.join(', ')
-
-  // 复制到剪贴板
-  navigator.clipboard.writeText(combinedText).then(() => {
-    // 可以添加一个简单的提示
-    const tempMessage = document.createElement('div')
-    tempMessage.style.cssText = `
+    // 复制到剪贴板
+    navigator.clipboard.writeText(combinedText).then(() => {
+      // 可以添加一个简单的提示
+      const tempMessage = document.createElement('div')
+      tempMessage.style.cssText = `
       position: fixed;
       top: 20px;
       right: 20px;
@@ -3565,1072 +3545,1138 @@ const copySelectedTokens = () => {
       border-radius: 4px;
       z-index: 999999;
     `
-    tempMessage.textContent = '已复制到剪贴板'
-    document.body.appendChild(tempMessage)
+      tempMessage.textContent = '已复制到剪贴板'
+      document.body.appendChild(tempMessage)
 
-    setTimeout(() => {
-      document.body.removeChild(tempMessage)
-    }, 2000)
-  })
+      setTimeout(() => {
+        document.body.removeChild(tempMessage)
+      }, 2000)
+    })
 
-  // 关闭菜单并清除选中状态
-  closeSelectionActions()
-}
-
-// 禁用选中的标签
-const disableSelectedTokens = () => {
-  if (selectedTokens.value.length === 0) {
-    return
+    // 关闭菜单并清除选中状态
+    closeSelectionActions()
   }
 
-  selectedTokens.value.forEach((index) => {
-    if (tokens.value[index] && !tokens.value[index].isHidden) {
-      // 不修改标签文本，只设置隐藏状态（与双击禁用行为一致）
-      tokens.value[index].isHidden = true
-      tokens.value[index].hiddenHint = t('promptBox.hiddenHint') // 使用国际化提示
+  // 禁用选中的标签
+  const disableSelectedTokens = () => {
+    if (selectedTokens.value.length === 0) {
+      return
     }
-  })
 
-  updateInputText()
-  finishPromptPutItHistory()
+    selectedTokens.value.forEach((index) => {
+      if (tokens.value[index] && !tokens.value[index].isHidden) {
+        // 不修改标签文本，只设置隐藏状态（与双击禁用行为一致）
+        tokens.value[index].isHidden = true
+        tokens.value[index].hiddenHint = t('promptBox.hiddenHint') // 使用国际化提示
+      }
+    })
 
-  // 关闭菜单并清除选中状态
-  closeSelectionActions()
-}
+    updateInputText()
+    finishPromptPutItHistory()
 
-// 启用选中的标签
-const enableSelectedTokens = () => {
-  if (selectedTokens.value.length === 0) {
-    return
+    // 关闭菜单并清除选中状态
+    closeSelectionActions()
   }
 
-  selectedTokens.value.forEach((index) => {
-    if (tokens.value[index] && tokens.value[index].isHidden) {
-      // 只需要清除隐藏状态，不需要恢复原始文本（与双击禁用行为一致）
-      tokens.value[index].isHidden = false
-      tokens.value[index].hiddenHint = ''
+  // 启用选中的标签
+  const enableSelectedTokens = () => {
+    if (selectedTokens.value.length === 0) {
+      return
     }
-  })
 
-  updateInputText()
-  finishPromptPutItHistory()
+    selectedTokens.value.forEach((index) => {
+      if (tokens.value[index] && tokens.value[index].isHidden) {
+        // 只需要清除隐藏状态，不需要恢复原始文本（与双击禁用行为一致）
+        tokens.value[index].isHidden = false
+        tokens.value[index].hiddenHint = ''
+      }
+    })
 
-  // 关闭菜单并清除选中状态
-  closeSelectionActions()
-}
+    updateInputText()
+    finishPromptPutItHistory()
 
-// 删除选中的标签（替代原来的showBulkDeleteConfirmation）
-const deleteSelectedTokens = () => {
-  if (selectedTokens.value.length > 0) {
-    if (confirm(`确定要删除选中的 ${ selectedTokens.value.length } 个标签吗？`)) {
-      bulkDeleteSelectedTokens()
-    } else {
-      // 如果取消删除，清除选中状态
+    // 关闭菜单并清除选中状态
+    closeSelectionActions()
+  }
+
+  // 删除选中的标签（替代原来的showBulkDeleteConfirmation）
+  const deleteSelectedTokens = () => {
+    if (selectedTokens.value.length > 0) {
+      if (confirm(`确定要删除选中的 ${selectedTokens.value.length} 个标签吗？`)) {
+        bulkDeleteSelectedTokens()
+      } else {
+        // 如果取消删除，清除选中状态
+        clearSelectedTokens()
+      }
+    }
+  }
+
+  // 关闭选择操作菜单
+  const closeSelectionActions = () => {
+    showSelectionActions.value = false
+    document.removeEventListener('click', closeSelectionActionsOnClickOutside)
+    clearSelectedTokens()
+  }
+
+  // 点击外部关闭选择操作菜单
+  const closeSelectionActionsOnClickOutside = (event) => {
+    const actionsMenu = document.querySelector('.token-controls')
+    if (actionsMenu && !actionsMenu.contains(event.target)) {
+      closeSelectionActions()
+    }
+  }
+
+  // 批量删除选中的标签
+  const bulkDeleteSelectedTokens = () => {
+    if (selectedTokens.value.length === 0) {
+      return
+    }
+
+    // 确保按照从后往前的顺序删除，避免索引偏移
+    const sortedIndices = [...selectedTokens.value].sort((a, b) => b - a)
+
+    // 先删除tokens数组中的元素
+    sortedIndices.forEach((index) => {
+      tokens.value.splice(index, 1)
+    })
+
+    // 然后更新输入文本
+    updateInputText()
+    finishPromptPutItHistory()
+
+    // 清除选中状态
+    clearSelectedTokens()
+  }
+
+  // 清除选中的标签
+  const clearSelectedTokens = () => {
+    // 处理所有带有选中类的标签，确保移除所有选中样式
+    const selectedBoxes = document.querySelectorAll('.token-item-box-selected')
+    selectedBoxes.forEach((box) => {
+      // 移除选中类
+      box.classList.remove('token-item-box-selected')
+      // 清除可能的内联样式
+      box.style.border = ''
+      box.style.boxShadow = ''
+      box.style.backgroundColor = box.dataset.originalBgColor || ''
+    })
+
+    // 清空选中状态数组
+    selectedTokens.value = []
+
+    // 如果操作菜单可见，也关闭它
+    if (showSelectionActions.value) {
+      showSelectionActions.value = false
+      document.removeEventListener('click', closeSelectionActionsOnClickOutside)
+    }
+  }
+
+  // 处理点击空白区域取消框选状态
+  const handleClickToClearSelection = (event) => {
+    // 只有当有选中项时才需要处理
+    if (selectedTokens.value.length === 0) {
+      return
+    }
+
+    // 检查点击目标是否在标签容器内且不是标签本身、控制元素或操作菜单
+    const tokenItem = event.target.closest(
+      '.token-item-box, .token-item, .token-controls, .delete-btn, .weight-control, .bracket-btn, .translate-button, .tag-tips-box'
+    )
+    const tokensContainer = tokensContainerRef.value
+
+    // 如果点击的是文本框或完全在标签容器外部的空白区域，则清除选中状态
+    if (
+      event.target === inputAreaRef.value ||
+      (!tokenItem && (!tokensContainer || !tokensContainer.contains(event.target)))
+    ) {
       clearSelectedTokens()
     }
   }
-}
 
-// 关闭选择操作菜单
-const closeSelectionActions = () => {
-  showSelectionActions.value = false
-  document.removeEventListener('click', closeSelectionActionsOnClickOutside)
-  clearSelectedTokens()
-}
-
-// 点击外部关闭选择操作菜单
-const closeSelectionActionsOnClickOutside = (event) => {
-  const actionsMenu = document.querySelector('.token-controls')
-  if (actionsMenu && !actionsMenu.contains(event.target)) {
-    closeSelectionActions()
-  }
-}
-
-// 批量删除选中的标签
-const bulkDeleteSelectedTokens = () => {
-  if (selectedTokens.value.length === 0) {
-    return
-  }
-
-  // 确保按照从后往前的顺序删除，避免索引偏移
-  const sortedIndices = [...selectedTokens.value].sort((a, b) => b - a)
-
-  // 先删除tokens数组中的元素
-  sortedIndices.forEach((index) => {
-    tokens.value.splice(index, 1)
+  // 组件挂载时添加事件监听
+  onMounted(() => {
+    // 添加点击事件监听，点击空白处或文本框时清除框选状态
+    document.addEventListener('click', handleClickToClearSelection)
   })
 
-  // 然后更新输入文本
-  updateInputText()
-  finishPromptPutItHistory()
-
-  // 清除选中状态
-  clearSelectedTokens()
-}
-
-// 清除选中的标签
-const clearSelectedTokens = () => {
-  // 处理所有带有选中类的标签，确保移除所有选中样式
-  const selectedBoxes = document.querySelectorAll('.token-item-box-selected')
-  selectedBoxes.forEach((box) => {
-    // 移除选中类
-    box.classList.remove('token-item-box-selected')
-    // 清除可能的内联样式
-    box.style.border = ''
-    box.style.boxShadow = ''
-    box.style.backgroundColor = box.dataset.originalBgColor || ''
-  })
-
-  // 清空选中状态数组
-  selectedTokens.value = []
-
-  // 如果操作菜单可见，也关闭它
-  if (showSelectionActions.value) {
-    showSelectionActions.value = false
-    document.removeEventListener('click', closeSelectionActionsOnClickOutside)
-  }
-}
-
-// 处理点击空白区域取消框选状态
-const handleClickToClearSelection = (event) => {
-  // 只有当有选中项时才需要处理
-  if (selectedTokens.value.length === 0) {
-    return
-  }
-
-  // 检查点击目标是否在标签容器内且不是标签本身、控制元素或操作菜单
-  const tokenItem = event.target.closest(
-    '.token-item-box, .token-item, .token-controls, .delete-btn, .weight-control, .bracket-btn, .translate-button, .tag-tips-box'
-  )
-  const tokensContainer = tokensContainerRef.value
-
-  // 如果点击的是文本框或完全在标签容器外部的空白区域，则清除选中状态
-  if (
-    event.target === inputAreaRef.value ||
-      (!tokenItem && (!tokensContainer || !tokensContainer.contains(event.target)))
-  ) {
-    clearSelectedTokens()
-  }
-}
-
-// 组件挂载时添加事件监听
-onMounted(() => {
-  // 添加点击事件监听，点击空白处或文本框时清除框选状态
-  document.addEventListener('click', handleClickToClearSelection)
-})
-
-// 组件卸载时清理事件监听
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-  // 移除点击清除框选的事件监听
-  document.removeEventListener('click', handleClickToClearSelection)
-  if (historyTimer.value) {
-    clearTimeout(historyTimer.value)
-  }
-  window.removeEventListener('message', handleMessage)
-  const textarea = inputAreaRef.value
-  if (textarea) {
-    textarea.removeEventListener('keyup', updateAutocompletePosition)
-    textarea.removeEventListener('click', updateAutocompletePosition)
-    textarea.removeEventListener('input', updateAutocompletePosition)
-  }
-  // 移除框选功能的事件监听
-  if (tokensContainerRef.value) {
-    tokensContainerRef.value.removeEventListener('mousedown', handleMouseDown)
-    tokensContainerRef.value.removeEventListener('mousemove', handleMouseMove)
-    tokensContainerRef.value.removeEventListener('mouseup', handleMouseUp)
-    tokensContainerRef.value.removeEventListener('mouseleave', handleMouseUp)
-  }
-  // 清理选择框
-  removeSelectionBox()
-})
-
-// 处理消息
-const handleMessage = (event) => {
-  if (event.data.type === 'weilin_prompt_ui_insertTag') {
-    // 在输入框末尾添加标签文本
-    const currentText = inputText.value
-    const tagText = event.data.tagText
-
-    // 检查当前文本是否为空或是否以空格结尾
-    if (currentText === '') {
-      inputText.value = tagText
-    } else if (currentText.endsWith(' ')) {
-      inputText.value = `${ currentText }, ${ tagText },`
-    } else {
-      inputText.value = `${ currentText }, ${ tagText },`
+  // 组件卸载时清理事件监听
+  onUnmounted(() => {
+    document.removeEventListener('click', handleClickOutside)
+    // 移除点击清除框选的事件监听
+    document.removeEventListener('click', handleClickToClearSelection)
+    if (historyTimer.value) {
+      clearTimeout(historyTimer.value)
     }
+    window.removeEventListener('message', handleMessage)
+    const textarea = inputAreaRef.value
+    if (textarea) {
+      textarea.removeEventListener('keyup', updateAutocompletePosition)
+      textarea.removeEventListener('click', updateAutocompletePosition)
+      textarea.removeEventListener('input', updateAutocompletePosition)
+    }
+    // 移除框选功能的事件监听
+    if (tokensContainerRef.value) {
+      tokensContainerRef.value.removeEventListener('mousedown', handleMouseDown)
+      tokensContainerRef.value.removeEventListener('mousemove', handleMouseMove)
+      tokensContainerRef.value.removeEventListener('mouseup', handleMouseUp)
+      tokensContainerRef.value.removeEventListener('mouseleave', handleMouseUp)
+    }
+    // 清理选择框
+    removeSelectionBox()
+  })
 
-    lastInputValue.value = inputText.value // 更新上一次的输入内容
-    // 使用防抖版本触发输入事件,让UI先更新
-    debouncedProcessInput()
-  } else if (event.data.type === 'weilin_prompt_ui_user_history_tag') {
-    const tagText = event.data.tagText
-    tempInputText.value = tagText
-    setPromptText(tagText)
-  } else if (event.data.type === 'weilin_prompt_ui_refresh_all_data') {
-    // 刷新数据，无需额外处理
-  } else if (event.data.type === 'weilin_prompt_ui_translate_setting') {
-    initTranslate()
-  } else if (event.data.type === 'weilin_prompt_ui_selectLora') {
-    // console.log(event.data.lora)
-    if (event.data.lora.loraWorks !== undefined && event.data.lora.loraWorks.length > 0) {
+  // 处理消息
+  const handleMessage = (event) => {
+    if (event.data.type === 'weilin_prompt_ui_insertTag') {
       // 在输入框末尾添加标签文本
       const currentText = inputText.value
-      const tagText = event.data.lora.loraWorks
+      const tagText = event.data.tagText
 
       // 检查当前文本是否为空或是否以空格结尾
       if (currentText === '') {
         inputText.value = tagText
       } else if (currentText.endsWith(' ')) {
-        inputText.value = `${ currentText }, ${ tagText },`
+        inputText.value = `${currentText}, ${tagText},`
       } else {
-        inputText.value = `${ currentText }, ${ tagText },`
+        inputText.value = `${currentText}, ${tagText},`
       }
 
       lastInputValue.value = inputText.value // 更新上一次的输入内容
       // 使用防抖版本触发输入事件,让UI先更新
       debouncedProcessInput()
-    }
-  } else if (
-    event.data.type ===
+    } else if (event.data.type === 'weilin_prompt_ui_user_history_tag') {
+      const tagText = event.data.tagText
+      tempInputText.value = tagText
+      setPromptText(tagText)
+    } else if (event.data.type === 'weilin_prompt_ui_refresh_all_data') {
+      // 刷新数据，无需额外处理
+    } else if (event.data.type === 'weilin_prompt_ui_translate_setting') {
+      initTranslate()
+    } else if (event.data.type === 'weilin_prompt_ui_add_lora_tag') {
+      // 处理LoRA标签添加
+      // 前端显示格式: <wlr:模型名:模型权重:CLIP权重:触发词权重>
+      // 注意：触发词由后端从模型元数据自动提取，前端只添加标签
+      const loraTag = event.data.tag // <wlr:模型名:模型权重:CLIP权重:触发词权重>
+
+      // 解析标签获取 Lora 名称
+      const tagMatch = loraTag.match(/<wlr:([^:]+):([^:]+):([^:]+):([^>]+)>/)
+      const loraName = tagMatch ? tagMatch[1] : ''
+
+      // 检查是否已存在于 Lora Stack 中
+      const loraExistsInStack =
+        loraName &&
+        selectedLoras.value.some(
+          (item) => item.lora === `${loraName}.safetensors` || item.name === loraName
+        )
+
+      // 如果 Lora Stack 中不存在，添加到 Lora Stack
+      // 这样确保内嵌LoRA堆和父组件LoRA管理器共享同一个数据源
+      // 注意：只更新 selectedLoras，不直接更新 inputText
+      // lora_stack.vue 的 watch 会监听 selectedLoras 变化并统一更新 inputText
+      // 这样避免了双重更新导致的竞争条件问题
+      if (!loraExistsInStack && tagMatch) {
+        const newLora = {
+          name: loraName,
+          lora: `${loraName}.safetensors`,
+          weight: parseFloat(tagMatch[2]) || 1,
+          text_encoder_weight: parseFloat(tagMatch[3]) || 1,
+          trigger_weight: parseFloat(tagMatch[4]) || 1,
+          display_name: loraName,
+          loraWorks: ''
+        }
+        selectedLoras.value = [...selectedLoras.value, newLora]
+      }
+    } else if (event.data.type === 'weilin_prompt_ui_update_lora_tags') {
+      // 处理 Lora Stack 权重变化，更新提示词中的标签
+      const loraTags = event.data.tags
+      if (loraTags && loraTags.length > 0) {
+        const currentText = inputText.value
+
+        // 移除所有现有的 <wlr:...> 标签
+        const wlrPattern = /<wlr:[^>]+>/g
+        let cleanText = currentText.replace(wlrPattern, '')
+        // 清理连续的逗号和空格
+        cleanText = cleanText
+          .replace(/,\s*,/g, ',')
+          .replace(/,\s*$/g, '')
+          .replace(/^\s*,/g, '')
+          .trim()
+
+        // 添加新的标签到开头
+        const newTags = loraTags.join(', ')
+        if (cleanText) {
+          inputText.value = `${newTags}, ${cleanText}`
+        } else {
+          inputText.value = newTags
+        }
+
+        lastInputValue.value = inputText.value
+        debouncedProcessInput()
+      } else if (loraTags && loraTags.length === 0) {
+        // 当 loraTags 为空数组时，清空提示词中的所有 LoRA 标签
+        const currentText = inputText.value
+        const wlrPattern = /<wlr:[^>]+>/g
+        let cleanText = currentText.replace(wlrPattern, '')
+        // 清理连续的逗号和空格
+        cleanText = cleanText
+          .replace(/,\s*,/g, ',')
+          .replace(/,\s*$/g, '')
+          .replace(/^\s*,/g, '')
+          .trim()
+
+        inputText.value = cleanText
+        lastInputValue.value = inputText.value
+        debouncedProcessInput()
+      }
+    } else if (
+      event.data.type ===
       'weilin_prompt_ui_prompt_inner_get_node_tag_template_id_go_random_response'
-  ) {
-    onClickLocalTemplateRandomTag(event.data.data)
-  } else if (event.data.type === 'weilin_prompt_ui_addLoraTag_inner') {
-    // console.log(event.data.lora)
-    if (event.data.lora.loraWorks !== undefined && event.data.lora.loraWorks.length > 0) {
-      // 在输入框末尾添加标签文本
-      const currentText = inputText.value
-      const tagText =
-          event.data.lora.tag +
-          (event.data.lora.loraWorks === '' ? '' : `, ${ event.data.lora.loraWorks }`)
-
-      // 检查当前文本是否为空或是否以空格结尾
-      if (currentText === '') {
-        inputText.value = tagText
-      } else if (currentText.endsWith(' ')) {
-        inputText.value = `${ currentText }, ${ tagText },`
-      } else {
-        inputText.value = `${ currentText }, ${ tagText },`
-      }
-
-      lastInputValue.value = inputText.value // 更新上一次的输入内容
-      // 使用防抖版本触发输入事件,让UI先更新
-      debouncedProcessInput()
-    } else {
-      // 在输入框末尾添加标签文本
-      const currentText = inputText.value
-      const tagText = event.data.lora.tag
-
-      // 检查当前文本是否为空或是否以空格结尾
-      if (currentText === '') {
-        inputText.value = tagText
-      } else if (currentText.endsWith(' ')) {
-        inputText.value = `${ currentText }, ${ tagText },`
-      } else {
-        inputText.value = `${ currentText }, ${ tagText },`
-      }
-
-      lastInputValue.value = inputText.value // 更新上一次的输入内容
-      // 使用防抖版本触发输入事件,让UI先更新
-      debouncedProcessInput()
-    }
-  } else if (
-    event.data.type &&
+    ) {
+      onClickLocalTemplateRandomTag(event.data.data)
+    } else if (
+      event.data.type &&
       event.data.type.startsWith('weilin_prompt_ui_lora_data_changed_')
-  ) {
-    // 接收节点lora数据变化通知
-    const nodeId = event.data.type.replace('weilin_prompt_ui_lora_data_changed_', '')
-    // 只有当当前编辑的节点ID匹配时才更新
-    if (nodeId === currentEditNodeId.value && event.data.data) {
+    ) {
+      // 接收节点lora数据变化通知
+      const nodeId = event.data.type.replace('weilin_prompt_ui_lora_data_changed_', '')
+      // 只有当当前编辑的节点ID匹配时才更新
+      if (nodeId === currentEditNodeId.value && event.data.data) {
+        try {
+          const jsonStr = JSON.parse(event.data.data)
+          // 更新 selectedLoras，保持与节点数据同步
+          selectedLoras.value = []
+          if (jsonStr.temp_lora && jsonStr.temp_lora.length > 0 && jsonStr.temp_lora !== '') {
+            selectedLoras.value = jsonStr.temp_lora
+          } else if (jsonStr.lora && jsonStr.lora !== '') {
+            selectedLoras.value = jsonStr.lora
+          }
+        } catch (e) {
+          console.error('解析lora数据变化失败:', e)
+        }
+      }
+    }
+  }
+
+  const initTranslate = async () => {
+    const savedSourceLanguage = localStorage.getItem('weilin_prompt_ui_sourceLanguage') || 'english'
+    const savedTargetLanguage =
+      localStorage.getItem('weilin_prompt_ui_targetLanguage') || 'chinese_simplified'
+    if (!localStorage.getItem('weilin_prompt_ui_sourceLanguage')) {
+      localStorage.setItem('weilin_prompt_ui_sourceLanguage', savedSourceLanguage)
+    }
+    if (!localStorage.getItem('weilin_prompt_ui_targetLanguage')) {
+      localStorage.setItem('weilin_prompt_ui_targetLanguage', savedTargetLanguage)
+    }
+    if (savedSourceLanguage !== 'auto') {
+      // translate.language.setLocal(savedSourceLanguage);
+    }
+    // translate.language.setDefaultTo(savedTargetLanguage);
+
+    // 解决common命名空间翻译未生效问题：强制触发Vue I18n更新
+    await nextTick()
+  }
+
+  const translateFunction = (texts, token) => {
+    // if (localStorage.getItem('weilin_prompt_ui_translater_setting') == 'network') {
+    //   translate.request.translateText(texts, function (data) {
+    //     if (data.result > 0) {
+    //       const translatedText = data.text.map(item => item.replace(/[\[\]“”]/g, '')).join(', ');
+    //       token.translate = translatedText
+    //     }
+    //     //打印翻译结果
+    //     // console.log(data);
+    //   });
+    // } else if (localStorage.getItem('weilin_prompt_ui_translater_setting') == 'translater') {
+    translatorApi.translaterText('', texts).then((res) => {
+      // console.log(res)
+      if (res.data.length > 0) {
+        token.translate = res.data
+      }
+    })
+    // } else {
+
+    //   let needTranslateData = { index: token.id, text: token.text, translate: '' }
+    //   const jsonString = JSON.stringify(needTranslateData)
+
+    //   translatorApi.translaterText(jsonString, "").then(res => {
+    //     if (res) {
+    //       if (res.data) {
+    //         const jsonData = JSON.parse(res.data)
+    //         // console.log(jsonData)
+    //         token.translate = jsonData.translate
+    //       }
+    //     }
+    //   })
+    //   // translatorApi.translaterText(texts).then(res => {
+    //   //   // console.log(res)
+    //   //   if (res.text.length > 0) {
+    //   //     token.translate = res.text;
+    //   //   }
+    //   // })
+    // }
+  }
+
+  const finishTranslateEnter = () => {
+    // API翻译
+    translatorApi.translaterInputText('', translateText.value).then((res) => {
+      // console.log(res)
+      if (res.data.length > 0) {
+        tokens.value.push({
+          text: res.data,
+          translate: translateText.value,
+          isPunctuation: false,
+          isEditing: false,
+          isHidden: false,
+          color: ''
+        })
+        translateText.value = ''
+        updateInputText()
+      }
+    })
+
+    // if (localStorage.getItem('weilin_prompt_ui_translater_setting') == 'network') {
+    //   // const restran = translate.language.recognition(translateText.value)
+    //   // var obj = {
+    //   //   from: restran.languageName,
+    //   //   to: 'english',
+    //   //   texts: [translateText.value]
+    //   // }
+
+    //   // translate.request.translateText(obj, function (data) {
+    //   //   if (data.result > 0) {
+    //   //     const translatedText = data.text.map(item => item.replace(/[\[\]“”]/g, '')).join(', ');
+    //   //     tokens.value.push({
+    //   //       text: translatedText,
+    //   //       translate: translateText.value,
+    //   //       isPunctuation: false,
+    //   //       isEditing: false,
+    //   //       isHidden: false,
+    //   //       color: ''
+    //   //     });
+    //   //     translateText.value = ''
+    //   //     updateInputText()
+    //   //   }
+    //   //   //打印翻译结果
+    //   //   // console.log(data);
+    //   // });
+    // } else if (localStorage.getItem('weilin_prompt_ui_translater_setting') == 'translater') {
+    //   // API翻译
+    //   translatorApi.translaterInputText('', translateText.value).then(res => {
+    //     // console.log(res)
+    //     if (res.text.length > 0) {
+    //       tokens.value.push({
+    //         text: res.data,
+    //         translate: translateText.value,
+    //         isPunctuation: false,
+    //         isEditing: false,
+    //         isHidden: false,
+    //         color: ''
+    //       });
+    //       translateText.value = ''
+    //       updateInputText()
+    //     }
+    //   })
+
+    // } else {
+
+    //   let needTranslateData = { text: translateText.value, translate: '' }
+    //   const jsonString = JSON.stringify(needTranslateData)
+
+    //   translatorApi.translaterInputText(jsonString, "").then(res => {
+    //     if (res) {
+    //       if (res.data) {
+    //         const jsonData = JSON.parse(res.data)
+    //         // console.log(jsonData)
+    //         // token.translate = jsonData.translate
+
+    //         tokens.value.push({
+    //           text: jsonData.translate,
+    //           translate: translateText.value,
+    //           isPunctuation: false,
+    //           isEditing: false,
+    //           isHidden: false,
+    //           color: ''
+    //         });
+    //         translateText.value = ''
+    //         updateInputText()
+    //       }
+    //     }
+    //   })
+
+    //   // translatorApi.translaterInputText(translateText.value).then(res => {
+    //   //   // console.log(res)
+    //   //   if (res.text.length > 0) {
+    //   //     tokens.value.push({
+    //   //       text: res.text,
+    //   //       translate: translateText.value,
+    //   //       isPunctuation: false,
+    //   //       isEditing: false,
+    //   //       isHidden: false,
+    //   //       color: ''
+    //   //     });
+    //   //     translateText.value = ''
+    //   //     updateInputText()
+    //   //   }
+    //   // })
+    // }
+  }
+
+  // 自动补全功能
+
+  const onBlur = () => {
+    // 添加延迟处理，避免与自动补全点击冲突
+    setTimeout(() => {
+      if (!showAutocomplete.value) {
+        lastInputValue.value = inputText.value // 更新上一次的输入内容
+        processInput()
+      }
+    }, 100)
+  }
+
+  // 提取补全逻辑到单独的函数
+  const triggerAutocomplete = (inputValue) => {
+    // 处理特殊格式 - 移除了圆括号
+    const cleanedTrSegment = inputValue.replace(/[[\]{}]/g, '').trim()
+    const text = extractText(cleanedTrSegment)
+
+    // 清除输入值的前后空格
+    const trimmedInput = text.trim()
+
+    // 如果输入为空，隐藏补全框
+    if (!trimmedInput) {
+      showAutocomplete.value = false
+      return
+    }
+
+    // 如果输入过长，直接返回
+    if (trimmedInput.length > 20) {
+      showAutocomplete.value = false
+      return
+    }
+
+    try {
+      // 优化匹配逻辑
+      const lowerInput = trimmedInput.toLowerCase()
+
+      autocompleteApi.getAutocomplete(String(lowerInput)).then(async (res) => {
+        autocompleteResults.value = res.data
+        // 更新补全结果
+        await calculateAutocompletePosition()
+        setTimeout(() => {
+          saveAutoCompleteWidth.value =
+            localStorage.getItem('weilin_prompt_ui_auto_box_width') || 450
+          saveAutoCompleteHeight.value =
+            localStorage.getItem('weilin_prompt_ui_auto_box_height') || 350
+          showAutocomplete.value = autocompleteResults.value.length > 0
+          selectedAutocompleteIndex.value = 0 // 重置选中索引
+        }, 50)
+      })
+    } catch (error) {
+      console.error('Autocomplete error:', error)
+      showAutocomplete.value = false
+    }
+  }
+
+  // 处理键盘事件
+  const handleKeydown = (event) => {
+    if (showAutocomplete.value) {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        selectedAutocompleteIndex.value = Math.min(
+          selectedAutocompleteIndex.value + 1,
+          autocompleteResults.value.length - 1
+        )
+        scrollToSelectedItem()
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        selectedAutocompleteIndex.value = Math.max(selectedAutocompleteIndex.value - 1, 0)
+        scrollToSelectedItem()
+      } else if (event.key === 'Tab' || event.key === 'Enter') {
+        event.preventDefault()
+        selectAutocomplete(selectedAutocompleteIndex.value, null, true)
+      } else if (event.key === 'Escape') {
+        event.preventDefault()
+        closeAutocomplete()
+      }
+    }
+  }
+
+  // 添加滚动到选中项的函数
+  const scrollToSelectedItem = () => {
+    nextTick(() => {
+      if (selectedItemRef.value && autocompleteContainerRef.value) {
+        const container = autocompleteContainerRef.value
+        const selectedItem = selectedItemRef.value
+
+        // 获取容器和选中项的位置信息
+        const containerRect = container.getBoundingClientRect()
+        const selectedRect = selectedItem.getBoundingClientRect()
+
+        // 判断选中项是否在可视区域内
+        const isAbove = selectedRect.top < containerRect.top
+        const isBelow = selectedRect.bottom > containerRect.bottom
+
+        if (isAbove) {
+          // 如果选中项在可视区域上方，滚动到顶部
+          container.scrollTop = container.scrollTop + (selectedRect.top - containerRect.top)
+        } else if (isBelow) {
+          // 如果选中项在可视区域下方，滚动到底部
+          container.scrollTop = container.scrollTop + (selectedRect.bottom - containerRect.bottom)
+        }
+      }
+    })
+  }
+
+  // 计算调整后的自动补全位置
+  const adjustedAutocompletePosition = computed(() => {
+    if (!parentCneterBox.value) {
+      return { left: autocompletePosition.value.left }
+    }
+
+    const parentWidth = parentCneterBox.value.offsetWidth
+    const autocompleteWidth = saveAutoCompleteWidth.value
+    let left = autocompletePosition.value.left
+
+    // 检查是否会超出右侧边界
+    if (left + autocompleteWidth > parentWidth) {
+      // 将窗口贴在右侧边界
+      left = parentWidth - autocompleteWidth
+    }
+
+    // 确保不会超出左侧边界
+    if (left < 0) {
+      left = 0
+    }
+
+    return { left }
+  })
+
+  const selectAutocomplete = (index, event) => {
+    // 如果有event参数，阻止默认行为和事件冒泡
+    if (event) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
+
+    if (!autocompleteResults.value[index]) {
+      return
+    }
+
+    showAutocomplete.value = false
+
+    // 获取当前输入框的选区位置
+    const cursorPosition = inputAreaRef.value.selectionStart
+    const cursorEnd = inputAreaRef.value.selectionEnd
+
+    // 获取当前输入文本
+    const currentText = inputText.value
+
+    // 处理补全文本格式转换
+    let tagText = autocompleteResults.value[index].text
+
+    // 应用所有格式转换
+    if (localStorage.getItem('weilin_prompt_ui_comma_conversion') !== 'false') {
+      tagText = tagText.replace(/，/g, ',')
+    }
+    if (localStorage.getItem('weilin_prompt_ui_period_conversion') !== 'false') {
+      tagText = tagText.replace(/。/g, '.')
+    }
+    if (localStorage.getItem('weilin_prompt_ui_bracket_conversion') !== 'false') {
+      tagText = tagText
+        .replace(/【/g, '[')
+        .replace(/】/g, ']')
+        .replace(/（/g, '(')
+        .replace(/）/g, ')')
+    }
+    if (localStorage.getItem('weilin_prompt_ui_angle_bracket_conversion') !== 'false') {
+      tagText = tagText.replace(/《/g, '<').replace(/》/g, '>')
+    }
+    if (localStorage.getItem('weilin_prompt_ui_underscore_to_bracket') === 'true') {
+      tagText = tagText.replace(/_/g, ' ')
+    }
+
+    // 自动转义标签中的括号
+    if (localStorage.getItem('weilin_prompt_ui_bracket_escape') === 'true') {
+      tagText = tagText.replace(/\(([^)]+)\)/g, '\\($1\\)')
+    }
+
+    // 确定要替换的范围
+    let replaceStart = cursorPosition
+    const replaceEnd = cursorEnd
+
+    // 向前查找单词边界
+    while (replaceStart > 0 && !/[,\s]/.test(currentText[replaceStart - 1])) {
+      replaceStart--
+    }
+
+    // 向后查找单词边界（已禁用）
+    // while (replaceEnd < currentText.length && !/[,\s]/.test(currentText[replaceEnd])) {
+    //   replaceEnd++
+    // }
+
+    // 执行替换 - 始终在tag后添加逗号和空格，光标在分隔符后
+    const newText = `${currentText.substring(0, replaceStart) + tagText}, ${currentText.substring(replaceEnd)}`
+
+    // 计算新光标位置 - 补全完成后光标在逗号和空格后面
+    const newCursorPosition = replaceStart + tagText.length + 2 // +2表示逗号和空格
+
+    // 更新输入文本
+    inputText.value = newText
+    lastInputValue.value = newText
+
+    // 触发输入处理
+    processInput()
+
+    // 恢复光标位置
+    nextTick(() => {
+      if (inputAreaRef.value) {
+        inputAreaRef.value.selectionStart = newCursorPosition
+        inputAreaRef.value.selectionEnd = newCursorPosition
+      }
+    })
+  }
+
+  // 关闭补全窗口
+  const closeAutocomplete = () => {
+    showAutocomplete.value = false
+  }
+
+  const setPromptText = (text) => {
+    // console.log(text)
+    if (text.length > 0) {
       try {
-        const jsonStr = JSON.parse(event.data.data)
-        // 更新 selectedLoras，保持与节点数据同步
+        const jsonStr = JSON.parse(text)
+
+        inputText.value = jsonStr.prompt
+        lastInputValue.value = inputText.value // 更新上一次的输入内容
+
+        // 设置初始化标记，避免在设置 selectedLoras 时触发不必要的更新
+        if (loraStackRef.value) {
+          loraStackRef.value.setInitializing(true)
+        }
+
+        // 重置 selectedLoras，避免旧数据残留
         selectedLoras.value = []
+
+        // 优先使用 temp_lora（临时lora数据，包含隐藏状态等完整信息）
         if (jsonStr.temp_lora && jsonStr.temp_lora.length > 0 && jsonStr.temp_lora !== '') {
           selectedLoras.value = jsonStr.temp_lora
         } else if (jsonStr.lora && jsonStr.lora !== '') {
+          // 如果没有 temp_lora，使用 lora
           selectedLoras.value = jsonStr.lora
         }
-      } catch (e) {
-        console.error('解析lora数据变化失败:', e)
-      }
-    }
-  }
-}
 
-const initTranslate = async () => {
-  const savedSourceLanguage = localStorage.getItem('weilin_prompt_ui_sourceLanguage') || 'english'
-  const savedTargetLanguage =
-      localStorage.getItem('weilin_prompt_ui_targetLanguage') || 'chinese_simplified'
-  if (!localStorage.getItem('weilin_prompt_ui_sourceLanguage')) {
-    localStorage.setItem('weilin_prompt_ui_sourceLanguage', savedSourceLanguage)
-  }
-  if (!localStorage.getItem('weilin_prompt_ui_targetLanguage')) {
-    localStorage.setItem('weilin_prompt_ui_targetLanguage', savedTargetLanguage)
-  }
-  if (savedSourceLanguage !== 'auto') {
-    // translate.language.setLocal(savedSourceLanguage);
-  }
-  // translate.language.setDefaultTo(savedTargetLanguage);
-
-  // 解决common命名空间翻译未生效问题：强制触发Vue I18n更新
-  await nextTick()
-}
-
-const translateFunction = (texts, token) => {
-  // if (localStorage.getItem('weilin_prompt_ui_translater_setting') == 'network') {
-  //   translate.request.translateText(texts, function (data) {
-  //     if (data.result > 0) {
-  //       const translatedText = data.text.map(item => item.replace(/[\[\]“”]/g, '')).join(', ');
-  //       token.translate = translatedText
-  //     }
-  //     //打印翻译结果
-  //     // console.log(data);
-  //   });
-  // } else if (localStorage.getItem('weilin_prompt_ui_translater_setting') == 'translater') {
-  translatorApi.translaterText('', texts).then((res) => {
-    // console.log(res)
-    if (res.data.length > 0) {
-      token.translate = res.data
-    }
-  })
-  // } else {
-
-  //   let needTranslateData = { index: token.id, text: token.text, translate: '' }
-  //   const jsonString = JSON.stringify(needTranslateData)
-
-  //   translatorApi.translaterText(jsonString, "").then(res => {
-  //     if (res) {
-  //       if (res.data) {
-  //         const jsonData = JSON.parse(res.data)
-  //         // console.log(jsonData)
-  //         token.translate = jsonData.translate
-  //       }
-  //     }
-  //   })
-  //   // translatorApi.translaterText(texts).then(res => {
-  //   //   // console.log(res)
-  //   //   if (res.text.length > 0) {
-  //   //     token.translate = res.text;
-  //   //   }
-  //   // })
-  // }
-}
-
-const finishTranslateEnter = () => {
-  // API翻译
-  translatorApi.translaterInputText('', translateText.value).then((res) => {
-    // console.log(res)
-    if (res.data.length > 0) {
-      tokens.value.push({
-        text: res.data,
-        translate: translateText.value,
-        isPunctuation: false,
-        isEditing: false,
-        isHidden: false,
-        color: ''
-      })
-      translateText.value = ''
-      updateInputText()
-    }
-  })
-
-  // if (localStorage.getItem('weilin_prompt_ui_translater_setting') == 'network') {
-  //   // const restran = translate.language.recognition(translateText.value)
-  //   // var obj = {
-  //   //   from: restran.languageName,
-  //   //   to: 'english',
-  //   //   texts: [translateText.value]
-  //   // }
-
-  //   // translate.request.translateText(obj, function (data) {
-  //   //   if (data.result > 0) {
-  //   //     const translatedText = data.text.map(item => item.replace(/[\[\]“”]/g, '')).join(', ');
-  //   //     tokens.value.push({
-  //   //       text: translatedText,
-  //   //       translate: translateText.value,
-  //   //       isPunctuation: false,
-  //   //       isEditing: false,
-  //   //       isHidden: false,
-  //   //       color: ''
-  //   //     });
-  //   //     translateText.value = ''
-  //   //     updateInputText()
-  //   //   }
-  //   //   //打印翻译结果
-  //   //   // console.log(data);
-  //   // });
-  // } else if (localStorage.getItem('weilin_prompt_ui_translater_setting') == 'translater') {
-  //   // API翻译
-  //   translatorApi.translaterInputText('', translateText.value).then(res => {
-  //     // console.log(res)
-  //     if (res.text.length > 0) {
-  //       tokens.value.push({
-  //         text: res.data,
-  //         translate: translateText.value,
-  //         isPunctuation: false,
-  //         isEditing: false,
-  //         isHidden: false,
-  //         color: ''
-  //       });
-  //       translateText.value = ''
-  //       updateInputText()
-  //     }
-  //   })
-
-  // } else {
-
-  //   let needTranslateData = { text: translateText.value, translate: '' }
-  //   const jsonString = JSON.stringify(needTranslateData)
-
-  //   translatorApi.translaterInputText(jsonString, "").then(res => {
-  //     if (res) {
-  //       if (res.data) {
-  //         const jsonData = JSON.parse(res.data)
-  //         // console.log(jsonData)
-  //         // token.translate = jsonData.translate
-
-  //         tokens.value.push({
-  //           text: jsonData.translate,
-  //           translate: translateText.value,
-  //           isPunctuation: false,
-  //           isEditing: false,
-  //           isHidden: false,
-  //           color: ''
-  //         });
-  //         translateText.value = ''
-  //         updateInputText()
-  //       }
-  //     }
-  //   })
-
-  //   // translatorApi.translaterInputText(translateText.value).then(res => {
-  //   //   // console.log(res)
-  //   //   if (res.text.length > 0) {
-  //   //     tokens.value.push({
-  //   //       text: res.text,
-  //   //       translate: translateText.value,
-  //   //       isPunctuation: false,
-  //   //       isEditing: false,
-  //   //       isHidden: false,
-  //   //       color: ''
-  //   //     });
-  //   //     translateText.value = ''
-  //   //     updateInputText()
-  //   //   }
-  //   // })
-  // }
-}
-
-// 自动补全功能
-
-const onBlur = () => {
-  // 添加延迟处理，避免与自动补全点击冲突
-  setTimeout(() => {
-    if (!showAutocomplete.value) {
-      lastInputValue.value = inputText.value // 更新上一次的输入内容
-      processInput()
-    }
-  }, 100)
-}
-
-// 提取补全逻辑到单独的函数
-const triggerAutocomplete = (inputValue) => {
-  // 处理特殊格式 - 移除了圆括号
-  const cleanedTrSegment = inputValue.replace(/[\[\]{}]/g, '').trim()
-  const text = extractText(cleanedTrSegment)
-
-  // 清除输入值的前后空格
-  const trimmedInput = text.trim()
-
-  // 如果输入为空，隐藏补全框
-  if (!trimmedInput) {
-    showAutocomplete.value = false
-    return
-  }
-
-  // 如果输入过长，直接返回
-  if (trimmedInput.length > 20) {
-    showAutocomplete.value = false
-    return
-  }
-
-  try {
-    // 优化匹配逻辑
-    const lowerInput = trimmedInput.toLowerCase()
-
-    autocompleteApi.getAutocomplete(String(lowerInput)).then(async (res) => {
-      autocompleteResults.value = res.data
-      // 更新补全结果
-      await calculateAutocompletePosition()
-      setTimeout(() => {
-        saveAutoCompleteWidth.value =
-            localStorage.getItem('weilin_prompt_ui_auto_box_width') || 450
-        saveAutoCompleteHeight.value =
-            localStorage.getItem('weilin_prompt_ui_auto_box_height') || 350
-        showAutocomplete.value = autocompleteResults.value.length > 0
-        selectedAutocompleteIndex.value = 0 // 重置选中索引
-      }, 50)
-    })
-  } catch (error) {
-    console.error('Autocomplete error:', error)
-    showAutocomplete.value = false
-  }
-}
-
-// 处理键盘事件
-const handleKeydown = (event) => {
-  if (showAutocomplete.value) {
-    if (event.key === 'ArrowDown') {
-      event.preventDefault()
-      selectedAutocompleteIndex.value = Math.min(
-        selectedAutocompleteIndex.value + 1,
-        autocompleteResults.value.length - 1
-      )
-      scrollToSelectedItem()
-    } else if (event.key === 'ArrowUp') {
-      event.preventDefault()
-      selectedAutocompleteIndex.value = Math.max(selectedAutocompleteIndex.value - 1, 0)
-      scrollToSelectedItem()
-    } else if (event.key === 'Tab' || event.key === 'Enter') {
-      event.preventDefault()
-      selectAutocomplete(selectedAutocompleteIndex.value, null, true)
-    } else if (event.key === 'Escape') {
-      event.preventDefault()
-      closeAutocomplete()
-    }
-  }
-}
-
-// 添加滚动到选中项的函数
-const scrollToSelectedItem = () => {
-  nextTick(() => {
-    if (selectedItemRef.value && autocompleteContainerRef.value) {
-      const container = autocompleteContainerRef.value
-      const selectedItem = selectedItemRef.value
-
-      // 获取容器和选中项的位置信息
-      const containerRect = container.getBoundingClientRect()
-      const selectedRect = selectedItem.getBoundingClientRect()
-
-      // 判断选中项是否在可视区域内
-      const isAbove = selectedRect.top < containerRect.top
-      const isBelow = selectedRect.bottom > containerRect.bottom
-
-      if (isAbove) {
-        // 如果选中项在可视区域上方，滚动到顶部
-        container.scrollTop = container.scrollTop + (selectedRect.top - containerRect.top)
-      } else if (isBelow) {
-        // 如果选中项在可视区域下方，滚动到底部
-        container.scrollTop = container.scrollTop + (selectedRect.bottom - containerRect.bottom)
-      }
-    }
-  })
-}
-
-// 计算调整后的自动补全位置
-const adjustedAutocompletePosition = computed(() => {
-  if (!parentCneterBox.value) {
-    return { left: autocompletePosition.value.left }
-  }
-
-  const parentWidth = parentCneterBox.value.offsetWidth
-  const autocompleteWidth = saveAutoCompleteWidth.value
-  let left = autocompletePosition.value.left
-
-  // 检查是否会超出右侧边界
-  if (left + autocompleteWidth > parentWidth) {
-    // 将窗口贴在右侧边界
-    left = parentWidth - autocompleteWidth
-  }
-
-  // 确保不会超出左侧边界
-  if (left < 0) {
-    left = 0
-  }
-
-  return { left }
-})
-
-const selectAutocomplete = (index, event) => {
-  // 如果有event参数，阻止默认行为和事件冒泡
-  if (event) {
-    event.preventDefault()
-    event.stopPropagation()
-  }
-
-  if (!autocompleteResults.value[index]) {
-    return
-  }
-
-  showAutocomplete.value = false
-
-  // 获取当前输入框的选区位置
-  const cursorPosition = inputAreaRef.value.selectionStart
-  const cursorEnd = inputAreaRef.value.selectionEnd
-
-  // 获取当前输入文本
-  const currentText = inputText.value
-
-  // 处理补全文本格式转换
-  let tagText = autocompleteResults.value[index].text
-
-  // 应用所有格式转换
-  if (localStorage.getItem('weilin_prompt_ui_comma_conversion') !== 'false') {
-    tagText = tagText.replace(/，/g, ',')
-  }
-  if (localStorage.getItem('weilin_prompt_ui_period_conversion') !== 'false') {
-    tagText = tagText.replace(/。/g, '.')
-  }
-  if (localStorage.getItem('weilin_prompt_ui_bracket_conversion') !== 'false') {
-    tagText = tagText
-      .replace(/【/g, '[')
-      .replace(/】/g, ']')
-      .replace(/（/g, '(')
-      .replace(/）/g, ')')
-  }
-  if (localStorage.getItem('weilin_prompt_ui_angle_bracket_conversion') !== 'false') {
-    tagText = tagText.replace(/《/g, '<').replace(/》/g, '>')
-  }
-  if (localStorage.getItem('weilin_prompt_ui_underscore_to_bracket') === 'true') {
-    tagText = tagText.replace(/_/g, ' ')
-  }
-
-  // 自动转义标签中的括号
-  if (localStorage.getItem('weilin_prompt_ui_bracket_escape') === 'true') {
-    tagText = tagText.replace(/\(([^)]+)\)/g, '\\($1\\)')
-  }
-
-  // 确定要替换的范围
-  let replaceStart = cursorPosition
-  let replaceEnd = cursorEnd
-
-  // 向前查找单词边界
-  while (replaceStart > 0 && !/[,\s]/.test(currentText[replaceStart - 1])) {
-    replaceStart--
-  }
-
-  // 向后查找单词边界（已禁用）
-  // while (replaceEnd < currentText.length && !/[,\s]/.test(currentText[replaceEnd])) {
-  //   replaceEnd++
-  // }
-
-  // 执行替换 - 始终在tag后添加逗号和空格，光标在分隔符后
-  const newText = `${ currentText.substring(0, replaceStart) + tagText }, ${ currentText.substring(replaceEnd) }`
-
-  // 计算新光标位置 - 补全完成后光标在逗号和空格后面
-  const newCursorPosition = replaceStart + tagText.length + 2 // +2表示逗号和空格
-
-  // 更新输入文本
-  inputText.value = newText
-  lastInputValue.value = newText
-
-  // 触发输入处理
-  processInput()
-
-  // 恢复光标位置
-  nextTick(() => {
-    if (inputAreaRef.value) {
-      inputAreaRef.value.selectionStart = newCursorPosition
-      inputAreaRef.value.selectionEnd = newCursorPosition
-    }
-  })
-}
-
-// 关闭补全窗口
-const closeAutocomplete = () => {
-  showAutocomplete.value = false
-}
-
-const setPromptText = (text) => {
-  // console.log(text)
-  if (text.length > 0) {
-    try {
-      const jsonStr = JSON.parse(text)
-
-      inputText.value = jsonStr.prompt
-      lastInputValue.value = inputText.value // 更新上一次的输入内容
-
-      // 重置 selectedLoras，避免旧数据残留
-      selectedLoras.value = []
-
-      // 优先使用 temp_lora（临时lora数据，包含隐藏状态等完整信息）
-      if (jsonStr.temp_lora && jsonStr.temp_lora.length > 0 && jsonStr.temp_lora !== '') {
-        selectedLoras.value = jsonStr.temp_lora
-      } else if (jsonStr.lora && jsonStr.lora !== '') {
-        // 如果没有 temp_lora，使用 lora
-        selectedLoras.value = jsonStr.lora
-      }
-
-      if (jsonStr.temp_prompt && jsonStr.temp_prompt !== '') {
-        // console.log(jsonStr.temp_prompt)
-        const tempDataJson = jsonStr.temp_prompt
-        // console.log(tempDataJson)
-        let isOldVersion = false
-        if (tempDataJson.tokens && tempDataJson.tokens.length > 0 && tempDataJson.tokens !== '') {
-          tokens.value = tempDataJson.tokens
-          isOldVersion = true
-        }
-        // 注意：这里不再从 temp_prompt 中设置 lora，因为已经在上面统一处理了
-        if (tempDataJson.lora && tempDataJson.lora.length > 0 && tempDataJson.lora !== '') {
-          // 只有在没有设置 temp_lora 和 lora 时才使用 temp_prompt.lora
-          if (selectedLoras.value.length === 0) {
-            selectedLoras.value = tempDataJson.lora
+        if (jsonStr.temp_prompt && jsonStr.temp_prompt !== '') {
+          // console.log(jsonStr.temp_prompt)
+          const tempDataJson = jsonStr.temp_prompt
+          // console.log(tempDataJson)
+          let isOldVersion = false
+          if (tempDataJson.tokens && tempDataJson.tokens.length > 0 && tempDataJson.tokens !== '') {
+            tokens.value = tempDataJson.tokens
+            isOldVersion = true
           }
-          isOldVersion = true
+          // 注意：这里不再从 temp_prompt 中设置 lora，因为已经在上面统一处理了
+          if (tempDataJson.lora && tempDataJson.lora.length > 0 && tempDataJson.lora !== '') {
+            // 只有在没有设置 temp_lora 和 lora 时才使用 temp_prompt.lora
+            if (selectedLoras.value.length === 0) {
+              selectedLoras.value = tempDataJson.lora
+            }
+            isOldVersion = true
+          }
+
+          if (!isOldVersion && tempDataJson.length > 0 && tempDataJson !== '') {
+            tokens.value = tempDataJson
+          }
         }
 
-        if (!isOldVersion && tempDataJson.length > 0 && tempDataJson !== '') {
-          tokens.value = tempDataJson
+        // 使用 nextTick 确保数据更新完成后再取消初始化标记
+        nextTick(() => {
+          if (loraStackRef.value) {
+            loraStackRef.value.setInitializing(false)
+          }
+          processInput()
+        })
+      } catch (error) {
+        // console.log('读取数据错误：', error)
+        message({ type: 'warn', str: 'promptBox.settings.errorPrompt' })
+        if (loraStackRef.value) {
+          loraStackRef.value.setInitializing(false)
         }
       }
-
-      processInput()
-    } catch (error) {
-      // console.log('读取数据错误：', error)
-      message({ type: 'warn', str: 'promptBox.settings.errorPrompt' })
+    } else {
+      // 如果 text 为空，清空 selectedLoras
+      selectedLoras.value = []
     }
-  } else {
-    // 如果 text 为空，清空 selectedLoras
-    selectedLoras.value = []
   }
-}
 
-// 拖拽状态管理
-const isDragging = ref(false)
-const dragStartIndex = ref(null)
-const draggedTokens = ref([]) // 存储被批量拖动的标签索引
+  // 拖拽状态管理
+  const isDragging = ref(false)
+  const dragStartIndex = ref(null)
+  const draggedTokens = ref([]) // 存储被批量拖动的标签索引
 
-// 防抖控制
-let dragUpdateTimer = null
-const dragUpdateDelay = 50 // 拖拽更新延迟，单位毫秒
+  // 防抖控制
+  let dragUpdateTimer = null
+  const dragUpdateDelay = 50 // 拖拽更新延迟，单位毫秒
 
-// 存储当前拖拽操作的临时状态
-let dragTempState = null
+  // 存储当前拖拽操作的临时状态
+  let dragTempState = null
 
-// 初始化拖拽状态
-const initializeDragState = (index, useMultipleSelection = false) => {
-  // 重置所有拖拽相关状态
-  isDragging.value = true
-  dragStartIndex.value = null
-  draggedTokens.value = []
+  // 初始化拖拽状态
+  const initializeDragState = (index, useMultipleSelection = false) => {
+    // 重置所有拖拽相关状态
+    isDragging.value = true
+    dragStartIndex.value = null
+    draggedTokens.value = []
 
-  if (
-    useMultipleSelection &&
+    if (
+      useMultipleSelection &&
       selectedTokens.value.length > 1 &&
       selectedTokens.value.includes(index)
-  ) {
-    // 批量拖拽模式
-    draggedTokens.value = [...selectedTokens.value].sort((a, b) => a - b)
-  } else {
-    // 单个拖拽模式
-    selectedTokens.value = []
-    dragStartIndex.value = index
-  }
+    ) {
+      // 批量拖拽模式
+      draggedTokens.value = [...selectedTokens.value].sort((a, b) => a - b)
+    } else {
+      // 单个拖拽模式
+      selectedTokens.value = []
+      dragStartIndex.value = index
+    }
 
-  // 初始化临时状态，用于在拖拽过程中进行计算
-  dragTempState = {
-    originalTokens: [...tokens.value],
-    draggedItems:
+    // 初始化临时状态，用于在拖拽过程中进行计算
+    dragTempState = {
+      originalTokens: [...tokens.value],
+      draggedItems:
         draggedTokens.value.length > 0
           ? draggedTokens.value.map((i) => tokens.value[i])
           : [tokens.value[index]]
-  }
-}
-
-const handleDragStart = (index, event) => {
-  // 如果当前在框选模式中，不触发拖拽
-  if (isBoxSelectMode.value) {
-    event.preventDefault()
-    return
-  }
-
-  // 初始化拖拽状态
-  initializeDragState(index, true)
-
-  event.dataTransfer.effectAllowed = 'move'
-}
-
-// 计算插入位置的辅助函数
-const calculateInsertPosition = (originalTokens, draggedIndexes, targetIndex) => {
-  // 计算在原始数组中，有多少被拖动的元素位于目标索引之前
-  const elementsBeforeIndex = draggedIndexes.filter((i) => i < targetIndex).length
-
-  // 调整插入位置，考虑被删除的元素
-  let insertIndex = Math.max(0, targetIndex - elementsBeforeIndex)
-
-  // 确保插入位置在有效范围内
-  const validRange = originalTokens.length - draggedIndexes.length
-  insertIndex = Math.min(insertIndex, validRange)
-
-  return insertIndex
-}
-
-// 执行拖拽更新的函数
-const performDragUpdate = (targetIndex) => {
-  if (!dragTempState) {
-    return
-  }
-
-  const newTokens = [...dragTempState.originalTokens]
-  const draggedIndexes =
-      draggedTokens.value.length > 0 ? draggedTokens.value : [dragStartIndex.value]
-
-  // 保存要拖动的元素内容，用于后续重新映射选中状态
-  const draggedElements = draggedIndexes.map((idx) => dragTempState.originalTokens[idx])
-
-  // 从后往前删除，避免索引错误
-  for (let i = draggedIndexes.length - 1; i >= 0; i--) {
-    const idx = draggedIndexes[i]
-    if (idx < newTokens.length) {
-      newTokens.splice(idx, 1)
     }
   }
 
-  // 计算插入位置
-  const insertIndex = calculateInsertPosition(
-    dragTempState.originalTokens,
-    draggedIndexes,
-    targetIndex
-  )
+  const handleDragStart = (index, event) => {
+    // 如果当前在框选模式中，不触发拖拽
+    if (isBoxSelectMode.value) {
+      event.preventDefault()
+      return
+    }
 
-  // 插入被拖动的元素
-  dragTempState.draggedItems.forEach((item, i) => {
-    newTokens.splice(insertIndex + i, 0, item)
-  })
+    // 初始化拖拽状态
+    initializeDragState(index, true)
 
-  // 更新tokens数组和输入文本
-  tokens.value = newTokens
-  updateInputText()
+    event.dataTransfer.effectAllowed = 'move'
+  }
 
-  // 如果是批量拖拽且有选中的标签，更新选中状态
-  if (draggedTokens.value.length > 0 && selectedTokens.value.length > 0) {
-    // 创建新的选中索引数组，确保它只包含当前可见且有效的标签索引
-    const newSelectedTokens = []
+  // 计算插入位置的辅助函数
+  const calculateInsertPosition = (originalTokens, draggedIndexes, targetIndex) => {
+    // 计算在原始数组中，有多少被拖动的元素位于目标索引之前
+    const elementsBeforeIndex = draggedIndexes.filter((i) => i < targetIndex).length
 
-    // 查找新位置的拖动元素索引
-    for (let i = 0; i < newTokens.length; i++) {
-      // 通过内容匹配确定元素位置（对于复杂对象，可能需要使用唯一标识符）
-      const token = newTokens[i]
-      if (draggedElements.some((dragged) => dragged.text === token.text)) {
-        newSelectedTokens.push(i)
+    // 调整插入位置，考虑被删除的元素
+    let insertIndex = Math.max(0, targetIndex - elementsBeforeIndex)
+
+    // 确保插入位置在有效范围内
+    const validRange = originalTokens.length - draggedIndexes.length
+    insertIndex = Math.min(insertIndex, validRange)
+
+    return insertIndex
+  }
+
+  // 执行拖拽更新的函数
+  const performDragUpdate = (targetIndex) => {
+    if (!dragTempState) {
+      return
+    }
+
+    const newTokens = [...dragTempState.originalTokens]
+    const draggedIndexes =
+      draggedTokens.value.length > 0 ? draggedTokens.value : [dragStartIndex.value]
+
+    // 保存要拖动的元素内容，用于后续重新映射选中状态
+    const draggedElements = draggedIndexes.map((idx) => dragTempState.originalTokens[idx])
+
+    // 从后往前删除，避免索引错误
+    for (let i = draggedIndexes.length - 1; i >= 0; i--) {
+      const idx = draggedIndexes[i]
+      if (idx < newTokens.length) {
+        newTokens.splice(idx, 1)
       }
     }
 
-    // 更新选中状态
-    selectedTokens.value = newSelectedTokens
+    // 计算插入位置
+    const insertIndex = calculateInsertPosition(
+      dragTempState.originalTokens,
+      draggedIndexes,
+      targetIndex
+    )
 
-    // 在下一个DOM更新周期应用选中样式，确保DOM已更新
-    setTimeout(() => {
-      applySelectedStyle()
-    }, 0)
+    // 插入被拖动的元素
+    dragTempState.draggedItems.forEach((item, i) => {
+      newTokens.splice(insertIndex + i, 0, item)
+    })
+
+    // 更新tokens数组和输入文本
+    tokens.value = newTokens
+    updateInputText()
+
+    // 如果是批量拖拽且有选中的标签，更新选中状态
+    if (draggedTokens.value.length > 0 && selectedTokens.value.length > 0) {
+      // 创建新的选中索引数组，确保它只包含当前可见且有效的标签索引
+      const newSelectedTokens = []
+
+      // 查找新位置的拖动元素索引
+      for (let i = 0; i < newTokens.length; i++) {
+        // 通过内容匹配确定元素位置（对于复杂对象，可能需要使用唯一标识符）
+        const token = newTokens[i]
+        if (draggedElements.some((dragged) => dragged.text === token.text)) {
+          newSelectedTokens.push(i)
+        }
+      }
+
+      // 更新选中状态
+      selectedTokens.value = newSelectedTokens
+
+      // 在下一个DOM更新周期应用选中样式，确保DOM已更新
+      setTimeout(() => {
+        applySelectedStyle()
+      }, 0)
+    }
   }
-}
 
-const handleDragOver = (index, event) => {
-  // 如果当前在框选模式中，不处理拖拽
-  if (isBoxSelectMode.value) {
+  const handleDragOver = (index, event) => {
+    // 如果当前在框选模式中，不处理拖拽
+    if (isBoxSelectMode.value) {
+      event.preventDefault()
+      return
+    }
     event.preventDefault()
-    return
-  }
-  event.preventDefault()
 
-  // 检查是否在拖拽状态
-  if (!isDragging.value) {
-    return
-  }
+    // 检查是否在拖拽状态
+    if (!isDragging.value) {
+      return
+    }
 
-  // 检查目标索引是否有效
-  if (index < 0 || index >= tokens.value.length) {
-    return
-  }
+    // 检查目标索引是否有效
+    if (index < 0 || index >= tokens.value.length) {
+      return
+    }
 
-  // 检查目标索引是否在被拖动的元素中
-  if (draggedTokens.value.length > 0 && draggedTokens.value.includes(index)) {
-    return
-  }
+    // 检查目标索引是否在被拖动的元素中
+    if (draggedTokens.value.length > 0 && draggedTokens.value.includes(index)) {
+      return
+    }
 
-  // 如果是单个拖拽，检查是否拖到了自己上面
-  if (draggedTokens.value.length === 0 && dragStartIndex.value === index) {
-    return
-  }
+    // 如果是单个拖拽，检查是否拖到了自己上面
+    if (draggedTokens.value.length === 0 && dragStartIndex.value === index) {
+      return
+    }
 
-  // 清除之前的定时器
-  if (dragUpdateTimer) {
-    clearTimeout(dragUpdateTimer)
-  }
+    // 清除之前的定时器
+    if (dragUpdateTimer) {
+      clearTimeout(dragUpdateTimer)
+    }
 
-  // 设置新的定时器，延迟更新以减少闪烁
-  dragUpdateTimer = setTimeout(() => {
-    performDragUpdate(index)
-  }, dragUpdateDelay)
-}
-
-const handleDrop = (index, event) => {
-  event.preventDefault()
-
-  // 清除定时器和重置拖拽状态
-  if (dragUpdateTimer) {
-    clearTimeout(dragUpdateTimer)
-    dragUpdateTimer = null
+    // 设置新的定时器，延迟更新以减少闪烁
+    dragUpdateTimer = setTimeout(() => {
+      performDragUpdate(index)
+    }, dragUpdateDelay)
   }
 
-  // 执行最终的拖拽更新
-  if (isDragging.value && dragTempState) {
-    performDragUpdate(index)
+  const handleDrop = (index, event) => {
+    event.preventDefault()
+
+    // 清除定时器和重置拖拽状态
+    if (dragUpdateTimer) {
+      clearTimeout(dragUpdateTimer)
+      dragUpdateTimer = null
+    }
+
+    // 执行最终的拖拽更新
+    if (isDragging.value && dragTempState) {
+      performDragUpdate(index)
+    }
+
+    // 重置拖拽相关状态，但保留选中状态(selectedTokens)
+    isDragging.value = false
+    dragStartIndex.value = null
+    draggedTokens.value = []
+    dragTempState = null
   }
 
-  // 重置拖拽相关状态，但保留选中状态(selectedTokens)
-  isDragging.value = false
-  dragStartIndex.value = null
-  draggedTokens.value = []
-  dragTempState = null
-}
-
-const updateInputText = () => {
-  // 更新输入文本，保持原有格式，但排除隐藏的tokens
-  inputText.value =
+  const updateInputText = () => {
+    // 更新输入文本，保持原有格式，但排除隐藏的tokens
+    inputText.value =
       tokens.value.length > 0
         ? tokens.value.reduce((acc, token, index) => {
-          // 如果token是隐藏的，不添加到输入文本中
-          if (token.isHidden) {
-            return acc
-          }
+            // 如果token是隐藏的，不添加到输入文本中
+            if (token.isHidden) {
+              return acc
+            }
 
-          // 如果是换行符，不加逗号
-          if (token.text === '\n') {
-            // 查找前一个非隐藏token
-            const prevNonHiddenIndex = findPrevNonHiddenIndex(index)
-            const prevToken = prevNonHiddenIndex !== -1 ? tokens.value[prevNonHiddenIndex] : null
+            // 如果是换行符，不加逗号
+            if (token.text === '\n') {
+              // 查找前一个非隐藏token
+              const prevNonHiddenIndex = findPrevNonHiddenIndex(index)
+              // eslint-disable-next-line no-unused-vars
+              const prevToken = prevNonHiddenIndex !== -1 ? tokens.value[prevNonHiddenIndex] : null
 
-            // 直接返回换行符，不添加额外的逗号
-            // 因为前一个token在处理时已经根据shouldAddComma添加了逗号
-            return acc + token.text
-          }
+              // 直接返回换行符，不添加额外的逗号
+              // 因为前一个token在处理时已经根据shouldAddComma添加了逗号
+              return acc + token.text
+            }
 
-          // 第一个非隐藏token不加逗号前缀
-          if (acc === '') {
+            // 第一个非隐藏token不加逗号前缀
+            if (acc === '') {
+              // 查找下一个非隐藏token
+              let nextNonHiddenIndex = index + 1
+              while (
+                nextNonHiddenIndex < tokens.value.length &&
+                tokens.value[nextNonHiddenIndex]?.isHidden
+              ) {
+                nextNonHiddenIndex++
+              }
+
+              // 判断是否是最后一个非隐藏token或者下一个是换行符
+              const isLastToken = nextNonHiddenIndex >= tokens.value.length
+              const nextToken =
+                nextNonHiddenIndex < tokens.value.length ? tokens.value[nextNonHiddenIndex] : null
+              const shouldAddComma = isLastToken || (nextToken && nextToken.text === '\n')
+
+              return token.text + (shouldAddComma ? ',' : '')
+            }
+
             // 查找下一个非隐藏token
             let nextNonHiddenIndex = index + 1
             while (
               nextNonHiddenIndex < tokens.value.length &&
-                tokens.value[nextNonHiddenIndex]?.isHidden
+              tokens.value[nextNonHiddenIndex]?.isHidden
             ) {
               nextNonHiddenIndex++
             }
 
-            // 判断是否是最后一个非隐藏token或者下一个是换行符
+            // 判断是否是最后一个非隐藏token
             const isLastToken = nextNonHiddenIndex >= tokens.value.length
             const nextToken =
-                nextNonHiddenIndex < tokens.value.length ? tokens.value[nextNonHiddenIndex] : null
-            const shouldAddComma = isLastToken || (nextToken && nextToken.text === '\n')
-
-            return token.text + (shouldAddComma ? ',' : '')
-          }
-
-          // 查找下一个非隐藏token
-          let nextNonHiddenIndex = index + 1
-          while (
-            nextNonHiddenIndex < tokens.value.length &&
-              tokens.value[nextNonHiddenIndex]?.isHidden
-          ) {
-            nextNonHiddenIndex++
-          }
-
-          // 判断是否是最后一个非隐藏token
-          const isLastToken = nextNonHiddenIndex >= tokens.value.length
-          const nextToken =
               nextNonHiddenIndex < tokens.value.length ? tokens.value[nextNonHiddenIndex] : null
 
-          // 如果是换行符前或者最后一个token，则添加逗号
-          const shouldAddComma = (nextToken && nextToken.text === '\n') || isLastToken
+            // 如果是换行符前或者最后一个token，则添加逗号
+            const shouldAddComma = (nextToken && nextToken.text === '\n') || isLastToken
 
-          // 前一个token是换行符，不加逗号前缀
-          const prevNonHiddenIndex = findPrevNonHiddenIndex(index)
-          if (prevNonHiddenIndex !== -1 && tokens.value[prevNonHiddenIndex].text === '\n') {
-            return acc + token.text + (shouldAddComma ? ',' : '')
-          }
+            // 前一个token是换行符，不加逗号前缀
+            const prevNonHiddenIndex = findPrevNonHiddenIndex(index)
+            if (prevNonHiddenIndex !== -1 && tokens.value[prevNonHiddenIndex].text === '\n') {
+              return acc + token.text + (shouldAddComma ? ',' : '')
+            }
 
-          // 其他情况加逗号和空格前缀
-          return `${ acc }, ${ token.text }${ shouldAddComma ? ',' : '' }`
-        }, '')
+            // 其他情况加逗号和空格前缀
+            return `${acc}, ${token.text}${shouldAddComma ? ',' : ''}`
+          }, '')
         : ''
 
-  postMessageToWindowsPrompt()
-  if (!suppressUnsavedOnce) {
-    unsavedChanges.value = true
-  }
-}
-
-// AI对话
-const openAIChat = () => {
-  window.parent.postMessage({ type: 'weilin_prompt_ui_openAiWindow' }, '*')
-}
-
-const openGitHub = () => {
-  window.open('https://github.com/weilin9999/WeiLin-Comfyui-Tools', '_blank')
-}
-
-const shareCloudData = () => {
-  window.parent.postMessage({ type: 'weilin_prompt_ui_open_cloud_window' }, '*')
-}
-
-const openDanbooruManager = () => {
-  window.parent.postMessage({ type: 'weilin_prompt_ui_open_danbooru_manager_window' }, '*')
-}
-
-const openSponsor = () => {
-  window.open('https://afdian.com/a/weilin9999', '_blank')
-}
-
-// 添加一个辅助函数来查找前一个非隐藏的token索引
-const findPrevNonHiddenIndex = (currentIndex) => {
-  for (let i = currentIndex - 1; i >= 0; i--) {
-    if (!tokens.value[i].isHidden) {
-      return i
+    postMessageToWindowsPrompt()
+    if (!suppressUnsavedOnce) {
+      unsavedChanges.value = true
     }
   }
-  return -1
-}
 
-// 添加toggleHidden方法
-const toggleHidden = (index) => {
-  if (index >= 0 && index < tokens.value.length) {
-    // 不允许隐藏换行符
-    if (tokens.value[index].text === '\n' || tokens.value[index].text === '\t') {
-      return
+  // AI对话
+  const openAIChat = () => {
+    window.parent.postMessage({ type: 'weilin_prompt_ui_openAiWindow' }, '*')
+  }
+
+  const openGitHub = () => {
+    window.open('https://github.com/weilin9999/WeiLin-Comfyui-Tools', '_blank')
+  }
+
+  const shareCloudData = () => {
+    window.parent.postMessage({ type: 'weilin_prompt_ui_open_cloud_window' }, '*')
+  }
+
+  const openDanbooruManager = () => {
+    window.parent.postMessage({ type: 'weilin_prompt_ui_open_danbooru_manager_window' }, '*')
+  }
+
+  const openSponsor = () => {
+    window.open('https://afdian.com/a/weilin9999', '_blank')
+  }
+
+  // 添加一个辅助函数来查找前一个非隐藏的token索引
+  const findPrevNonHiddenIndex = (currentIndex) => {
+    for (let i = currentIndex - 1; i >= 0; i--) {
+      if (!tokens.value[i].isHidden) {
+        return i
+      }
     }
+    return -1
+  }
 
-    // 切换隐藏状态
-    tokens.value[index].isHidden = !tokens.value[index].isHidden
+  // 添加toggleHidden方法
+  const toggleHidden = (index) => {
+    if (index >= 0 && index < tokens.value.length) {
+      // 不允许隐藏换行符
+      if (tokens.value[index].text === '\n' || tokens.value[index].text === '\t') {
+        return
+      }
 
-    // 添加/移除隐藏提示
-    if (tokens.value[index].isHidden) {
-      tokens.value[index].hiddenHint = t('promptBox.hiddenHint') // 使用国际化提示
+      // 切换隐藏状态
+      tokens.value[index].isHidden = !tokens.value[index].isHidden
+
+      // 添加/移除隐藏提示
+      if (tokens.value[index].isHidden) {
+        tokens.value[index].hiddenHint = t('promptBox.hiddenHint') // 使用国际化提示
+      } else {
+        tokens.value[index].hiddenHint = ''
+      }
+
+      // 更新输入文本，排除隐藏的tokens
+      updateInputText()
+    }
+  }
+
+  const openBilibili = () => {
+    window.open(
+      'https://www.bilibili.com/list/288025756/?sid=4690314&spm_id_from=333.1387.0.0&oid=114342431298474&bvid=BV1txdfYxE7X',
+      '_blank'
+    )
+  }
+
+  // 一键随机Tag方法
+  const oneClickRandomTag = async () => {
+    if (props.promptManager === 'prompt_global') {
+      try {
+        await randomTagApi
+          .goRandomTemplate()
+          .then((res) => {
+            if (res.code === 200) {
+              // console.log(res.random_tags)
+              inputText.value = res.random_tags
+              nextTick(() => {
+                // 触发输入处理
+                processInput()
+              })
+            } else {
+              message({ type: 'warn', str: res.info })
+            }
+          })
+          .catch((err) => {
+            console.error(err)
+            message({ type: 'warn', str: 'message.networkError' })
+          })
+      } catch (error) {
+        message({ type: 'warn', str: 'message.networkError' })
+        console.error('Error loading random tag settings:', error)
+      }
     } else {
-      tokens.value[index].hiddenHint = ''
+      window.postMessage(
+        {
+          type: 'weilin_prompt_ui_prompt_inner_get_node_tag_template_id_gorandom'
+        },
+        '*'
+      )
     }
-
-    // 更新输入文本，排除隐藏的tokens
-    updateInputText()
   }
-}
 
-const openBilibili = () => {
-  window.open(
-    'https://www.bilibili.com/list/288025756/?sid=4690314&spm_id_from=333.1387.0.0&oid=114342431298474&bvid=BV1txdfYxE7X',
-    '_blank'
-  )
-}
-
-// 一键随机Tag方法
-const oneClickRandomTag = async () => {
-  if (props.promptManager === 'prompt_global') {
+  const onClickLocalTemplateRandomTag = async (name) => {
     try {
       await randomTagApi
-        .goRandomTemplate()
+        .goRandomTemplatePath(name)
         .then((res) => {
           if (res.code === 200) {
             // console.log(res.random_tags)
@@ -4651,132 +4697,99 @@ const oneClickRandomTag = async () => {
       message({ type: 'warn', str: 'message.networkError' })
       console.error('Error loading random tag settings:', error)
     }
-  } else {
-    window.postMessage(
-      {
-        type: 'weilin_prompt_ui_prompt_inner_get_node_tag_template_id_gorandom'
-      },
-      '*'
-    )
   }
-}
 
-const onClickLocalTemplateRandomTag = async (name) => {
-  try {
-    await randomTagApi
-      .goRandomTemplatePath(name)
-      .then((res) => {
-        if (res.code === 200) {
-          // console.log(res.random_tags)
-          inputText.value = res.random_tags
-          nextTick(() => {
-            // 触发输入处理
-            processInput()
-          })
-        } else {
-          message({ type: 'warn', str: res.info })
-        }
-      })
-      .catch((err) => {
-        console.error(err)
-        message({ type: 'warn', str: 'message.networkError' })
-      })
-  } catch (error) {
-    message({ type: 'warn', str: 'message.networkError' })
-    console.error('Error loading random tag settings:', error)
+  const favourItemRef = ref(null)
+  const openFavourTag = (tokenInfo) => {
+    if (favourItemRef.value) {
+      favourItemRef.value.open(tokenInfo.text, tokenInfo.translate)
+    }
   }
-}
 
-const favourItemRef = ref(null)
-const openFavourTag = (tokenInfo) => {
-  if (favourItemRef.value) {
-    favourItemRef.value.open(tokenInfo.text, tokenInfo.translate)
-  }
-}
-
-/**
+  /**
    * 从短码反向解析出原始路径
    *
    * @param {string} shortcode - 短码
    * @returns {string} - 原始文件路径
    */
-const shortcodeToPath = (shortcode) => {
-  try {
-    // 还原 Base64 编码中被替换的字符
-    let base64Str = shortcode.replace(/-/g, '+').replace(/_/g, '/')
+  // eslint-disable-next-line no-unused-vars
+  const shortcodeToPath = (shortcode) => {
+    try {
+      // 还原 Base64 编码中被替换的字符
+      let base64Str = shortcode.replace(/-/g, '+').replace(/_/g, '/')
 
-    // 添加回可能被移除的填充字符
-    const padding = 4 - (base64Str.length % 4)
-    if (padding < 4) {
-      base64Str += '='.repeat(padding)
+      // 添加回可能被移除的填充字符
+      const padding = 4 - (base64Str.length % 4)
+      if (padding < 4) {
+        base64Str += '='.repeat(padding)
+      }
+
+      // 解码 Base64
+      const binaryStr = atob(base64Str)
+
+      // 将二进制字符串转换为 Uint8Array
+      const bytes = new Uint8Array(binaryStr.length)
+      for (let i = 0; i < binaryStr.length; i++) {
+        bytes[i] = binaryStr.charCodeAt(i)
+      }
+
+      // 解压缩
+      const decompressed = pako.inflate(bytes)
+
+      // 将 Uint8Array 转换为字符串
+      const decoder = new TextDecoder('utf-8')
+      const path = decoder.decode(decompressed)
+
+      return path
+    } catch (error) {
+      console.error('解析短码时出错:', error)
+      return ''
     }
-
-    // 解码 Base64
-    const binaryStr = atob(base64Str)
-
-    // 将二进制字符串转换为 Uint8Array
-    const bytes = new Uint8Array(binaryStr.length)
-    for (let i = 0; i < binaryStr.length; i++) {
-      bytes[i] = binaryStr.charCodeAt(i)
-    }
-
-    // 解压缩
-    const decompressed = pako.inflate(bytes)
-
-    // 将 Uint8Array 转换为字符串
-    const decoder = new TextDecoder('utf-8')
-    const path = decoder.decode(decompressed)
-
-    return path
-  } catch (error) {
-    console.error('解析短码时出错:', error)
-    return ''
   }
-}
 
-// 打开随机Tag设置对话框
-const openRandomTagSettings = () => {
-  randomSettingItem.value.open(props.promptManager)
-}
+  // 打开随机Tag设置对话框
+  const openRandomTagSettings = () => {
+    randomSettingItem.value.open(props.promptManager)
+  }
 
-const clearAllPrompt = () => {
-  inputText.value = ''
-  tokens.value = []
-  translateText.value = ''
-  selectedLoras.value = []
-  lastInputValue.value = ''
-  // 如有其它需要清空的内容可一并处理
-  updateInputText()
-}
+  const clearAllPrompt = () => {
+    inputText.value = ''
+    tokens.value = []
+    translateText.value = ''
+    selectedLoras.value = []
+    lastInputValue.value = ''
+    // 如有其它需要清空的内容可一并处理
+    updateInputText()
+  }
 
-// 一键清空禁用标签方法
-const clearDisabledTags = () => {
-  // 过滤掉隐藏的标签，保留其他标签
-  const filteredTokens = tokens.value.filter((token) => !token.isHidden)
+  // 一键清空禁用标签方法
+  const clearDisabledTags = () => {
+    // 过滤掉隐藏的标签，保留其他标签
+    const filteredTokens = tokens.value.filter((token) => !token.isHidden)
 
-  // 更新 tokens 数组
-  tokens.value = filteredTokens
+    // 更新 tokens 数组
+    tokens.value = filteredTokens
 
-  // 重新构建输入文本
-  updateInputText()
+    // 重新构建输入文本
+    updateInputText()
 
-  // 显示成功提示
-  message({ type: 'success', str: t('promptBox.clearDisabledSuccess') || '已清空所有禁用标签' })
-}
+    // 显示成功提示
+    message({ type: 'success', str: t('promptBox.clearDisabledSuccess') || '已清空所有禁用标签' })
+  }
 
-// 设置当前编辑的节点ID
-const setCurrentEditNodeId = (nodeId) => {
-  currentEditNodeId.value = nodeId
-}
+  // 设置当前编辑的节点ID
+  const setCurrentEditNodeId = (nodeId) => {
+    currentEditNodeId.value = nodeId
+  }
 
-defineExpose({
-  setPromptText,
-  setCurrentEditNodeId
-})
+  defineExpose({
+    setPromptText,
+    setCurrentEditNodeId
+  })
 </script>
 
 <style scoped>
-  @import './prompt_index.css';
+  @import url('./prompt_index.css');
 
   /* 内部小提示框样式（优化版） */
   .weilin-toast {
@@ -4784,17 +4797,20 @@ defineExpose({
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    background: rgba(0, 0, 0, 0.85);
+    background: rgb(0 0 0 / 0.85);
     color: #fff;
     padding: 12px 20px;
+
     /* 增加内边距让提示更突出 */
     border-radius: 12px;
     font-size: 16px;
+
     /* 字体更大 */
     font-weight: 500;
+
     /* 略加粗 */
     line-height: 1.4;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
     pointer-events: none;
     z-index: 9999;
 

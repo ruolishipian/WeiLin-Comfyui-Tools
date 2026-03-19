@@ -68,9 +68,7 @@
             <th class="checkbox-column">
               <input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll" />
             </th>
-            <th class="id-column">
-ID
-</th>
+            <th class="id-column">ID</th>
             <th class="tag-column">
               {{ t('tagManager.description') }}
             </th>
@@ -213,303 +211,296 @@ ID
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { danbooruApi } from '@/api/danbooru'
-import message from '@/utils/message'
-import { useI18n } from 'vue-i18n'
-import importDanbooru from './import_danbooru.vue'
+  import { ref, onMounted, computed } from 'vue'
+  import { danbooruApi } from '@/api/danbooru'
+  import message from '@/utils/message'
+  import { useI18n } from 'vue-i18n'
+  import importDanbooru from './import_danbooru.vue'
 
-const { t } = useI18n()
-const searchQuery = ref('')
-const tagList = ref([])
-const currentPage = ref(1)
-const totalPages = ref(1)
-const pageSize = ref(100)
-const isLoading = ref(false)
+  const { t } = useI18n()
+  const searchQuery = ref('')
+  const tagList = ref([])
+  const currentPage = ref(1)
+  const totalPages = ref(1)
+  const pageSize = ref(100)
+  const isLoading = ref(false)
 
-// 对话框控制
-const showDialog = ref(false)
-const showDeleteConfirm = ref(false)
-const showBatchDeleteConfirm = ref(false)
-const isEditing = ref(false)
-const selectedTag = ref(null)
+  // 对话框控制
+  const showDialog = ref(false)
+  const showDeleteConfirm = ref(false)
+  const showBatchDeleteConfirm = ref(false)
+  const isEditing = ref(false)
+  const selectedTag = ref(null)
 
-// 表单数据
-const formData = ref({
-  tag: '',
-  translate: '',
-  color_id: 0,
-  hot: 0,
-  aliases: 0
-})
-
-// 颜色选项
-const colorOptions = [
-  { name: '默认', color: '#888888' },
-  { name: '红色', color: '#FF6666' },
-  { name: '绿色', color: '#66FF66' },
-  { name: '蓝色', color: '#6666FF' },
-  { name: '黄色', color: '#FFFF66' },
-  { name: '紫色', color: '#FF66FF' },
-  { name: '青色', color: '#66FFFF' },
-  { name: '橙色', color: '#FF9966' },
-  { name: '粉色', color: '#FF99CC' },
-  { name: '棕色', color: '#996633' }
-]
-
-// 根据ID获取颜色
-const getColorById = (id) => {
-  return colorOptions[id] ? colorOptions[id].color : colorOptions[0].color
-}
-
-// 防抖搜索
-let searchTimeout = null
-const debouncedSearch = () => {
-  if (searchTimeout) {
-    clearTimeout(searchTimeout)
-  }
-  searchTimeout = setTimeout(() => {
-    currentPage.value = 1
-    searchTags()
-  }, 300)
-}
-
-// 搜索标签
-const searchTags = async () => {
-  isLoading.value = true
-  selectedItems.value = [] // 搜索时清空选择
-  try {
-    const response = await danbooruApi.searchDanbooru(
-      searchQuery.value,
-      currentPage.value,
-      pageSize.value
-    )
-
-    if (response && response.data) {
-      // 直接使用API返回的数据结构
-      tagList.value = response.data.data || []
-      totalPages.value = response.data.total_pages || 1
-    } else {
-      tagList.value = []
-      totalPages.value = 1
-    }
-  } catch (error) {
-    console.error('搜索标签失败:', error)
-    message({ type: 'error', str: t('message.searchFailed') })
-    tagList.value = []
-  } finally {
-    isLoading.value = false
-  }
-}
-
-// 切换页码
-const changePage = (page) => {
-  if (page < 1 || page > totalPages.value) {
-    return
-  }
-  currentPage.value = page
-  searchTags()
-}
-
-// 修改分页大小
-const changePageSize = () => {
-  if (pageSize.value < 10) {
-    pageSize.value = 10
-  }
-  if (pageSize.value > 500) {
-    pageSize.value = 500
-  }
-  currentPage.value = 1
-  selectedItems.value = [] // 清空选择
-  searchTags()
-}
-
-// 打开添加对话框
-const openAddDialog = () => {
-  isEditing.value = false
-  formData.value = {
+  // 表单数据
+  const formData = ref({
     tag: '',
     translate: '',
     color_id: 0,
     hot: 0,
     aliases: 0
-  }
-  showDialog.value = true
-}
+  })
 
-// 打开编辑对话框
-const openEditDialog = (tag) => {
-  isEditing.value = true
-  selectedTag.value = tag
-  formData.value = {
-    id: tag.id_index, // 使用id_index作为ID
-    tag: tag.tag,
-    translate: tag.translate || '',
-    color_id: tag.color_id || 0,
-    hot: tag.hot || 0,
-    aliases: tag.aliases || 0
-  }
-  showDialog.value = true
-}
+  // 颜色选项
+  const colorOptions = [
+    { name: '默认', color: '#888888' },
+    { name: '红色', color: '#FF6666' },
+    { name: '绿色', color: '#66FF66' },
+    { name: '蓝色', color: '#6666FF' },
+    { name: '黄色', color: '#FFFF66' },
+    { name: '紫色', color: '#FF66FF' },
+    { name: '青色', color: '#66FFFF' },
+    { name: '橙色', color: '#FF9966' },
+    { name: '粉色', color: '#FF99CC' },
+    { name: '棕色', color: '#996633' }
+  ]
 
-// 关闭对话框
-const closeDialog = () => {
-  showDialog.value = false
-}
-
-// 关闭所有对话框
-const closeAllDialogs = () => {
-  showDialog.value = false
-  showDeleteConfirm.value = false
-  showBatchDeleteConfirm.value = false
-}
-
-// 提交表单
-const submitForm = async () => {
-  // 表单验证
-  if (!formData.value.tag) {
-    message({ type: 'error', str: t('tagManager.textRequired') })
-    return
+  // 根据ID获取颜色
+  const getColorById = (id) => {
+    return colorOptions[id] ? colorOptions[id].color : colorOptions[0].color
   }
 
-  try {
-    if (isEditing.value) {
-      // 编辑标签
-      const response = await danbooruApi.updateDanbooruTag({
-        id: formData.value.id,
-        update_data: {
+  // 防抖搜索
+  let searchTimeout = null
+  const debouncedSearch = () => {
+    if (searchTimeout) {
+      clearTimeout(searchTimeout)
+    }
+    searchTimeout = setTimeout(() => {
+      currentPage.value = 1
+      searchTags()
+    }, 300)
+  }
+
+  // 搜索标签
+  const searchTags = async () => {
+    isLoading.value = true
+    selectedItems.value = [] // 搜索时清空选择
+    try {
+      const response = await danbooruApi.searchDanbooru(
+        searchQuery.value,
+        currentPage.value,
+        pageSize.value
+      )
+
+      if (response && response.data) {
+        // 直接使用API返回的数据结构
+        tagList.value = response.data.data || []
+        totalPages.value = response.data.total_pages || 1
+      } else {
+        tagList.value = []
+        totalPages.value = 1
+      }
+    } catch (error) {
+      console.error('搜索标签失败:', error)
+      message({ type: 'error', str: t('message.searchFailed') })
+      tagList.value = []
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  // 切换页码
+  const changePage = (page) => {
+    if (page < 1 || page > totalPages.value) {
+      return
+    }
+    currentPage.value = page
+    searchTags()
+  }
+
+  // 修改分页大小
+  const changePageSize = () => {
+    if (pageSize.value < 10) {
+      pageSize.value = 10
+    }
+    if (pageSize.value > 500) {
+      pageSize.value = 500
+    }
+    currentPage.value = 1
+    selectedItems.value = [] // 清空选择
+    searchTags()
+  }
+
+  // 打开添加对话框
+  const openAddDialog = () => {
+    isEditing.value = false
+    formData.value = {
+      tag: '',
+      translate: '',
+      color_id: 0,
+      hot: 0,
+      aliases: 0
+    }
+    showDialog.value = true
+  }
+
+  // 打开编辑对话框
+  const openEditDialog = (tag) => {
+    isEditing.value = true
+    selectedTag.value = tag
+    formData.value = {
+      id: tag.id_index, // 使用id_index作为ID
+      tag: tag.tag,
+      translate: tag.translate || '',
+      color_id: tag.color_id || 0,
+      hot: tag.hot || 0,
+      aliases: tag.aliases || 0
+    }
+    showDialog.value = true
+  }
+
+  // 关闭对话框
+  const closeDialog = () => {
+    showDialog.value = false
+  }
+
+  // 提交表单
+  const submitForm = async () => {
+    // 表单验证
+    if (!formData.value.tag) {
+      message({ type: 'error', str: t('tagManager.textRequired') })
+      return
+    }
+
+    try {
+      if (isEditing.value) {
+        // 编辑标签
+        const response = await danbooruApi.updateDanbooruTag({
+          id: formData.value.id,
+          update_data: {
+            tag: formData.value.tag,
+            translate: formData.value.translate,
+            color_id: formData.value.color_id,
+            hot: formData.value.hot,
+            aliases: formData.value.aliases
+          }
+        })
+
+        if (response && response.code === 200) {
+          message({ type: 'success', str: t('message.editSuccess') })
+          searchTags() // 刷新列表
+        } else {
+          message({ type: 'error', str: t('message.editFailed') })
+        }
+      } else {
+        // 添加标签
+        const response = await danbooruApi.addDanbooruTag({
           tag: formData.value.tag,
           translate: formData.value.translate,
           color_id: formData.value.color_id,
           hot: formData.value.hot,
           aliases: formData.value.aliases
+        })
+
+        if (response && response.code === 200) {
+          message({ type: 'success', str: t('message.addSuccess') })
+          searchTags() // 刷新列表
+        } else {
+          message({ type: 'error', str: t('message.addFailed') })
         }
-      })
-
-      if (response && response.code === 200) {
-        message({ type: 'success', str: t('message.editSuccess') })
-        searchTags() // 刷新列表
-      } else {
-        message({ type: 'error', str: t('message.editFailed') })
       }
-    } else {
-      // 添加标签
-      const response = await danbooruApi.addDanbooruTag({
-        tag: formData.value.tag,
-        translate: formData.value.translate,
-        color_id: formData.value.color_id,
-        hot: formData.value.hot,
-        aliases: formData.value.aliases
-      })
 
-      if (response && response.code === 200) {
-        message({ type: 'success', str: t('message.addSuccess') })
-        searchTags() // 刷新列表
-      } else {
-        message({ type: 'error', str: t('message.addFailed') })
-      }
+      closeDialog()
+    } catch (error) {
+      console.error('提交表单失败:', error)
+      message({
+        type: 'error',
+        str: isEditing.value ? t('message.editFailed') : t('message.addFailed')
+      })
+    }
+  }
+
+  // 确认删除
+  const confirmDelete = (tag) => {
+    selectedTag.value = tag
+    showDeleteConfirm.value = true
+  }
+
+  // 删除标签
+  const deleteTag = async () => {
+    if (!selectedTag.value || !selectedTag.value.id_index) {
+      return
     }
 
-    closeDialog()
-  } catch (error) {
-    console.error('提交表单失败:', error)
-    message({
-      type: 'error',
-      str: isEditing.value ? t('message.editFailed') : t('message.addFailed')
-    })
-  }
-}
+    try {
+      const response = await danbooruApi.deleteDanbooruTag(selectedTag.value.id_index)
 
-// 确认删除
-const confirmDelete = (tag) => {
-  selectedTag.value = tag
-  showDeleteConfirm.value = true
-}
+      if (response && response.code === 200) {
+        message({ type: 'success', str: t('message.deleteSuccess') })
+        searchTags() // 刷新列表
+      } else {
+        message({ type: 'error', str: t('message.deleteFailed') })
+      }
 
-// 删除标签
-const deleteTag = async () => {
-  if (!selectedTag.value || !selectedTag.value.id_index) {
-    return
-  }
-
-  try {
-    const response = await danbooruApi.deleteDanbooruTag(selectedTag.value.id_index)
-
-    if (response && response.code === 200) {
-      message({ type: 'success', str: t('message.deleteSuccess') })
-      searchTags() // 刷新列表
-    } else {
+      showDeleteConfirm.value = false
+    } catch (error) {
+      console.error('删除标签失败:', error)
       message({ type: 'error', str: t('message.deleteFailed') })
     }
-
-    showDeleteConfirm.value = false
-  } catch (error) {
-    console.error('删除标签失败:', error)
-    message({ type: 'error', str: t('message.deleteFailed') })
-  }
-}
-
-// 批量选择相关
-const selectedItems = ref([])
-
-// 计算属性：是否全选
-const isAllSelected = computed(() => {
-  return tagList.value.length > 0 && selectedItems.value.length === tagList.value.length
-})
-
-// 切换全选
-const toggleSelectAll = () => {
-  if (isAllSelected.value) {
-    selectedItems.value = []
-  } else {
-    selectedItems.value = tagList.value.map((tag) => tag.id_index)
-  }
-}
-
-// 确认批量删除
-const confirmBatchDelete = () => {
-  if (selectedItems.value.length === 0) {
-    return
-  }
-  showBatchDeleteConfirm.value = true
-}
-
-// 执行批量删除
-const batchDeleteTags = async () => {
-  if (selectedItems.value.length === 0) {
-    return
   }
 
-  try {
-    // 这里假设API支持批量删除，如果不支持需要循环调用单个删除
-    const response = await danbooruApi.batchDeleteDanbooruTags(selectedItems.value)
+  // 批量选择相关
+  const selectedItems = ref([])
 
-    if (response && response.code === 200) {
-      message({ type: 'success', str: `成功删除 ${ selectedItems.value.length } 个标签` })
+  // 计算属性：是否全选
+  const isAllSelected = computed(() => {
+    return tagList.value.length > 0 && selectedItems.value.length === tagList.value.length
+  })
+
+  // 切换全选
+  const toggleSelectAll = () => {
+    if (isAllSelected.value) {
       selectedItems.value = []
-      searchTags() // 刷新列表
     } else {
+      selectedItems.value = tagList.value.map((tag) => tag.id_index)
+    }
+  }
+
+  // 确认批量删除
+  const confirmBatchDelete = () => {
+    if (selectedItems.value.length === 0) {
+      return
+    }
+    showBatchDeleteConfirm.value = true
+  }
+
+  // 执行批量删除
+  const batchDeleteTags = async () => {
+    if (selectedItems.value.length === 0) {
+      return
+    }
+
+    try {
+      // 这里假设API支持批量删除，如果不支持需要循环调用单个删除
+      const response = await danbooruApi.batchDeleteDanbooruTags(selectedItems.value)
+
+      if (response && response.code === 200) {
+        message({ type: 'success', str: `成功删除 ${selectedItems.value.length} 个标签` })
+        selectedItems.value = []
+        searchTags() // 刷新列表
+      } else {
+        message({ type: 'error', str: '批量删除失败' })
+      }
+    } catch (error) {
+      console.error('批量删除失败:', error)
+      // 如果批量删除API不存在，尝试逐个删除
       message({ type: 'error', str: '批量删除失败' })
     }
-  } catch (error) {
-    console.error('批量删除失败:', error)
-    // 如果批量删除API不存在，尝试逐个删除
-    message({ type: 'error', str: '批量删除失败' })
+
+    showBatchDeleteConfirm.value = false
   }
 
-  showBatchDeleteConfirm.value = false
-}
+  const importDanbooruDialog = ref()
 
-const importDanbooruDialog = ref()
+  const openImportDialog = () => {
+    importDanbooruDialog.value.open()
+  }
 
-const openImportDialog = () => {
-  importDanbooruDialog.value.open()
-}
-
-// 组件挂载时加载数据
-onMounted(() => {
-  searchTags()
-})
+  // 组件挂载时加载数据
+  onMounted(() => {
+    searchTags()
+  })
 </script>
 
 <style scoped>
@@ -734,10 +725,7 @@ onMounted(() => {
     display: flex;
     justify-content: center;
     align-items: center;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     width: 100%;
     height: 100%;
     z-index: 10099;
@@ -749,7 +737,7 @@ onMounted(() => {
     max-width: 90%;
     background-color: var(--weilin-prompt-ui-primary-bg, #fff);
     border-radius: 8px;
-    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 12px 0 rgb(0 0 0 / 0.1);
     z-index: 10100;
   }
 
@@ -813,11 +801,8 @@ onMounted(() => {
 
   .overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    inset: 0;
+    background-color: rgb(0 0 0 / 0.5);
     z-index: 1000;
   }
 

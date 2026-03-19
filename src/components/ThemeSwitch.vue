@@ -19,25 +19,25 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useI18n } from 'vue-i18n'
+  import { ref } from 'vue'
+  import { useI18n } from 'vue-i18n'
 
-const { t } = useI18n()
-const STORAGE_PREFIX = 'weilin_tools_'
-const THEME_KEY = `${ STORAGE_PREFIX }theme`
+  const { t } = useI18n()
+  const STORAGE_PREFIX = 'weilin_tools_'
+  const THEME_KEY = `${STORAGE_PREFIX}theme`
 
-// 获取主题设置
-const isDark = ref(localStorage.getItem(THEME_KEY) === 'dark')
+  // 获取主题设置
+  const isDark = ref(localStorage.getItem(THEME_KEY) === 'dark')
 
-// 切换主题
-const toggleTheme = () => {
-  isDark.value = !isDark.value
-  const container = document.getElementById('weilin_comfyui_tools_prompt_ui_div')
-  if (container) {
-    container.setAttribute('data-theme', isDark.value ? 'dark' : 'light')
+  // 切换主题
+  const toggleTheme = () => {
+    isDark.value = !isDark.value
+    const container = document.getElementById('weilin_comfyui_tools_prompt_ui_div')
+    if (container) {
+      container.setAttribute('data-theme', isDark.value ? 'dark' : 'light')
+    }
+    localStorage.setItem(THEME_KEY, isDark.value ? 'dark' : 'light')
   }
-  localStorage.setItem(THEME_KEY, isDark.value ? 'dark' : 'light')
-}
 </script>
 
 <style scoped>

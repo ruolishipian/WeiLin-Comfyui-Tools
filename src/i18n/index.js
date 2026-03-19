@@ -1,5 +1,7 @@
 import { createI18n } from 'vue-i18n'
+// eslint-disable-next-line camelcase
 import zh_CN from './locales/zh_CN'
+// eslint-disable-next-line camelcase
 import en_US from './locales/en_US'
 import { useTagStore } from '@/stores/tagStore'
 import { languageApi } from '@/api/language'
@@ -15,7 +17,9 @@ const i18n = createI18n({
   locale: 'zh_CN', // 默认语言
   fallbackLocale: 'zh_CN',
   messages: {
+    // eslint-disable-next-line camelcase
     zh_CN,
+    // eslint-disable-next-line camelcase
     en_US
   }
 })

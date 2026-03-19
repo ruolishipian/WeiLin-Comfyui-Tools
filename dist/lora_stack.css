@@ -404,3 +404,55 @@
     0%, 100% { opacity: 0.6; }
     50% { opacity: 1; }
 }
+
+/* 修复：确保按钮不会被dom-widget透明层覆盖 */
+.weilin-comfyui-add-btn,
+.weilin-comfyui-remove-btn,
+.weilin-comfyui-look-on-btn,
+.weilin-comfyui-toggle-hide-btn {
+    position: relative;
+    z-index: 10;
+    pointer-events: auto;
+}
+
+/* 确保整个lora-stack容器有正确的层级 */
+.weilin-comfyui-lora-stack {
+    position: relative;
+    z-index: 1;
+}
+
+/* 确保lora-item有正确的层级 */
+.weilin-comfyui-lora-item {
+    position: relative;
+    z-index: 1;
+}
+
+/* 关键修复：防止dom-widget容器拦截按钮点击 */
+/* 当dom-widget包含weilin-comfyui-lora-stack时，确保它不会拦截事件 */
+.dom-widget:has(.weilin-comfyui-lora-stack) {
+    pointer-events: none !important;
+    position: absolute !important; /* 覆盖fixed定位 */
+}
+
+/* 但要确保内部的按钮和输入框可以响应事件 */
+.dom-widget:has(.weilin-comfyui-lora-stack) * {
+    pointer-events: auto;
+}
+
+/* 或者使用更通用的方式：确保所有weilin相关的dom-widget不拦截事件 */
+.dom-widget:has([class*="weilin-"]) {
+    pointer-events: none !important;
+    position: absolute !important; /* 覆盖fixed定位 */
+}
+
+/* 但内部元素可以响应事件 */
+.dom-widget:has([class*="weilin-"]) * {
+    pointer-events: auto;
+}
+
+/* 额外修复：确保weilin相关的容器本身可以响应事件 */
+.weilin-comfyui-lora-stack,
+.weilin-prompt-ui-container,
+.weilin-lora-manager-container {
+    pointer-events: auto !important;
+}

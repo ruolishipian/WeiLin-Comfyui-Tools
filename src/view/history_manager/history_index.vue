@@ -256,9 +256,7 @@
       <div class="weilin-tools-dialog-content" @mousedown.stop>
         <div class="weilin-tools-dialog-header">
           <h2>{{ isEditingTag ? t('history.dialog.edit_tag') : t('history.dialog.add_tag') }}</h2>
-          <button class="close-btn" @click="closeTagDialog">
-×
-</button>
+          <button class="close-btn" @click="closeTagDialog">×</button>
         </div>
         <div class="weilin-tools-dialog-body">
           <div class="form-group">
@@ -320,9 +318,7 @@
       <div class="weilin-tools-dialog-content confirm-weilin-tools-dialog" @mousedown.stop>
         <div class="weilin-tools-dialog-header">
           <h2>{{ t('common.confirmDelete') }}</h2>
-          <button class="close-btn" @click="closeDeleteDialog">
-×
-</button>
+          <button class="close-btn" @click="closeDeleteDialog">×</button>
         </div>
         <div class="weilin-tools-dialog-body">
           <p class="confirm-message">
@@ -343,411 +339,411 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue'
-import { historyApi } from '@/api/history'
-import message from '@/utils/message'
-import { useI18n } from 'vue-i18n'
+  import { ref, onMounted, computed } from 'vue'
+  import { historyApi } from '@/api/history'
+  import message from '@/utils/message'
+  import { useI18n } from 'vue-i18n'
 
-const { t } = useI18n()
-const searchQuery = ref('')
-const history = ref([]) // 存储历史记录
-const filteredHistory = ref([]) // 存储过滤后的历史记录
-const favorites = ref([]) // 存储收藏夹记录
-const filteredFavorites = ref([]) // 存储过滤后的收藏夹记录
-const currentTab = ref('history') // 当前选中的标签
-const selectedTags = ref([])
-const showTagDialog = ref(false)
-const showDeleteDialog = ref(false)
-const isEditingTag = ref(false)
-const colorPickerState = ref({
-  hex: 'rgba(255, 123, 2, .4)',
-  alpha: 100
-})
-const currentTag = ref({
-  name: '',
-  tag: '',
-  color: 'rgba(255, 123, 2, .4)'
-})
-
-const isDeleteBatch = ref(false)
-const selectAllTags = ref(0)
-
-const retPromptInfo = (strJson) => {
-  const jsonTemp = JSON.parse(strJson)
-  return jsonTemp.prompt
-}
-
-// 改进的 RGBA 解析函数
-const parseRgba = (rgba) => {
-  if (!rgba || rgba === 'transparent') {
-    return { hex: '#FFFFFF', alpha: 0 }
-  }
-
-  const match = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)/)
-  if (match) {
-    const [, r, g, b, a] = match
-    const hex = `#${ [r, g, b]
-      .map((x) => {
-        const hex = parseInt(x).toString(16)
-        return hex.length === 1 ? `0${ hex }` : hex
-      })
-      .join('') }`
-
-    return {
-      hex: hex,
-      alpha: Math.round((a || 1) * 100)
-    }
-  }
-  return { hex: '#FFFFFF', alpha: 0 }
-}
-
-// 初始化颜色选择器
-const initColorPicker = (color) => {
-  const { hex, alpha } = parseRgba(color)
-  colorPickerState.value = { hex, alpha }
-}
-
-// 显示添加标签对话框
-const showAddTagDialog = () => {
-  isEditingTag.value = false
-  currentTag.value = {
-    id: '',
-    name: '',
-    tag: '',
-    backgroundColor: 'transparent' // 设置默认颜色
-  }
-  // 初始化颜色选择器
-  initColorPicker('transparent')
-  showTagDialog.value = true
-}
-
-const rgbaToColorPickerState = (rgba) => {
-  const match = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)/)
-  if (match) {
-    const [, r, g, b, a] = match
-    const hex = `#${ ((1 << 24) + (parseInt(r) << 16) + (parseInt(g) << 8) + parseInt(b)).toString(16).slice(1) }`
-    const alpha = a ? Math.round(parseFloat(a) * 100) : 100 // 将 alpha 转换为百分比
-    return { hex, alpha }
-  }
-  return { hex: '#FF7B02', alpha: 50 } // 默认值
-}
-
-// 编辑标签
-const editTag = (tag) => {
-  isEditingTag.value = true
-  currentTag.value = { ...tag }
-  colorPickerState.value = rgbaToColorPickerState(tag.color)
-  showTagDialog.value = true
-}
-
-// 更新颜色（统一处理分类和标签）
-const updateColor = () => {
-  const color = hexToRgba(colorPickerState.value.hex, colorPickerState.value.alpha)
-  currentTag.value.color = color
-}
-
-// 关闭标签对话框
-const closeTagDialog = () => {
-  showTagDialog.value = false
-  currentTag.value = {
+  const { t } = useI18n()
+  const searchQuery = ref('')
+  const history = ref([]) // 存储历史记录
+  const filteredHistory = ref([]) // 存储过滤后的历史记录
+  const favorites = ref([]) // 存储收藏夹记录
+  const filteredFavorites = ref([]) // 存储过滤后的收藏夹记录
+  const currentTab = ref('history') // 当前选中的标签
+  const selectedTags = ref([])
+  const showTagDialog = ref(false)
+  const showDeleteDialog = ref(false)
+  const isEditingTag = ref(false)
+  const colorPickerState = ref({
+    hex: 'rgba(255, 123, 2, .4)',
+    alpha: 100
+  })
+  const currentTag = ref({
     name: '',
     tag: '',
     color: 'rgba(255, 123, 2, .4)'
+  })
+
+  const isDeleteBatch = ref(false)
+  const selectAllTags = ref(0)
+
+  const retPromptInfo = (strJson) => {
+    const jsonTemp = JSON.parse(strJson)
+    return jsonTemp.prompt
   }
-  isEditingTag.value = false
-}
 
-const deleteType = ref('')
-const itemToDelete = ref(null)
-const deleteConfirmMessage = computed(() => {
-  if (!itemToDelete.value) {
-    return ''
-  }
-
-  switch (deleteType.value) {
-  case 'history':
-    return t('history.deleteHistoryConfirm', { name: itemToDelete.value.tag })
-  case 'favorite':
-    return t('history.deleteFavoriteConfirm', { name: itemToDelete.value.tag })
-  case 'deleteSelected':
-    return t('history.confirmDeleteSelected')
-  case 'deleteSelectedFavorite':
-    return t('history.confirmDeleteSelected')
-  default:
-    return ''
-  }
-})
-
-const deleteHistory = (history) => {
-  deleteType.value = 'history'
-  itemToDelete.value = history
-  showDeleteDialog.value = true
-}
-
-const deleteFavorite = (favorite) => {
-  deleteType.value = 'favorite'
-  itemToDelete.value = favorite
-  showDeleteDialog.value = true
-}
-
-const sureDelete = () => {
-  isDeleteBatch.value = false
-  selectAllTags.value = 0
-  deleteType.value = 'deleteSelected'
-  itemToDelete.value = selectedTags.value
-  showDeleteDialog.value = true
-}
-
-const sureDeleteFavorite = () => {
-  isDeleteBatch.value = false
-  selectAllTags.value = 0
-  deleteType.value = 'deleteSelectedFavorite'
-  itemToDelete.value = selectedTags.value
-  showDeleteDialog.value = true
-}
-
-// 确认删除
-const confirmDelete = async () => {
-  try {
-    switch (deleteType.value) {
-    case 'history':
-      historyApi
-        .deleteHistory(itemToDelete.value.id_index)
-        .then((res) => {
-          fetchHistory()
-          message({ type: 'success', str: 'message.deleteSuccess' })
-        })
-        .catch((err) => {
-          message({ type: 'warn', str: 'message.networkError' })
-        })
-      break
-
-    case 'favorite':
-      historyApi
-        .deleteFavorite(itemToDelete.value.id_index)
-        .then((res) => {
-          fetchFavorites()
-          window.postMessage(
-            {
-              type: 'weilin_prompt_ui_refresh_all_data'
-            },
-            '*'
-          )
-          message({ type: 'success', str: 'message.deleteSuccess' })
-        })
-        .catch((err) => {
-          message({ type: 'warn', str: 'message.networkError' })
-        })
-      break
-    case 'deleteSelected':
-      historyApi
-        .batchDeleteHistory(selectedTags.value)
-        .then((res) => {
-          fetchHistory()
-          message({ type: 'success', str: 'message.deleteSuccess' })
-        })
-        .catch((err) => {
-          message({ type: 'warn', str: 'message.networkError' })
-        })
-      break
-    case 'deleteSelectedFavorite':
-      historyApi
-        .batchDeleteFavorite(itemToDelete.value)
-        .then((res) => {
-          fetchFavorites()
-          window.postMessage(
-            {
-              type: 'weilin_prompt_ui_refresh_all_data'
-            },
-            '*'
-          )
-          message({ type: 'success', str: 'message.deleteSuccess' })
-        })
-        .catch((err) => {
-          message({ type: 'warn', str: 'message.networkError' })
-        })
-      break
+  // 改进的 RGBA 解析函数
+  const parseRgba = (rgba) => {
+    if (!rgba || rgba === 'transparent') {
+      return { hex: '#FFFFFF', alpha: 0 }
     }
 
-    closeDeleteDialog()
-  } catch (error) {
-    message({ type: 'warn', str: 'message.networkError' })
-  }
-}
+    const match = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)/)
+    if (match) {
+      const [, r, g, b, a] = match
+      const hex = `#${[r, g, b]
+        .map((x) => {
+          const hexVal = parseInt(x, 10).toString(16)
+          return hexVal.length === 1 ? `0${hexVal}` : hexVal
+        })
+        .join('')}`
 
-const selectAllTagsChange = (event) => {
-  if (event.target.checked) {
-    if (currentTab.value === 'history') {
-      selectedTags.value = history.value.map((item) => item.id_index)
-    } else {
-      selectedTags.value = favorites.value.map((item) => item.id_index)
-    }
-  } else {
-    selectedTags.value = []
-  }
-}
-
-// 改进的 RGBA 转换函数
-const hexToRgba = (hex, alpha) => {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  return `rgba(${ r }, ${ g }, ${ b }, ${ alpha / 100 })`
-}
-
-// 关闭删除对话框
-const closeDeleteDialog = () => {
-  showDeleteDialog.value = false
-  deleteType.value = ''
-  itemToDelete.value = null
-}
-
-// 保存标签
-const saveTag = () => {
-  if (!currentTag.value.tag) {
-    message({ type: 'warn', str: 'history.dialog.tag_placeholder' })
-    return
-  }
-
-  if (isEditingTag.value) {
-    historyApi
-      .editFavorite({
-        id_index: currentTag.value.id_index,
-        name: currentTag.value.name,
-        tag: currentTag.value.tag,
-        color: currentTag.value.color
-      })
-      .then((res) => {
-        fetchFavorites()
-        window.postMessage(
-          {
-            type: 'weilin_prompt_ui_refresh_all_data'
-          },
-          '*'
-        )
-        message({ type: 'success', str: 'message.editSuccess' })
-      })
-      .catch((err) => {
-        message({ type: 'warn', str: 'message.networkError' })
-      })
-  } else {
-    historyApi
-      .addFavorite({
-        name: currentTag.value.name,
-        tag: currentTag.value.tag,
-        color: currentTag.value.color
-      })
-      .then((res) => {
-        fetchFavorites()
-        window.postMessage(
-          {
-            type: 'weilin_prompt_ui_refresh_all_data'
-          },
-          '*'
-        )
-        message({ type: 'success', str: 'message.addSuccess' })
-      })
-      .catch((err) => {
-        message({ type: 'warn', str: 'message.networkError' })
-      })
-  }
-
-  closeTagDialog()
-}
-
-const fetchHistory = () => {
-  historyApi
-    .getHistory({})
-    .then((res) => {
-      history.value = res.data
-      filteredHistory.value = history.value // 初始化过滤后的历史记录
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.networkError' })
-    })
-}
-
-const fetchFavorites = () => {
-  historyApi
-    .getFavorite()
-    .then((res) => {
-      favorites.value = res.data
-      filteredFavorites.value = favorites.value
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.networkError' })
-    })
-}
-
-const filterHistory = () => {
-  // 根据搜索查询过滤历史记录
-  filteredHistory.value = history.value.filter((item) => item.tag.includes(searchQuery.value))
-}
-
-const filterFavorites = () => {
-  // 根据搜索查询过滤收藏夹记录
-  filteredFavorites.value = favorites.value.filter((item) => item.tag.includes(searchQuery.value))
-}
-
-const refreshHistory = () => {
-  // 刷新历史记录
-  fetchHistory()
-}
-
-const refreshFavorites = () => {
-  // 刷新收藏夹记录
-  fetchFavorites()
-}
-
-const addToFavorites = (item) => {
-  // 添加到收藏夹的逻辑
-  historyApi
-    .addFavorite({ tag: item.tag })
-    .then((res) => {
-      if (res.code === 200) {
-        window.postMessage(
-          {
-            type: 'weilin_prompt_ui_refresh_all_data'
-          },
-          '*'
-        )
-        fetchFavorites()
-        message({ type: 'success', str: 'message.addFavoriteSuccess' })
-      } else {
-        message({ type: 'success', str: 'message.addFavoriteIsExist' })
+      return {
+        hex: hex,
+        alpha: Math.round((a || 1) * 100)
       }
-    })
-    .catch((err) => {
+    }
+    return { hex: '#FFFFFF', alpha: 0 }
+  }
+
+  // 初始化颜色选择器
+  const initColorPicker = (color) => {
+    const { hex, alpha } = parseRgba(color)
+    colorPickerState.value = { hex, alpha }
+  }
+
+  // 显示添加标签对话框
+  const showAddTagDialog = () => {
+    isEditingTag.value = false
+    currentTag.value = {
+      id: '',
+      name: '',
+      tag: '',
+      backgroundColor: 'transparent' // 设置默认颜色
+    }
+    // 初始化颜色选择器
+    initColorPicker('transparent')
+    showTagDialog.value = true
+  }
+
+  const rgbaToColorPickerState = (rgba) => {
+    const match = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)/)
+    if (match) {
+      const [, r, g, b, a] = match
+      const hex = `#${((1 << 24) + (parseInt(r, 10) << 16) + (parseInt(g, 10) << 8) + parseInt(b, 10)).toString(16).slice(1)}`
+      const alpha = a ? Math.round(parseFloat(a) * 100) : 100 // 将 alpha 转换为百分比
+      return { hex, alpha }
+    }
+    return { hex: '#FF7B02', alpha: 50 } // 默认值
+  }
+
+  // 编辑标签
+  const editTag = (tag) => {
+    isEditingTag.value = true
+    currentTag.value = { ...tag }
+    colorPickerState.value = rgbaToColorPickerState(tag.color)
+    showTagDialog.value = true
+  }
+
+  // 更新颜色（统一处理分类和标签）
+  const updateColor = () => {
+    const color = hexToRgba(colorPickerState.value.hex, colorPickerState.value.alpha)
+    currentTag.value.color = color
+  }
+
+  // 关闭标签对话框
+  const closeTagDialog = () => {
+    showTagDialog.value = false
+    currentTag.value = {
+      name: '',
+      tag: '',
+      color: 'rgba(255, 123, 2, .4)'
+    }
+    isEditingTag.value = false
+  }
+
+  const deleteType = ref('')
+  const itemToDelete = ref(null)
+  const deleteConfirmMessage = computed(() => {
+    if (!itemToDelete.value) {
+      return ''
+    }
+
+    switch (deleteType.value) {
+      case 'history':
+        return t('history.deleteHistoryConfirm', { name: itemToDelete.value.tag })
+      case 'favorite':
+        return t('history.deleteFavoriteConfirm', { name: itemToDelete.value.tag })
+      case 'deleteSelected':
+        return t('history.confirmDeleteSelected')
+      case 'deleteSelectedFavorite':
+        return t('history.confirmDeleteSelected')
+      default:
+        return ''
+    }
+  })
+
+  const deleteHistory = (history) => {
+    deleteType.value = 'history'
+    itemToDelete.value = history
+    showDeleteDialog.value = true
+  }
+
+  const deleteFavorite = (favorite) => {
+    deleteType.value = 'favorite'
+    itemToDelete.value = favorite
+    showDeleteDialog.value = true
+  }
+
+  const sureDelete = () => {
+    isDeleteBatch.value = false
+    selectAllTags.value = 0
+    deleteType.value = 'deleteSelected'
+    itemToDelete.value = selectedTags.value
+    showDeleteDialog.value = true
+  }
+
+  const sureDeleteFavorite = () => {
+    isDeleteBatch.value = false
+    selectAllTags.value = 0
+    deleteType.value = 'deleteSelectedFavorite'
+    itemToDelete.value = selectedTags.value
+    showDeleteDialog.value = true
+  }
+
+  // 确认删除
+  const confirmDelete = () => {
+    try {
+      switch (deleteType.value) {
+        case 'history':
+          historyApi
+            .deleteHistory(itemToDelete.value.id_index)
+            .then(() => {
+              fetchHistory()
+              message({ type: 'success', str: 'message.deleteSuccess' })
+            })
+            .catch(() => {
+              message({ type: 'warn', str: 'message.networkError' })
+            })
+          break
+
+        case 'favorite':
+          historyApi
+            .deleteFavorite(itemToDelete.value.id_index)
+            .then(() => {
+              fetchFavorites()
+              window.postMessage(
+                {
+                  type: 'weilin_prompt_ui_refresh_all_data'
+                },
+                '*'
+              )
+              message({ type: 'success', str: 'message.deleteSuccess' })
+            })
+            .catch(() => {
+              message({ type: 'warn', str: 'message.networkError' })
+            })
+          break
+        case 'deleteSelected':
+          historyApi
+            .batchDeleteHistory(selectedTags.value)
+            .then(() => {
+              fetchHistory()
+              message({ type: 'success', str: 'message.deleteSuccess' })
+            })
+            .catch(() => {
+              message({ type: 'warn', str: 'message.networkError' })
+            })
+          break
+        case 'deleteSelectedFavorite':
+          historyApi
+            .batchDeleteFavorite(itemToDelete.value)
+            .then(() => {
+              fetchFavorites()
+              window.postMessage(
+                {
+                  type: 'weilin_prompt_ui_refresh_all_data'
+                },
+                '*'
+              )
+              message({ type: 'success', str: 'message.deleteSuccess' })
+            })
+            .catch(() => {
+              message({ type: 'warn', str: 'message.networkError' })
+            })
+          break
+      }
+
+      closeDeleteDialog()
+    } catch (error) {
       message({ type: 'warn', str: 'message.networkError' })
-    })
-}
+    }
+  }
 
-const useItem = (item) => {
-  // 发送消息通知
-  window.postMessage(
-    {
-      type: 'weilin_prompt_ui_user_history_tag',
-      tagText: item.tag
-    },
-    '*'
-  )
-}
+  const selectAllTagsChange = (event) => {
+    if (event.target.checked) {
+      if (currentTab.value === 'history') {
+        selectedTags.value = history.value.map((item) => item.id_index)
+      } else {
+        selectedTags.value = favorites.value.map((item) => item.id_index)
+      }
+    } else {
+      selectedTags.value = []
+    }
+  }
 
-const bulkDelete = () => {
-  selectedTags.value = []
-  isDeleteBatch.value = true
-}
+  // 改进的 RGBA 转换函数
+  const hexToRgba = (hex, alpha) => {
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    return `rgba(${r}, ${g}, ${b}, ${alpha / 100})`
+  }
 
-const cancelDelete = () => {
-  selectedTags.value = []
-  isDeleteBatch.value = false
-  selectAllTags.value = 0
-}
+  // 关闭删除对话框
+  const closeDeleteDialog = () => {
+    showDeleteDialog.value = false
+    deleteType.value = ''
+    itemToDelete.value = null
+  }
 
-onMounted(() => {
-  fetchHistory()
-  fetchFavorites()
-})
+  // 保存标签
+  const saveTag = () => {
+    if (!currentTag.value.tag) {
+      message({ type: 'warn', str: 'history.dialog.tag_placeholder' })
+      return
+    }
+
+    if (isEditingTag.value) {
+      historyApi
+        .editFavorite({
+          id_index: currentTag.value.id_index,
+          name: currentTag.value.name,
+          tag: currentTag.value.tag,
+          color: currentTag.value.color
+        })
+        .then(() => {
+          fetchFavorites()
+          window.postMessage(
+            {
+              type: 'weilin_prompt_ui_refresh_all_data'
+            },
+            '*'
+          )
+          message({ type: 'success', str: 'message.editSuccess' })
+        })
+        .catch(() => {
+          message({ type: 'warn', str: 'message.networkError' })
+        })
+    } else {
+      historyApi
+        .addFavorite({
+          name: currentTag.value.name,
+          tag: currentTag.value.tag,
+          color: currentTag.value.color
+        })
+        .then(() => {
+          fetchFavorites()
+          window.postMessage(
+            {
+              type: 'weilin_prompt_ui_refresh_all_data'
+            },
+            '*'
+          )
+          message({ type: 'success', str: 'message.addSuccess' })
+        })
+        .catch(() => {
+          message({ type: 'warn', str: 'message.networkError' })
+        })
+    }
+
+    closeTagDialog()
+  }
+
+  const fetchHistory = () => {
+    historyApi
+      .getHistory({})
+      .then((res) => {
+        history.value = res.data
+        filteredHistory.value = history.value // 初始化过滤后的历史记录
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.networkError' })
+      })
+  }
+
+  const fetchFavorites = () => {
+    historyApi
+      .getFavorite()
+      .then((res) => {
+        favorites.value = res.data
+        filteredFavorites.value = favorites.value
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.networkError' })
+      })
+  }
+
+  const filterHistory = () => {
+    // 根据搜索查询过滤历史记录
+    filteredHistory.value = history.value.filter((item) => item.tag.includes(searchQuery.value))
+  }
+
+  const filterFavorites = () => {
+    // 根据搜索查询过滤收藏夹记录
+    filteredFavorites.value = favorites.value.filter((item) => item.tag.includes(searchQuery.value))
+  }
+
+  const refreshHistory = () => {
+    // 刷新历史记录
+    fetchHistory()
+  }
+
+  const refreshFavorites = () => {
+    // 刷新收藏夹记录
+    fetchFavorites()
+  }
+
+  const addToFavorites = (item) => {
+    // 添加到收藏夹的逻辑
+    historyApi
+      .addFavorite({ tag: item.tag })
+      .then((res) => {
+        if (res.code === 200) {
+          window.postMessage(
+            {
+              type: 'weilin_prompt_ui_refresh_all_data'
+            },
+            '*'
+          )
+          fetchFavorites()
+          message({ type: 'success', str: 'message.addFavoriteSuccess' })
+        } else {
+          message({ type: 'success', str: 'message.addFavoriteIsExist' })
+        }
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.networkError' })
+      })
+  }
+
+  const useItem = (item) => {
+    // 发送消息通知
+    window.postMessage(
+      {
+        type: 'weilin_prompt_ui_user_history_tag',
+        tagText: item.tag
+      },
+      '*'
+    )
+  }
+
+  const bulkDelete = () => {
+    selectedTags.value = []
+    isDeleteBatch.value = true
+  }
+
+  const cancelDelete = () => {
+    selectedTags.value = []
+    isDeleteBatch.value = false
+    selectAllTags.value = 0
+  }
+
+  onMounted(() => {
+    fetchHistory()
+    fetchFavorites()
+  })
 </script>
 
 <style scoped>
@@ -857,6 +853,7 @@ onMounted(() => {
     padding-top: 10px;
     display: flex;
     gap: 8px;
+
     /* 按钮之间的间距 */
   }
 
@@ -880,6 +877,7 @@ onMounted(() => {
   .delete-favorite-btn:hover,
   .use-btn:hover {
     transform: scale(1.1);
+
     /* 悬停时放大效果 */
   }
 
@@ -891,6 +889,7 @@ onMounted(() => {
 
   .tag-checkbox {
     margin-left: 3px;
+
     /* 复选框与标签文本之间的间距 */
   }
 
@@ -924,11 +923,8 @@ onMounted(() => {
   /* 对话框样式 */
   .weilin-tools-dialog-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    inset: 0;
+    background: rgb(0 0 0 / 0.5);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -940,7 +936,7 @@ onMounted(() => {
     border-radius: 8px;
     min-width: 400px;
     max-width: 90%;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 2px 12px rgb(0 0 0 / 0.15);
     box-sizing: border-box;
     z-index: 1099;
   }
@@ -1010,7 +1006,7 @@ onMounted(() => {
   .form-group textarea:focus {
     outline: none;
     border-color: var(--weilin-prompt-ui-primary-color);
-    box-shadow: 0 0 0 2px rgba(var(--weilin-prompt-ui-primary-color-rgb), 0.1);
+    box-shadow: 0 0 0 2px rgb(var(--weilin-prompt-ui-primary-color-rgb), 0.1);
   }
 
   .cancel-btn,
@@ -1171,7 +1167,7 @@ onMounted(() => {
       0 0,
       0 5px,
       5px -5px,
-      -5px 0px;
+      -5px 0;
   }
 
   .color-controls {
@@ -1199,21 +1195,21 @@ onMounted(() => {
   .alpha-slider {
     flex: 1;
     height: 8px;
-    -webkit-appearance: none;
-    background: linear-gradient(to right, transparent, currentColor);
+    appearance: none;
+    background: linear-gradient(to right, transparent, currentcolor);
     border-radius: 4px;
     border: 1px solid var(--weilin-prompt-ui-border-color);
   }
 
   .alpha-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
+    appearance: none;
     width: 16px;
     height: 16px;
     border-radius: 50%;
     background: var(--weilin-prompt-ui-primary-color);
     cursor: pointer;
     border: 2px solid white;
-    box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 2px rgb(0 0 0 / 0.3);
   }
 
   .alpha-value {
@@ -1230,7 +1226,7 @@ onMounted(() => {
     align-items: center;
     min-width: 40px;
     height: 24px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.1);
     width: 100%;
     margin-bottom: 10px;
   }
@@ -1239,7 +1235,7 @@ onMounted(() => {
     font-size: 12px;
     font-weight: 500;
     color: #fff;
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+    text-shadow: 0 1px 1px rgb(0 0 0 / 0.2);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

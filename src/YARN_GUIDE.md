@@ -40,6 +40,7 @@ yarn run install:check
 ```
 
 这个脚本会检查:
+
 - ✅ Yarn 是否正确安装
 - ✅ yarn.lock 文件是否存在
 - ✅ 依赖包安全漏洞
@@ -116,6 +117,7 @@ yarn cache clean
 ### .yarnrc.yml
 
 Yarn配置文件,包含:
+
 - ✅ 严格SSL模式
 - ✅ 离线镜像缓存
 - ✅ 国内镜像源(淘宝)
@@ -124,6 +126,7 @@ Yarn配置文件,包含:
 ### .npmrc
 
 npm配置文件(兼容yarn),包含:
+
 - ✅ 镜像源配置
 - ✅ SSL验证
 - ✅ 缓存位置
@@ -132,6 +135,7 @@ npm配置文件(兼容yarn),包含:
 ### yarn.lock
 
 依赖包版本锁定文件:
+
 - ✅ 确保跨平台一致性
 - ✅ 锁定精确版本
 - ✅ 防止意外更新
@@ -141,11 +145,13 @@ npm配置文件(兼容yarn),包含:
 ### 不要混用包管理器
 
 **❌ 错误做法:**
+
 ```bash
 npm install  # 不要使用npm
 ```
 
 **✅ 正确做法:**
+
 ```bash
 yarn install  # 只使用yarn
 ```
@@ -159,12 +165,14 @@ yarn install  # 只使用yarn
 ### 安全建议
 
 1. **定期运行安全检查**
+
    ```bash
    # 每次更新依赖后
    yarn run install:check
    ```
 
 2. **及时修复漏洞**
+
    ```bash
    # 发现漏洞后立即修复
    yarn audit fix
@@ -178,20 +186,21 @@ yarn install  # 只使用yarn
 
 ## 📊 可用脚本
 
-| 脚本 | 命令 | 说明 |
-|------|------|------|
+| 脚本     | 命令                     | 说明           |
+| -------- | ------------------------ | -------------- |
 | 安装检查 | `yarn run install:check` | 完整的安全检查 |
-| 安全审计 | `yarn audit` | 检查安全漏洞 |
-| 修复漏洞 | `yarn audit:fix` | 自动修复漏洞 |
-| 检查更新 | `yarn outdated` | 查看过时依赖 |
-| 更新依赖 | `yarn upgrade` | 更新到最新版本 |
-| 清理缓存 | `yarn clean` | 清理yarn缓存 |
+| 安全审计 | `yarn audit`             | 检查安全漏洞   |
+| 修复漏洞 | `yarn audit:fix`         | 自动修复漏洞   |
+| 检查更新 | `yarn outdated`          | 查看过时依赖   |
+| 更新依赖 | `yarn upgrade`           | 更新到最新版本 |
+| 清理缓存 | `yarn clean`             | 清理yarn缓存   |
 
 ## 🐛 常见问题
 
 ### Q: 为什么使用yarn而不是npm?
 
 A: Yarn提供:
+
 - 更快的安装速度
 - 更好的依赖管理
 - 更安全的安全检查
@@ -200,6 +209,7 @@ A: Yarn提供:
 ### Q: 如何切换从npm到yarn?
 
 A:
+
 ```bash
 # 1. 删除npm相关文件
 rm package-lock.json
@@ -212,6 +222,7 @@ yarn install
 ### Q: yarn.lock文件应该提交吗?
 
 A: ✅ **必须提交!**
+
 - 确保团队使用相同的依赖版本
 - 避免跨平台差异
 - 提高构建可重现性
@@ -219,6 +230,7 @@ A: ✅ **必须提交!**
 ### Q: 如何解决依赖冲突?
 
 A:
+
 ```bash
 # 1. 清理缓存
 yarn cache clean
@@ -233,6 +245,7 @@ yarn install
 ## 📞 技术支持
 
 如果遇到问题,请:
+
 1. 检查Yarn版本: `yarn --version`
 2. 运行安全检查: `yarn run install:check`
 3. 查看Yarn文档: https://yarnpkg.com/getting-started

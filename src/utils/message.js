@@ -23,7 +23,9 @@ const message = ({ str, type, name = '' }) => {
   //      调用渲染方法：将虚拟节点渲染到dom中
   render(vnode, div)
   //      开启定时器，若原先存在则先进行清除
-  timer && clearTimeout(timer)
+  if (timer) {
+    clearTimeout(timer)
+  }
   timer = setTimeout(() => {
     render(null, div)
   }, 2000)

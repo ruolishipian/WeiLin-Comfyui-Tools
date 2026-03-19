@@ -2,16 +2,16 @@ import request from './request'
 // 语言相关接口
 export const languageApi = {
   // 获取用户设置
-  getUserSetting: async () => {
-    return await request({
+  getUserSetting: () => {
+    return request({
       url: '/user_init/get_settings',
       method: 'get'
     })
   },
 
   // 设置用户语言
-  setUserLanguage: async (data) => {
-    return await request({
+  setUserLanguage: (data) => {
+    return request({
       url: '/user_init/set_user_lang',
       method: 'post',
       data: { user_lang: data }
@@ -19,8 +19,8 @@ export const languageApi = {
   },
 
   // 启动面板
-  startPanel: async () => {
-    return await request({
+  startPanel: () => {
+    return request({
       url: '/panel/start',
       method: 'post'
     })

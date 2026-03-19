@@ -46,144 +46,146 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
-import { useI18n } from 'vue-i18n'
-import DraggableWindow from '@/components/DraggableWindow.vue'
-import { windowManager } from '@/utils/windowManager'
-import message from '@/utils/message'
+  /* eslint-disable no-useless-escape */
+  import { ref, onMounted, onUnmounted, watch } from 'vue'
+  import { useI18n } from 'vue-i18n'
+  import DraggableWindow from '@/components/DraggableWindow.vue'
+  import { windowManager } from '@/utils/windowManager'
+  import message from '@/utils/message'
 
-const emit = defineEmits(['close', 'update'])
-const { t } = useI18n()
-const isOpen = ref(false)
-const htmlContent = ref('')
-const imageData = ref(null)
+  // eslint-disable-next-line no-unused-vars
+  const emit = defineEmits(['close', 'update'])
+  const { t } = useI18n()
+  const isOpen = ref(false)
+  const htmlContent = ref('')
+  const imageData = ref(null)
 
-const STORAGE_PREFIX = 'weilin_tools_'
+  const STORAGE_PREFIX = 'weilin_tools_'
 
-// 默认窗口配置
-const DEFAULT_WINDOWS = {
-  tranToWeb: {
-    visible: false,
-    position: { x: 150, y: 150 },
-    size: { width: 800, height: 600 }
-  }
-}
-
-// 从 localStorage 获取窗口状态
-const getInitialWindowState = () => {
-  try {
-    const savedState = localStorage.getItem(`${ STORAGE_PREFIX }tranToWebState`)
-    if (savedState) {
-      const parsedState = JSON.parse(savedState)
-
-      // 检查并补充缺失的窗口配置
-      const mergedState = { ...DEFAULT_WINDOWS }
-
-      // 将保存的状态合并到默认配置中
-      if (parsedState.tranToWeb) {
-        mergedState.tranToWeb = {
-          ...DEFAULT_WINDOWS.tranToWeb, // 默认值
-          ...parsedState.tranToWeb // 保存的值
-        }
-      }
-
-      return mergedState
+  // 默认窗口配置
+  const DEFAULT_WINDOWS = {
+    tranToWeb: {
+      visible: false,
+      position: { x: 150, y: 150 },
+      size: { width: 800, height: 600 }
     }
-  } catch (error) {
-    console.error('Error loading window states:', error)
   }
 
-  return { ...DEFAULT_WINDOWS }
-}
-
-// 窗口状态管理
-const windows = ref(getInitialWindowState())
-
-// 监听窗口状态变化并保存
-watch(
-  windows,
-  (newState) => {
+  // 从 localStorage 获取窗口状态
+  const getInitialWindowState = () => {
     try {
-      localStorage.setItem(`${ STORAGE_PREFIX }tranToWebState`, JSON.stringify(newState))
+      const savedState = localStorage.getItem(`${STORAGE_PREFIX}tranToWebState`)
+      if (savedState) {
+        const parsedState = JSON.parse(savedState)
+
+        // 检查并补充缺失的窗口配置
+        const mergedState = { ...DEFAULT_WINDOWS }
+
+        // 将保存的状态合并到默认配置中
+        if (parsedState.tranToWeb) {
+          mergedState.tranToWeb = {
+            ...DEFAULT_WINDOWS.tranToWeb, // 默认值
+            ...parsedState.tranToWeb // 保存的值
+          }
+        }
+
+        return mergedState
+      }
     } catch (error) {
-      console.error('Error saving window states:', error)
+      console.error('Error loading window states:', error)
     }
-  },
-  { deep: true }
-)
 
-// 组件挂载时注册窗口
-onMounted(() => {
-  windowManager.registerWindow('tranToWeb')
-})
-
-// 组件卸载时注销窗口
-onUnmounted(() => {
-  windowManager.unregisterWindow('tranToWeb')
-})
-
-// 关闭窗口
-const closeWindow = (windowName) => {
-  isOpen.value = false
-}
-
-// 更新窗口位置
-const updatePosition = (windowName, newPosition) => {
-  if (windows.value[windowName]) {
-    windows.value[windowName].position = { ...newPosition }
+    return { ...DEFAULT_WINDOWS }
   }
-}
 
-// 更新窗口大小
-const updateSize = (windowName, newSize) => {
-  if (windows.value[windowName]) {
-    windows.value[windowName].size = { ...newSize }
+  // 窗口状态管理
+  const windows = ref(getInitialWindowState())
+
+  // 监听窗口状态变化并保存
+  watch(
+    windows,
+    (newState) => {
+      try {
+        localStorage.setItem(`${STORAGE_PREFIX}tranToWebState`, JSON.stringify(newState))
+      } catch (error) {
+        console.error('Error saving window states:', error)
+      }
+    },
+    { deep: true }
+  )
+
+  // 组件挂载时注册窗口
+  onMounted(() => {
+    windowManager.registerWindow('tranToWeb')
+  })
+
+  // 组件卸载时注销窗口
+  onUnmounted(() => {
+    windowManager.unregisterWindow('tranToWeb')
+  })
+
+  // 关闭窗口
+  const closeWindow = () => {
+    isOpen.value = false
   }
-}
 
-// 打开窗口
-const open = () => {
-  isOpen.value = true
-  windowManager.setActiveWindow('tranToWeb')
-}
-
-const handleDragOver = (e) => {
-  e.dataTransfer.dropEffect = 'copy'
-}
-
-const handleDrop = (e) => {
-  const file = e.dataTransfer.files[0]
-  if (file && file.type.startsWith('image/')) {
-    processImageFile(file)
-  }
-}
-
-const handlePaste = (e) => {
-  const items = e.clipboardData.items
-  for (let i = 0; i < items.length; i++) {
-    if (items[i].type.startsWith('image/')) {
-      const blob = items[i].getAsFile()
-      processImageFile(blob)
-      break
+  // 更新窗口位置
+  const updatePosition = (windowName, newPosition) => {
+    if (windows.value[windowName]) {
+      windows.value[windowName].position = { ...newPosition }
     }
   }
-}
 
-const processImageFile = (file) => {
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    // 获取原始图片数据
-    const originalData = e.target.result
-    // 进行简单加密（使用Base64编码后再次编码）
-    const encryptedData = btoa(originalData)
-    imageData.value = encryptedData
-    generateHtml()
+  // 更新窗口大小
+  const updateSize = (windowName, newSize) => {
+    if (windows.value[windowName]) {
+      windows.value[windowName].size = { ...newSize }
+    }
   }
-  reader.readAsDataURL(file)
-}
 
-const generateHtml = () => {
-  htmlContent.value = `
+  // 打开窗口
+  const open = () => {
+    isOpen.value = true
+    windowManager.setActiveWindow('tranToWeb')
+  }
+
+  const handleDragOver = (e) => {
+    e.dataTransfer.dropEffect = 'copy'
+  }
+
+  const handleDrop = (e) => {
+    const file = e.dataTransfer.files[0]
+    if (file && file.type.startsWith('image/')) {
+      processImageFile(file)
+    }
+  }
+
+  const handlePaste = (e) => {
+    const items = e.clipboardData.items
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const blob = items[i].getAsFile()
+        processImageFile(blob)
+        break
+      }
+    }
+  }
+
+  const processImageFile = (file) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      // 获取原始图片数据
+      const originalData = e.target.result
+      // 进行简单加密（使用Base64编码后再次编码）
+      const encryptedData = btoa(originalData)
+      imageData.value = encryptedData
+      generateHtml()
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const generateHtml = () => {
+    htmlContent.value = `
         <!DOCTYPE html>
         <html>
         <head>
@@ -196,7 +198,7 @@ const generateHtml = () => {
                 window.onload = function() {
                     // 解密图片数据
                     try {
-                        const encryptedData = "${ imageData.value }";
+                        const encryptedData = "${imageData.value}";
                         const originalData = atob(encryptedData);
                         document.getElementById('decrypted-img').src = originalData;
                         document.getElementById('decrypted-img').style.display = 'block';
@@ -212,63 +214,64 @@ const generateHtml = () => {
         </body>
         </html>
     `
-}
+  }
 
-const downloadHtml = () => {
-  const blob = new Blob([htmlContent.value], { type: 'text/html' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'image-to-html.html'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
-
-const copyToClipboard = async () => {
-  try {
+  const downloadHtml = () => {
     const blob = new Blob([htmlContent.value], { type: 'text/html' })
-    const clipboardItem = new ClipboardItem({ 'text/html': blob })
-    await navigator.clipboard.write([clipboardItem])
-    message({ type: 'warn', str: 'utils.copySuccess' })
-  } catch (err) {
-    console.error('Failed to copy file:', err)
-    // 回退到文本复制方式
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'image-to-html.html'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  // eslint-disable-next-line no-unused-vars
+  const copyToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(htmlContent.value)
-      message({ type: 'success', str: 'utils.copySuccess' })
-    } catch (textErr) {
-      console.error('Failed to copy text:', textErr)
-      message({ type: 'warn', str: 'utils.copyFailed' })
+      const blob = new Blob([htmlContent.value], { type: 'text/html' })
+      const clipboardItem = new ClipboardItem({ 'text/html': blob })
+      await navigator.clipboard.write([clipboardItem])
+      message({ type: 'warn', str: 'utils.copySuccess' })
+    } catch (err) {
+      console.error('Failed to copy file:', err)
+      // 回退到文本复制方式
+      try {
+        await navigator.clipboard.writeText(htmlContent.value)
+        message({ type: 'success', str: 'utils.copySuccess' })
+      } catch (textErr) {
+        console.error('Failed to copy text:', textErr)
+        message({ type: 'warn', str: 'utils.copyFailed' })
+      }
     }
   }
-}
 
-// 在script部分添加clearContent方法
-const clearContent = () => {
-  htmlContent.value = ''
-  imageData.value = null
-}
-
-const fileInput = ref(null)
-
-const handleClick = () => {
-  if (!htmlContent.value) {
-    fileInput.value.click()
+  // 在script部分添加clearContent方法
+  const clearContent = () => {
+    htmlContent.value = ''
+    imageData.value = null
   }
-}
 
-const handleFileChange = (e) => {
-  const file = e.target.files[0]
-  if (file && file.type.startsWith('image/')) {
-    processImageFile(file)
+  const fileInput = ref(null)
+
+  const handleClick = () => {
+    if (!htmlContent.value) {
+      fileInput.value.click()
+    }
   }
-}
 
-defineExpose({
-  open
-})
+  const handleFileChange = (e) => {
+    const file = e.target.files[0]
+    if (file && file.type.startsWith('image/')) {
+      processImageFile(file)
+    }
+  }
+
+  defineExpose({
+    open
+  })
 </script>
 
 <style scoped>

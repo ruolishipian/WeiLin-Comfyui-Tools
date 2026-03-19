@@ -207,394 +207,230 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { loraApi } from '@/api/lora'
-import loraDetail from './lora_detail.vue'
-import message from '@/utils/message'
-import LoraCard from './lora_card.vue'
+  import { ref, computed, onMounted, watch, nextTick } from 'vue'
+  import { useI18n } from 'vue-i18n'
+  import { loraApi } from '@/api/lora'
+  import loraDetail from './lora_detail.vue'
+  import message from '@/utils/message'
+  import LoraCard from './lora_card.vue'
 
-const prefix = 'weilin_prompt_ui_'
-const { t } = useI18n()
-const isRefreshing = ref(false)
-const isLoading = ref(false)
-const isLoadingMore = ref(false) // 加载更多状态
-const hasLoadedAll = ref(false) // 是否已加载全部
-const currentCategory = ref('all')
-const currentSubCategory = ref('')
-const intervalId = ref(null)
-const searchQuery = ref('')
-const scrollContainer = ref(null)
-const showCard = ref(false)
-const hoveFileName = ref('')
-const paddingLeftValue = ref(100)
-const paddingTopValue = ref(0)
-const loraCardRef = ref()
-const isEnterCatd = ref(false)
-const isHovering = ref(false)
-const loraCardItem = ref()
+  const prefix = 'weilin_prompt_ui_'
+  const { t } = useI18n()
+  const isRefreshing = ref(false)
+  const isLoading = ref(false)
+  const isLoadingMore = ref(false) // 加载更多状态
+  const hasLoadedAll = ref(false) // 是否已加载全部
+  const currentCategory = ref('all')
+  const currentSubCategory = ref('')
+  const intervalId = ref(null)
+  const searchQuery = ref('')
+  const scrollContainer = ref(null)
+  const showCard = ref(false)
+  const hoveFileName = ref('')
+  const paddingLeftValue = ref(100)
+  const paddingTopValue = ref(0)
+  const loraCardRef = ref()
+  const isEnterCatd = ref(false)
+  const isHovering = ref(false)
+  const loraCardItem = ref()
 
-const showHoverInfo = ref(localStorage.getItem('weilin_prompt_ui_showHoverInfo'))
-const clickAddTag = ref(localStorage.getItem('weilin_prompt_ui_clickAddTag'))
+  const showHoverInfo = ref(localStorage.getItem('weilin_prompt_ui_showHoverInfo'))
+  const clickAddTag = ref(localStorage.getItem('weilin_prompt_ui_clickAddTag'))
 
-if (
-  showHoverInfo.value === null ||
+  if (
+    showHoverInfo.value === null ||
     showHoverInfo.value === undefined ||
     showHoverInfo.value === ''
-) {
-  localStorage.setItem('weilin_prompt_ui_showHoverInfo', true)
-  showHoverInfo.value = true
-}
-if (clickAddTag.value === null || clickAddTag.value === undefined || clickAddTag.value === '') {
-  localStorage.setItem('weilin_prompt_ui_clickAddTag', false)
-  clickAddTag.value = false
-}
-
-const props = defineProps({
-  loraManager: {
-    type: String,
-    default: 'look'
+  ) {
+    localStorage.setItem('weilin_prompt_ui_showHoverInfo', true)
+    showHoverInfo.value = true
   }
-})
+  if (clickAddTag.value === null || clickAddTag.value === undefined || clickAddTag.value === '') {
+    localStorage.setItem('weilin_prompt_ui_clickAddTag', false)
+    clickAddTag.value = false
+  }
 
-// 监听复选框变化并保存到本地存储
-watch(showHoverInfo, (newVal) => {
-  localStorage.setItem('weilin_prompt_ui_showHoverInfo', newVal)
-})
-
-watch(clickAddTag, (newVal) => {
-  localStorage.setItem('weilin_prompt_ui_clickAddTag', newVal)
-})
-
-// 分页相关
-const currentPage = ref(1)
-const pageSize = ref(50) // 每页显示的数量
-const totalPages = computed(() => {
-  if (currentCategory.value === 'all') {
-    const rootFolder = selectFolder.value
-    if (rootFolder) {
-      const valuesArray = Object.values(rootFolder)
-      return Math.ceil(valuesArray.length / pageSize.value)
+  const props = defineProps({
+    loraManager: {
+      type: String,
+      default: 'look'
     }
-    return 1
-  } else {
-    const rootFolder = selectFolder.value[currentSubCategory.value]
-    if (rootFolder) {
-      // 使用 "all" 键获取文件列表，如果不存在则过滤掉 "all" 键
-      const valuesArray =
-          rootFolder.all ||
-          Object.keys(rootFolder)
-            .filter((key) => key !== 'all')
-            .map((key) => rootFolder[key])
-      return Math.ceil(valuesArray.length / pageSize.value)
-    }
-    return 1
-  }
-})
-
-const handEnterCard = () => {
-  // console.log("enter")
-  isEnterCatd.value = true
-  isHovering.value = true
-}
-const handleMouseHover = (fileName, event) => {
-  if (!showHoverInfo.value || showHoverInfo.value === 'false') {
-    return
-  } // 如果不显示悬浮信息，直接返回
-
-  isHovering.value = true
-  if (hoveFileName.value === fileName && showCard.value) {
-    return
-  }
-
-  const hoveredCard = event.currentTarget
-  const cardRect = hoveredCard.getBoundingClientRect()
-  const viewportHeight = window.innerHeight
-  const cardWidth = 450 // LoraCard的宽度
-
-  // 计算最佳显示位置 - 居中显示
-  const position = {
-    left: cardRect.left + (cardRect.width - cardWidth) / 2, // 居中计算
-    top: cardRect.top + cardRect.height + 10 // 默认在下方显示
-  }
-
-  // 检查底部空间是否足够
-  if (position.top + 310 > viewportHeight) {
-    // 底部空间不足，改为在上方显示
-    position.top = cardRect.top - 310
-  }
-
-  // 确保不会超出视窗边界
-  position.left = Math.max(10, Math.min(position.left, window.innerWidth - cardWidth - 10))
-  position.top = Math.max(10, Math.min(position.top, viewportHeight - 310))
-
-  paddingLeftValue.value = position.left
-  paddingTopValue.value = position.top
-
-  showCard.value = true
-  hoveFileName.value = fileName
-  nextTick(() => {
-    loraCardItem.value.refresh()
   })
-}
 
-const handleMouseLeave = () => {
-  isHovering.value = false
-  setTimeout(() => {
-    if (!isEnterCatd.value && !isHovering.value) {
-      showCard.value = false
-      hoveFileName.value = ''
-      isEnterCatd.value = false
+  // 监听复选框变化并保存到本地存储
+  watch(showHoverInfo, (newVal) => {
+    localStorage.setItem('weilin_prompt_ui_showHoverInfo', newVal)
+  })
+
+  watch(clickAddTag, (newVal) => {
+    localStorage.setItem('weilin_prompt_ui_clickAddTag', newVal)
+  })
+
+  // 分页相关
+  const currentPage = ref(1)
+  const pageSize = ref(50) // 每页显示的数量
+  const totalPages = computed(() => {
+    if (currentCategory.value === 'all') {
+      const rootFolder = selectFolder.value
+      if (rootFolder) {
+        const valuesArray = Object.values(rootFolder)
+        return Math.ceil(valuesArray.length / pageSize.value)
+      }
+      return 1
     }
-  }, 200)
-}
-
-const handleEnterLeave = () => {
-  showCard.value = false
-  hoveFileName.value = ''
-  isEnterCatd.value = false
-}
-
-const folderList = ref([])
-const selectFolder = ref([])
-const seed = ref('')
-const actionAct = ref(0)
-
-const openSetSeed = (action, newSeed) => {
-  actionAct.value = action
-  seed.value = newSeed
-}
-
-const getFolderList = async () => {
-  try {
-    const res = await loraApi.getLoraFolderList()
-    folderList.value = res.data
-  } catch (error) {
-    console.error('Failed to get folder list:', error)
-    message({ type: 'error', str: 'message.loadFailed' })
-  }
-}
-
-// 处理滚动事件
-const handleScroll = () => {
-  if (!scrollContainer.value || isLoadingMore.value || hasLoadedAll.value) {
-    return
-  }
-
-  const container = scrollContainer.value
-  // 当滚动到距离底部100px时触发加载更多
-  if (container.scrollHeight - container.scrollTop - container.clientHeight < 100) {
-    loadMoreData()
-  }
-}
-
-const isSearch = ref(false)
-// 防抖搜索
-let searchTimeout = null
-const debouncedSearch = () => {
-  if (searchTimeout) {
-    clearTimeout(searchTimeout)
-  }
-  searchTimeout = setTimeout(() => {
-    if (searchQuery.value.length > 0) {
-      isSearch.value = true
-      searchLoraList()
-    } else {
-      isSearch.value = false
-      refreshList()
-    }
-  }, 300)
-}
-
-const retLoraName = (lora) => {
-  if (lora.local_info?.name && lora.local_info.name !== '' && lora.local_info.name.length > 0) {
-    return lora.local_info.name
-  }
-  return lora.name
-}
-
-const loraDetailRef = ref()
-
-const openLoraDetail = (loraData) => {
-  if (props.loraManager === 'addLora') {
-    selectLora(loraData)
-  } else if (props.loraManager === 'prompt_inner' && clickAddTag.value) {
-    // 如果启用了点击添加Tag，则直接添加Tag而不打开详情
-    addLoraTag(loraData)
-  } else {
-    loraDetailRef.value.open(loraData)
-  }
-}
-
-const searchLoraList = async () => {
-  try {
-    const res = await loraApi.searchLoraGetFolderList(searchQuery.value)
-    selectFolder.value = res.data
-    if (selectFolder.value.length > 0) {
-      currentPage.value = 1 // 重置页码
-      const valuesArray = Object.values(selectFolder.value)
-      // 根据当前页码获取对应的50条数据
-      const startIndex = (currentPage.value - 1) * 50
-      const endIndex = startIndex + 50
-      const pageData = valuesArray.slice(startIndex, endIndex)
-      getRangeLoraList(pageData)
-    }
-  } catch (error) {
-    console.error('Failed to get folder list:', error)
-    message({ type: 'error', str: 'message.loadFailed' })
-  }
-}
-
-// 分页后的列表
-const paginatedLoraList = ref([])
-
-// 选择分类时重置子分类和页码
-const selectCategory = (category) => {
-  if (category === 'all') {
-    paginatedLoraList.value = []
-    currentCategory.value = category
-    currentSubCategory.value = '/'
-    selectFolder.value = folderList.value[category]
-    const rootFolder = selectFolder.value
-    if (rootFolder) {
-      hasLoadedAll.value = false
-      currentPage.value = 1 // 重置页码
-      const valuesArray = Object.values(rootFolder)
-      // 根据当前页码获取对应的50条数据
-      const startIndex = (currentPage.value - 1) * 50
-      const endIndex = startIndex + 50
-      const pageData = valuesArray.slice(startIndex, endIndex)
-      getRangeLoraList(pageData)
-    }
-  } else {
-    paginatedLoraList.value = []
-    currentCategory.value = category
-    currentSubCategory.value = '/'
-    selectFolder.value = folderList.value[category]
-    const rootFolder = selectFolder.value['/']
-    if (rootFolder) {
-      hasLoadedAll.value = false
-      currentPage.value = 1 // 重置页码
-      const valuesArray = Object.values(rootFolder)
-      // 根据当前页码获取对应的50条数据
-      const startIndex = (currentPage.value - 1) * 50
-      const endIndex = startIndex + 50
-      const pageData = valuesArray.slice(startIndex, endIndex)
-      getRangeLoraList(pageData)
-    }
-  }
-}
-
-const selectSecondCategory = (subCategory) => {
-  if (subCategory !== currentSubCategory.value) {
-    currentSubCategory.value = subCategory
-    paginatedLoraList.value = []
     const rootFolder = selectFolder.value[currentSubCategory.value]
     if (rootFolder) {
-      hasLoadedAll.value = false
-      currentPage.value = 1 // 重置页码
       // 使用 "all" 键获取文件列表，如果不存在则过滤掉 "all" 键
       const valuesArray =
-          rootFolder.all ||
-          Object.keys(rootFolder)
-            .filter((key) => key !== 'all')
-            .map((key) => rootFolder[key])
-      // 根据当前页码获取对应的50条数据
-      const startIndex = (currentPage.value - 1) * 50
-      const endIndex = startIndex + 50
-      const pageData = valuesArray.slice(startIndex, endIndex)
-      getRangeLoraList(pageData)
+        rootFolder.all ||
+        Object.keys(rootFolder)
+          .filter((key) => key !== 'all')
+          .map((key) => rootFolder[key])
+      return Math.ceil(valuesArray.length / pageSize.value)
     }
+    return 1
+  })
+
+  const handEnterCard = () => {
+    // console.log("enter")
+    isEnterCatd.value = true
+    isHovering.value = true
   }
-}
+  const handleMouseHover = (fileName, event) => {
+    if (!showHoverInfo.value || showHoverInfo.value === 'false') {
+      return
+    } // 如果不显示悬浮信息，直接返回
 
-const getRangeLoraList = async (arr) => {
-  const res = await loraApi.getLoraRangeList(arr)
-  if (currentPage.value === 1) {
-    paginatedLoraList.value = res.data.loras
-  } else {
-    paginatedLoraList.value = paginatedLoraList.value.concat(res.data.loras)
-  }
-}
-
-const getAllLoraList = async () => {
-  if (intervalId.value !== null) {
-    message({ type: 'warn', str: 'message.isLoading' })
-    return
-  }
-
-  try {
-    message({ type: 'success', str: 'message.isLoadingPleaseWait' })
-    await loraApi.getAllLoraList()
-    // 每秒调用一次 getAllLoraStatus
-    intervalId.value = setInterval(async () => {
-      await getAllLoraStatus()
-    }, 1000)
-  } catch (error) {
-    console.error('Failed to get all lora list:', error)
-    message({ type: 'error', str: 'message.loadFailed' })
-  }
-}
-
-const getAllLoraStatus = async () => {
-  try {
-    const res = await loraApi.getAllLoraStatus()
-
-    if (res.data.isLoading === false) {
-      clearInterval(intervalId.value)
-      intervalId.value = null
-      message({ type: 'success', str: 'message.loaddingSuccess' })
-      // 加载完成后刷新列表
-      await refreshList()
-    } else {
-      message({ type: 'warn', str: 'message.loaddingPrc', name: res.data.progress })
+    isHovering.value = true
+    if (hoveFileName.value === fileName && showCard.value) {
+      return
     }
-  } catch (error) {
-    console.error('Failed to get lora status:', error)
-    clearInterval(intervalId.value)
-    intervalId.value = null
-    message({ type: 'error', str: 'message.loadFailed' })
-  }
-}
 
-const refreshList = async () => {
-  if (isRefreshing.value) {
-    return
-  }
-  isRefreshing.value = true
-  currentPage.value = 1 // 刷新时重置页码
-  hasLoadedAll.value = false
-  isLoadingMore.value = false
+    const hoveredCard = event.currentTarget
+    const cardRect = hoveredCard.getBoundingClientRect()
+    const viewportHeight = window.innerHeight
+    const cardWidth = 450 // LoraCard的宽度
 
-  try {
-    await getFolderList()
+    // 计算最佳显示位置 - 居中显示
+    const position = {
+      left: cardRect.left + (cardRect.width - cardWidth) / 2, // 居中计算
+      top: cardRect.top + cardRect.height + 10 // 默认在下方显示
+    }
+
+    // 检查底部空间是否足够
+    if (position.top + 310 > viewportHeight) {
+      // 底部空间不足，改为在上方显示
+      position.top = cardRect.top - 310
+    }
+
+    // 确保不会超出视窗边界
+    position.left = Math.max(10, Math.min(position.left, window.innerWidth - cardWidth - 10))
+    position.top = Math.max(10, Math.min(position.top, viewportHeight - 310))
+
+    paddingLeftValue.value = position.left
+    paddingTopValue.value = position.top
+
+    showCard.value = true
+    hoveFileName.value = fileName
     nextTick(() => {
-      selectCategory('all')
+      loraCardItem.value.refresh()
     })
-  } catch (error) {
-    console.error('Failed to refresh lora list:', error)
-  } finally {
-    isRefreshing.value = false
-  }
-}
-
-// 加载更多数据
-const loadMoreData = async () => {
-  // 如果已经是最后一页，标记为全部加载完成
-  if (currentPage.value >= totalPages.value) {
-    hasLoadedAll.value = true
-    return
   }
 
-  isLoadingMore.value = true
+  const handleMouseLeave = () => {
+    isHovering.value = false
+    setTimeout(() => {
+      if (!isEnterCatd.value && !isHovering.value) {
+        showCard.value = false
+        hoveFileName.value = ''
+        isEnterCatd.value = false
+      }
+    }, 200)
+  }
 
-  try {
-    // 增加页码
-    currentPage.value++
-    // 加载更多数据
-    if (isSearch.value) {
-      // 搜索模式下使用已有的 selectFolder 数据
+  const handleEnterLeave = () => {
+    showCard.value = false
+    hoveFileName.value = ''
+    isEnterCatd.value = false
+  }
+
+  const folderList = ref([])
+  const selectFolder = ref([])
+  const seed = ref('')
+  const actionAct = ref(0)
+
+  const openSetSeed = (action, newSeed) => {
+    actionAct.value = action
+    seed.value = newSeed
+  }
+
+  const getFolderList = async () => {
+    try {
+      const res = await loraApi.getLoraFolderList()
+      folderList.value = res.data
+    } catch (error) {
+      console.error('Failed to get folder list:', error)
+      message({ type: 'error', str: 'message.loadFailed' })
+    }
+  }
+
+  // 处理滚动事件
+  const handleScroll = () => {
+    if (!scrollContainer.value || isLoadingMore.value || hasLoadedAll.value) {
+      return
+    }
+
+    const container = scrollContainer.value
+    // 当滚动到距离底部100px时触发加载更多
+    if (container.scrollHeight - container.scrollTop - container.clientHeight < 100) {
+      loadMoreData()
+    }
+  }
+
+  const isSearch = ref(false)
+  // 防抖搜索
+  let searchTimeout = null
+  const debouncedSearch = () => {
+    if (searchTimeout) {
+      clearTimeout(searchTimeout)
+    }
+    searchTimeout = setTimeout(() => {
+      if (searchQuery.value.length > 0) {
+        isSearch.value = true
+        searchLoraList()
+      } else {
+        isSearch.value = false
+        refreshList()
+      }
+    }, 300)
+  }
+
+  const retLoraName = (lora) => {
+    if (lora.local_info?.name && lora.local_info.name !== '' && lora.local_info.name.length > 0) {
+      return lora.local_info.name
+    }
+    return lora.name
+  }
+
+  const loraDetailRef = ref()
+
+  const openLoraDetail = (loraData) => {
+    if (props.loraManager === 'addLora') {
+      selectLora(loraData)
+    } else if (props.loraManager === 'prompt_inner' && clickAddTag.value) {
+      // 如果启用了点击添加Tag，则直接添加Tag而不打开详情
+      addLoraTag(loraData)
+    } else {
+      loraDetailRef.value.open(loraData)
+    }
+  }
+
+  const searchLoraList = async () => {
+    try {
+      const res = await loraApi.searchLoraGetFolderList(searchQuery.value)
+      selectFolder.value = res.data
       if (selectFolder.value.length > 0) {
+        currentPage.value = 1 // 重置页码
         const valuesArray = Object.values(selectFolder.value)
         // 根据当前页码获取对应的50条数据
         const startIndex = (currentPage.value - 1) * 50
@@ -602,12 +438,163 @@ const loadMoreData = async () => {
         const pageData = valuesArray.slice(startIndex, endIndex)
         getRangeLoraList(pageData)
       }
+    } catch (error) {
+      console.error('Failed to get folder list:', error)
+      message({ type: 'error', str: 'message.loadFailed' })
+    }
+  }
+
+  // 分页后的列表
+  const paginatedLoraList = ref([])
+
+  // 选择分类时重置子分类和页码
+  const selectCategory = (category) => {
+    if (category === 'all') {
+      paginatedLoraList.value = []
+      currentCategory.value = category
+      currentSubCategory.value = '/'
+      selectFolder.value = folderList.value[category]
+      const rootFolder = selectFolder.value
+      if (rootFolder) {
+        hasLoadedAll.value = false
+        currentPage.value = 1 // 重置页码
+        const valuesArray = Object.values(rootFolder)
+        // 根据当前页码获取对应的50条数据
+        const startIndex = (currentPage.value - 1) * 50
+        const endIndex = startIndex + 50
+        const pageData = valuesArray.slice(startIndex, endIndex)
+        getRangeLoraList(pageData)
+      }
     } else {
-      if (currentCategory.value === 'all') {
-        selectFolder.value = folderList.value[currentCategory.value]
-        const rootFolder = selectFolder.value
-        if (rootFolder) {
-          const valuesArray = Object.values(rootFolder)
+      paginatedLoraList.value = []
+      currentCategory.value = category
+      currentSubCategory.value = '/'
+      selectFolder.value = folderList.value[category]
+      const rootFolder = selectFolder.value['/']
+      if (rootFolder) {
+        hasLoadedAll.value = false
+        currentPage.value = 1 // 重置页码
+        const valuesArray = Object.values(rootFolder)
+        // 根据当前页码获取对应的50条数据
+        const startIndex = (currentPage.value - 1) * 50
+        const endIndex = startIndex + 50
+        const pageData = valuesArray.slice(startIndex, endIndex)
+        getRangeLoraList(pageData)
+      }
+    }
+  }
+
+  const selectSecondCategory = (subCategory) => {
+    if (subCategory !== currentSubCategory.value) {
+      currentSubCategory.value = subCategory
+      paginatedLoraList.value = []
+      const rootFolder = selectFolder.value[currentSubCategory.value]
+      if (rootFolder) {
+        hasLoadedAll.value = false
+        currentPage.value = 1 // 重置页码
+        // 使用 "all" 键获取文件列表，如果不存在则过滤掉 "all" 键
+        const valuesArray =
+          rootFolder.all ||
+          Object.keys(rootFolder)
+            .filter((key) => key !== 'all')
+            .map((key) => rootFolder[key])
+        // 根据当前页码获取对应的50条数据
+        const startIndex = (currentPage.value - 1) * 50
+        const endIndex = startIndex + 50
+        const pageData = valuesArray.slice(startIndex, endIndex)
+        getRangeLoraList(pageData)
+      }
+    }
+  }
+
+  const getRangeLoraList = async (arr) => {
+    const res = await loraApi.getLoraRangeList(arr)
+    if (currentPage.value === 1) {
+      paginatedLoraList.value = res.data.loras
+    } else {
+      paginatedLoraList.value = paginatedLoraList.value.concat(res.data.loras)
+    }
+  }
+
+  const getAllLoraList = async () => {
+    if (intervalId.value !== null) {
+      message({ type: 'warn', str: 'message.isLoading' })
+      return
+    }
+
+    try {
+      message({ type: 'success', str: 'message.isLoadingPleaseWait' })
+      await loraApi.getAllLoraList()
+      // 每秒调用一次 getAllLoraStatus
+      intervalId.value = setInterval(async () => {
+        await getAllLoraStatus()
+      }, 1000)
+    } catch (error) {
+      console.error('Failed to get all lora list:', error)
+      message({ type: 'error', str: 'message.loadFailed' })
+    }
+  }
+
+  const getAllLoraStatus = async () => {
+    try {
+      const res = await loraApi.getAllLoraStatus()
+
+      if (res.data.isLoading === false) {
+        clearInterval(intervalId.value)
+        intervalId.value = null
+        message({ type: 'success', str: 'message.loaddingSuccess' })
+        // 加载完成后刷新列表
+        await refreshList()
+      } else {
+        message({ type: 'warn', str: 'message.loaddingPrc', name: res.data.progress })
+      }
+    } catch (error) {
+      console.error('Failed to get lora status:', error)
+      clearInterval(intervalId.value)
+      intervalId.value = null
+      message({ type: 'error', str: 'message.loadFailed' })
+    }
+  }
+
+  const refreshList = async () => {
+    if (isRefreshing.value) {
+      return
+    }
+    isRefreshing.value = true
+    currentPage.value = 1 // 刷新时重置页码
+    hasLoadedAll.value = false
+    isLoadingMore.value = false
+
+    try {
+      await getFolderList()
+      nextTick(() => {
+        selectCategory('all')
+      })
+    } catch (error) {
+      console.error('Failed to refresh lora list:', error)
+    } finally {
+      isRefreshing.value = false
+    }
+  }
+
+  // 加载更多数据
+  const loadMoreData = () => {
+    // 如果已经是最后一页，标记为全部加载完成
+    if (currentPage.value >= totalPages.value) {
+      hasLoadedAll.value = true
+      return
+    }
+
+    isLoadingMore.value = true
+
+    try {
+      // 增加页码
+      currentPage.value++
+      // 加载更多数据
+      if (isSearch.value) {
+        // 搜索模式下使用已有的 selectFolder 数据
+        if (selectFolder.value.length > 0) {
+          const valuesArray = Object.values(selectFolder.value)
           // 根据当前页码获取对应的50条数据
           const startIndex = (currentPage.value - 1) * 50
           const endIndex = startIndex + 50
@@ -615,114 +602,148 @@ const loadMoreData = async () => {
           getRangeLoraList(pageData)
         }
       } else {
-        const rootFolder = selectFolder.value[currentSubCategory.value]
-        if (rootFolder) {
-          // 使用 "all" 键获取文件列表，如果不存在则过滤掉 "all" 键
-          const valuesArray =
+        if (currentCategory.value === 'all') {
+          selectFolder.value = folderList.value[currentCategory.value]
+          const rootFolder = selectFolder.value
+          if (rootFolder) {
+            const valuesArray = Object.values(rootFolder)
+            // 根据当前页码获取对应的50条数据
+            const startIndex = (currentPage.value - 1) * 50
+            const endIndex = startIndex + 50
+            const pageData = valuesArray.slice(startIndex, endIndex)
+            getRangeLoraList(pageData)
+          }
+        } else {
+          const rootFolder = selectFolder.value[currentSubCategory.value]
+          if (rootFolder) {
+            // 使用 "all" 键获取文件列表，如果不存在则过滤掉 "all" 键
+            const valuesArray =
               rootFolder.all ||
               Object.keys(rootFolder)
                 .filter((key) => key !== 'all')
                 .map((key) => rootFolder[key])
-          // 根据当前页码获取对应的50条数据
-          const startIndex = (currentPage.value - 1) * 50
-          const endIndex = startIndex + 50
-          const pageData = valuesArray.slice(startIndex, endIndex)
-          getRangeLoraList(pageData)
+            // 根据当前页码获取对应的50条数据
+            const startIndex = (currentPage.value - 1) * 50
+            const endIndex = startIndex + 50
+            const pageData = valuesArray.slice(startIndex, endIndex)
+            getRangeLoraList(pageData)
+          }
         }
       }
+    } finally {
+      isLoadingMore.value = false
     }
-  } finally {
+  }
+
+  // 重置加载状态
+  const resetLoadingState = () => {
+    currentPage.value = 1
+    hasLoadedAll.value = false
     isLoadingMore.value = false
   }
-}
 
-// 重置加载状态
-const resetLoadingState = () => {
-  currentPage.value = 1
-  hasLoadedAll.value = false
-  isLoadingMore.value = false
-}
+  // 监听分类和搜索变化，重置页码和加载状态
+  watch([currentCategory, currentSubCategory, searchQuery], () => {
+    resetLoadingState()
+  })
 
-// 监听分类和搜索变化，重置页码和加载状态
-watch([currentCategory, currentSubCategory, searchQuery], () => {
-  resetLoadingState()
-})
+  // 组件挂载时加载数据
+  onMounted(() => {
+    refreshList()
+  })
 
-// 组件挂载时加载数据
-onMounted(() => {
-  refreshList()
-})
+  // 选择Lora
+  const selectLora = (lora) => {
+    if (actionAct.value === 0) {
+      window.postMessage(
+        {
+          type: 'weilin_prompt_ui_selectLora',
+          lora: {
+            name: lora.model_name,
+            display_name: retLoraName(lora),
+            lora: lora.name,
+            weight: lora.local_info?.strengthMin ? lora.local_info.strengthMin : 1,
+            text_encoder_weight: lora.local_info?.strWeight ? lora.local_info.strWeight : 1,
+            trigger_weight: lora.local_info?.triggerWeight
+              ? lora.local_info.triggerWeight
+              : lora.local_info?.strWeight
+                ? lora.local_info.strWeight
+                : 1,
+            loraWorks: lora.local_info?.loraWorks ? lora.local_info.loraWorks : ''
+          }
+        },
+        '*'
+      )
+    } else if (actionAct.value === 1) {
+      window.postMessage(
+        {
+          type: `weilin_prompt_ui_selectLora_stack_${seed.value}`,
+          lora: {
+            name: lora.model_name,
+            display_name: retLoraName(lora),
+            lora: lora.name,
+            weight: lora.local_info?.strengthMin ? lora.local_info.strengthMin : 1,
+            text_encoder_weight: lora.local_info?.strWeight ? lora.local_info.strWeight : 1,
+            trigger_weight: lora.local_info?.triggerWeight
+              ? lora.local_info.triggerWeight
+              : lora.local_info?.strWeight
+                ? lora.local_info.strWeight
+                : 1,
+            loraWorks: lora.local_info?.loraWorks ? lora.local_info.loraWorks : ''
+          }
+        },
+        '*'
+      )
+    } else if (actionAct.value === 2) {
+      window.postMessage(
+        {
+          type: `weilin_prompt_ui_selectLora_stack_node_${seed.value}`,
+          lora: {
+            name: lora.model_name,
+            display_name: retLoraName(lora),
+            lora: lora.name,
+            weight: lora.local_info?.strengthMin ? lora.local_info.strengthMin : 1,
+            text_encoder_weight: lora.local_info?.strWeight ? lora.local_info.strWeight : 1,
+            trigger_weight: lora.local_info?.triggerWeight
+              ? lora.local_info.triggerWeight
+              : lora.local_info?.strWeight
+                ? lora.local_info.strWeight
+                : 1,
+            loraWorks: lora.local_info?.loraWorks ? lora.local_info.loraWorks : ''
+          }
+        },
+        '*'
+      )
+    }
+  }
 
-// 选择Lora
-const selectLora = (lora) => {
-  if (actionAct.value === 0) {
+  // 添加Lora标签的函数
+  const addLoraTag = (loraData) => {
+    // 前端显示格式: <wlr:模型名:模型权重:CLIP权重:触发词权重>
+    const modelName = loraData.model_name
+    const modelWeight = loraData.local_info?.strengthMin ? loraData.local_info.strengthMin : 1
+    const clipWeight = loraData.local_info?.strWeight ? loraData.local_info.strWeight : 1
+    const triggerWeight = loraData.local_info?.triggerWeight
+      ? loraData.local_info.triggerWeight
+      : clipWeight
+
+    // 生成标签 (新格式4参数)
+    // 注意：不再传递 triggerWords，触发词由后端从模型元数据自动提取
+    const loraTag = `<wlr:${modelName}:${modelWeight}:${clipWeight}:${triggerWeight}>`
+
     window.postMessage(
       {
-        type: 'weilin_prompt_ui_selectLora',
-        lora: {
-          name: lora.model_name,
-          display_name: retLoraName(lora),
-          lora: lora.name,
-          weight: lora.local_info?.strengthMin ? lora.local_info.strengthMin : 1,
-          text_encoder_weight: lora.local_info?.strWeight ? lora.local_info.strWeight : 1,
-          loraWorks: lora.local_info?.loraWorks ? lora.local_info.loraWorks : ''
-        }
-      },
-      '*'
-    )
-  } else if (actionAct.value === 1) {
-    window.postMessage(
-      {
-        type: `weilin_prompt_ui_selectLora_stack_${ seed.value }`,
-        lora: {
-          name: lora.model_name,
-          display_name: retLoraName(lora),
-          lora: lora.name,
-          weight: lora.local_info?.strengthMin ? lora.local_info.strengthMin : 1,
-          text_encoder_weight: lora.local_info?.strWeight ? lora.local_info.strWeight : 1,
-          loraWorks: lora.local_info?.loraWorks ? lora.local_info.loraWorks : ''
-        }
-      },
-      '*'
-    )
-  } else if (actionAct.value === 2) {
-    window.postMessage(
-      {
-        type: `weilin_prompt_ui_selectLora_stack_node_${ seed.value }`,
-        lora: {
-          name: lora.model_name,
-          display_name: retLoraName(lora),
-          lora: lora.name,
-          weight: lora.local_info?.strengthMin ? lora.local_info.strengthMin : 1,
-          text_encoder_weight: lora.local_info?.strWeight ? lora.local_info.strWeight : 1,
-          loraWorks: lora.local_info?.loraWorks ? lora.local_info.loraWorks : ''
-        }
+        type: 'weilin_prompt_ui_add_lora_tag',
+        tag: loraTag
+        // 移除 triggerWords，避免重复添加
       },
       '*'
     )
   }
-}
 
-// 添加Lora标签的函数
-const addLoraTag = (loraData) => {
-  // 发送消息添加标签
-  window.postMessage(
-    {
-      type: 'weilin_prompt_ui_addLoraTag_inner',
-      lora: {
-        tag: `<wlr:${ loraData.model_name }:${ loraData.local_info?.strengthMin ? loraData.local_info.strengthMin : 1 }:${ loraData.local_info?.strWeight ? loraData.local_info.strWeight : 1 }>`,
-        loraWorks: loraData.local_info?.loraWorks ? loraData.local_info.loraWorks : ''
-      }
-    },
-    '*'
-  )
-  // 显示提示消息
-  // message({ type: "success", str: `已添加Lora标签: ${loraName}` });
-}
-
-defineExpose({
-  openSetSeed
-})
+  defineExpose({
+    openSetSeed
+  })
 </script>
 
 <style scoped>
@@ -886,6 +907,7 @@ defineExpose({
     margin-bottom: 16px;
     flex-wrap: wrap;
     min-height: 40px;
+
     /* 添加最小高度 */
     max-height: 100px;
     overflow-y: auto;
@@ -937,6 +959,7 @@ defineExpose({
     flex-wrap: wrap;
     padding-left: 16px;
     min-height: 40px;
+
     /* 确保与category-nav一致 */
     max-height: 100px;
     overflow-y: auto;
@@ -981,7 +1004,7 @@ defineExpose({
   .weilin_prompt_ui_search-input:focus {
     outline: none;
     border-color: var(--weilin-prompt-ui-primary-color);
-    box-shadow: 0 0 0 2px rgba(var(--weilin-prompt-ui-primary-color), 0.2);
+    box-shadow: 0 0 0 2px rgb(var(--weilin-prompt-ui-primary-color), 0.2);
   }
 
   /* 分页控制样式 */
@@ -1046,6 +1069,7 @@ defineExpose({
     transition: all 0.3s ease;
     overflow: hidden;
     aspect-ratio: 1/1.3;
+
     /* position: relative; */
     /* 保持卡片比例 */
   }
@@ -1058,6 +1082,7 @@ defineExpose({
 
   .weilin_prompt_ui_lora-preview {
     aspect-ratio: 1/1;
+
     /* 保持图片区域为正方形 */
   }
 

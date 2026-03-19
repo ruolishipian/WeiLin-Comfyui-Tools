@@ -64,12 +64,8 @@
               <option value="translater">
                 {{ t('promptBox.settings.selectOptionPythonTranslater') }}
               </option>
-              <option value="other_ai_plate">
-使用三方AI平台翻译
-</option>
-              <option value="openai">
-OpenAI API 翻译
-</option>
+              <option value="other_ai_plate">使用三方AI平台翻译</option>
+              <option value="openai">OpenAI API 翻译</option>
             </select>
             <button class="weilin-comfyui-install-button" @click="applyTranslaterSetting">
               {{ t('promptBox.settings.apply') }}
@@ -604,472 +600,478 @@ OpenAI API 翻译
 </template>
 
 <script setup>
-import Dialog from '@/components/Dialog.vue'
-import { ref, onMounted, onUnmounted, defineEmits } from 'vue'
-import { useI18n } from 'vue-i18n'
+  import Dialog from '@/components/Dialog.vue'
+  import { ref, onMounted, onUnmounted, defineEmits } from 'vue'
+  import { useI18n } from 'vue-i18n'
 
-const emit = defineEmits(['functionTogglesUpdated'])
-import { translatorApi } from '@/api/translator'
-import { autocompleteApi } from '@/api/autocomplete'
-import message from '@/utils/message'
-import { languageApi } from '@/api/language'
-import { openaiApi } from '@/api/openai'
-import { translaterSerives, language } from './translater'
-import aiServerSetting from './setting_dilaog_components/ai_server_setting.vue'
+  const emit = defineEmits(['functionTogglesUpdated'])
+  import { translatorApi } from '@/api/translator'
+  import { autocompleteApi } from '@/api/autocomplete'
+  import message from '@/utils/message'
+  import { languageApi } from '@/api/language'
+  import { openaiApi } from '@/api/openai'
+  import { translaterSerives, language } from './translater'
+  import aiServerSetting from './setting_dilaog_components/ai_server_setting.vue'
 
-const { t } = useI18n()
+  const { t } = useI18n()
 
-const dialogVisible = ref(false)
-const selectedSetting = ref('translator')
-const selectedTranslator = ref('baidu') // 默认选择的翻译器
-const translationText = ref('') // 输入框内容
-// 新增语言选择相关状态
-const savedSourceLanguage = ref(
-  localStorage.getItem('weilin_prompt_ui_sourceLanguage') || 'english'
-)
-const savedTargetLanguage = ref(
-  localStorage.getItem('weilin_prompt_ui_targetLanguage') || 'chinese_simplified'
-)
-
-// 新增悬浮球设置相关状态
-const savedFloatingBallCount = ref(
-  localStorage.getItem('weilin_prompt_ui_floatingBallCount') || 1
-)
-const savedFloatingBallSize = ref(localStorage.getItem('weilin_prompt_ui_floatingBallSize') || 66)
-const savedFloatingBallHeight = ref(
-  localStorage.getItem('weilin_prompt_ui_floatingBallHeightSize') || savedFloatingBallSize.value
-)
-const isFloatingBallEnabled = ref(
-  localStorage.getItem('weilin_prompt_ui_floatingBallEnabled') === 'true'
-)
-const ballSkinType = ref(localStorage.getItem('weilin_prompt_ui_ballSkinType') || 'default')
-const customSkinUrl = ref(localStorage.getItem('weilin_prompt_ui_customSkinUrl') || '')
-const bgType = ref(localStorage.getItem('weilin_prompt_ui_bgType') || 'gradient')
-const gradientColor1 = ref(localStorage.getItem('weilin_prompt_ui_gradientColor1') || '#6a11cb')
-const gradientColor2 = ref(localStorage.getItem('weilin_prompt_ui_gradientColor2') || '#2575fc')
-const ballBorderRadius = ref(localStorage.getItem('weilin_prompt_ui_ballBorderRadius') || 50)
-
-// 提示词设置
-const isCommaConversionEnabled = ref(
-  localStorage.getItem('weilin_prompt_ui_comma_conversion') === 'true'
-)
-const isPeriodConversionEnabled = ref(
-  localStorage.getItem('weilin_prompt_ui_period_conversion') === 'true'
-)
-const isBracketConversionEnabled = ref(
-  localStorage.getItem('weilin_prompt_ui_bracket_conversion') === 'true'
-)
-const isAngleBracketConversionEnabled = ref(
-  localStorage.getItem('weilin_prompt_ui_angle_bracket_conversion') === 'true'
-)
-const isUnderscoreToBracketEnabled = ref(
-  localStorage.getItem('weilin_prompt_ui_underscore_to_bracket') === 'true'
-)
-const isCommaCloseAutocompleteEnabled = ref(
-  localStorage.getItem('weilin_prompt_ui_comma_close_autocomplete') === 'true'
-)
-const isBracketEscapeEnabled = ref(
-  localStorage.getItem('weilin_prompt_ui_bracket_escape') === 'true'
-)
-
-// 功能开关状态
-const isClearAllEnabled = ref(
-  localStorage.getItem('weilin_function_toggles_clearAll') !== 'false'
-) // 默认true
-const isDeleteButtonEnabled = ref(
-  localStorage.getItem('weilin_function_toggles_deleteButton') !== 'false'
-) // 默认true
-const isRandomTagEnabled = ref(
-  localStorage.getItem('weilin_function_toggles_randomTag') !== 'false'
-) // 默认true
-const isRandomTagSettingsEnabled = ref(
-  localStorage.getItem('weilin_function_toggles_randomTagSettings') !== 'false'
-) // 默认true
-const isTranslateTagEnabled = ref(
-  localStorage.getItem('weilin_function_toggles_translateTag') !== 'false'
-) // 默认true
-const isClearDisabledEnabled = ref(
-  localStorage.getItem('weilin_function_toggles_clearDisabled') !== 'false'
-) // 默认true
-
-const selectedTranslatorService = ref('')
-const sourceLanguage = ref('')
-const targetLanguage = ref('')
-
-// OpenAI 设置相关状态
-const selectedOpenaiIndex = ref(0)
-const openaiSettings = ref([])
-const showOpenaiForm = ref(false)
-const currentConfig = ref({
-  api_key: '',
-  base_url: 'https://api.openai.com/v1',
-  model: ''
-})
-const isEditing = ref(false)
-const editingIndex = ref(-1)
-const settingTranslater = ref('')
-
-const installTranslater = ref(false)
-const hasTranslaterPackage = ref(false)
-const testTranslaterInputText = ref('')
-const testTranslaterOutputText = ref('')
-
-const saveAutoCompleteLimit = ref(25)
-const saveAutoCompleteWidth = ref(localStorage.getItem('weilin_prompt_ui_auto_box_width') || 450)
-const saveAutoCompleteHeight = ref(
-  localStorage.getItem('weilin_prompt_ui_auto_box_height') || 350
-)
-
-const selectSetting = (setting) => {
-  selectedSetting.value = setting
-  if (setting === 'setting_auto_complete_limit') {
-    getAutoCompleteSetting()
-  }
-}
-
-const confirmTranslator = () => {
-  // 处理确认翻译器的逻辑
-  // console.log(`选择的翻译器: ${selectedTranslator.value}`)
-  translatorApi
-    .setTranslatorSetting({})
-    .then((res) => {
-      message({ type: 'success', str: 'message.saveSuccess' })
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.networkError' })
-    })
-}
-
-const translate = () => {
-  // 处理翻译逻辑
-  // console.log(`翻译内容: ${translationText.value}`)
-  translatorApi
-    .translatorText({})
-    .then((res) => {
-      message({ type: 'success', str: 'message.saveSuccess' })
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.networkError' })
-    })
-}
-
-const saveSettings = () => {
-  dialogVisible.value = false
-}
-
-// 保存翻译设置
-const saveTranslatorSettings = () => {
-  // 将设置存储在 localStorage 中
-  localStorage.setItem('weilin_prompt_ui_sourceLanguage', savedSourceLanguage.value)
-  localStorage.setItem('weilin_prompt_ui_targetLanguage', savedTargetLanguage.value)
-  window.parent.postMessage({ type: 'weilin_prompt_ui_translate_setting' }, '*')
-  // 显示保存成功提示
-  message({ type: 'success', str: 'message.saveSuccess' })
-}
-
-// 保存功能开关设置
-const saveFunctionToggles = () => {
-  localStorage.setItem('weilin_function_toggles_clearAll', isClearAllEnabled.value)
-  localStorage.setItem('weilin_function_toggles_deleteButton', isDeleteButtonEnabled.value)
-  localStorage.setItem('weilin_function_toggles_randomTag', isRandomTagEnabled.value)
-  localStorage.setItem(
-    'weilin_function_toggles_randomTagSettings',
-    isRandomTagSettingsEnabled.value
+  const dialogVisible = ref(false)
+  const selectedSetting = ref('translator')
+  const selectedTranslator = ref('baidu') // 默认选择的翻译器
+  const translationText = ref('') // 输入框内容
+  // 新增语言选择相关状态
+  const savedSourceLanguage = ref(
+    localStorage.getItem('weilin_prompt_ui_sourceLanguage') || 'english'
   )
-  localStorage.setItem('weilin_function_toggles_translateTag', isTranslateTagEnabled.value)
-  localStorage.setItem('weilin_function_toggles_clearDisabled', isClearDisabledEnabled.value)
-
-  // 通知父组件更新功能开关状态
-  emit('functionTogglesUpdated', {
-    clearAll: isClearAllEnabled.value,
-    deleteButton: isDeleteButtonEnabled.value,
-    randomTag: isRandomTagEnabled.value,
-    randomTagSettings: isRandomTagSettingsEnabled.value,
-    translateTag: isTranslateTagEnabled.value,
-    clearDisabled: isClearDisabledEnabled.value
-  })
-
-  message({ type: 'success', str: 'message.saveSuccess' })
-}
-
-// 添加皮肤上传处理函数
-const handleSkinUpload = (e) => {
-  const file = e.target.files[0]
-  if (file) {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      customSkinUrl.value = e.target.result
-      localStorage.setItem('weilin_prompt_ui_customSkinUrl', e.target.result)
-    }
-    reader.readAsDataURL(file)
-  }
-}
-
-const resetGradientColors = () => {
-  gradientColor1.value = '#6a11cb'
-  gradientColor2.value = '#2575fc'
-}
-
-// 保存悬浮球设置
-const saveFloatingBallSettings = () => {
-  if (
-    savedFloatingBallCount.value < 1 ||
-      savedFloatingBallSize.value < 5 ||
-      savedFloatingBallHeight.value < 5
-  ) {
-    message({ type: 'warn', str: 'message.error' })
-    return
-  }
-  // 将设置存储在 localStorage 中
-  localStorage.setItem('weilin_prompt_ui_floatingBallEnabled', isFloatingBallEnabled.value)
-  localStorage.setItem('weilin_prompt_ui_floatingBallCount', savedFloatingBallCount.value)
-  localStorage.setItem('weilin_prompt_ui_floatingBallSize', savedFloatingBallSize.value)
-  localStorage.setItem('weilin_prompt_ui_floatingBallHeightSize', savedFloatingBallHeight.value)
-  localStorage.setItem('weilin_prompt_ui_ballSkinType', ballSkinType.value)
-  localStorage.setItem('weilin_prompt_ui_bgType', bgType.value)
-  localStorage.setItem('weilin_prompt_ui_gradientColor1', gradientColor1.value)
-  localStorage.setItem('weilin_prompt_ui_gradientColor2', gradientColor2.value)
-  localStorage.setItem('weilin_prompt_ui_ballBorderRadius', ballBorderRadius.value)
-  localStorage.setItem('weilin_prompt_ui_floatingBallHeightSize', savedFloatingBallHeight.value)
-
-  window.parent.postMessage({ type: 'weilin_prompt_ui_floating_ball_setting' }, '*')
-  // 显示保存成功提示
-  message({ type: 'success', str: 'message.saveSuccess' })
-}
-
-// 保存提示词设置
-const savePromptBoxSettings = () => {
-  localStorage.setItem('weilin_prompt_ui_comma_conversion', isCommaConversionEnabled.value)
-  localStorage.setItem('weilin_prompt_ui_period_conversion', isPeriodConversionEnabled.value)
-  localStorage.setItem('weilin_prompt_ui_bracket_conversion', isBracketConversionEnabled.value)
-  localStorage.setItem(
-    'weilin_prompt_ui_angle_bracket_conversion',
-    isAngleBracketConversionEnabled.value
+  const savedTargetLanguage = ref(
+    localStorage.getItem('weilin_prompt_ui_targetLanguage') || 'chinese_simplified'
   )
-  localStorage.setItem(
-    'weilin_prompt_ui_underscore_to_bracket',
-    isUnderscoreToBracketEnabled.value
-  )
-  localStorage.setItem(
-    'weilin_prompt_ui_comma_close_autocomplete',
-    isCommaCloseAutocompleteEnabled.value
-  )
-  localStorage.setItem('weilin_prompt_ui_bracket_escape', isBracketEscapeEnabled.value)
-  message({ type: 'success', str: 'message.saveSuccess' })
-}
 
-// 加载 OpenAI 设置
-const loadOpenaiSettings = () => {
-  languageApi.getUserSetting().then((res) => {
-    openaiSettings.value = res.data.openai_settings
-    selectedOpenaiIndex.value = res.data.select_openai
-  })
-}
+  // 新增悬浮球设置相关状态
+  const savedFloatingBallCount = ref(
+    localStorage.getItem('weilin_prompt_ui_floatingBallCount') || 1
+  )
+  const savedFloatingBallSize = ref(localStorage.getItem('weilin_prompt_ui_floatingBallSize') || 66)
+  const savedFloatingBallHeight = ref(
+    localStorage.getItem('weilin_prompt_ui_floatingBallHeightSize') || savedFloatingBallSize.value
+  )
+  const isFloatingBallEnabled = ref(
+    localStorage.getItem('weilin_prompt_ui_floatingBallEnabled') === 'true'
+  )
+  const ballSkinType = ref(localStorage.getItem('weilin_prompt_ui_ballSkinType') || 'default')
+  const customSkinUrl = ref(localStorage.getItem('weilin_prompt_ui_customSkinUrl') || '')
+  const bgType = ref(localStorage.getItem('weilin_prompt_ui_bgType') || 'gradient')
+  const gradientColor1 = ref(localStorage.getItem('weilin_prompt_ui_gradientColor1') || '#6a11cb')
+  const gradientColor2 = ref(localStorage.getItem('weilin_prompt_ui_gradientColor2') || '#2575fc')
+  const ballBorderRadius = ref(localStorage.getItem('weilin_prompt_ui_ballBorderRadius') || 50)
 
-// 添加新配置
-const addOpenaiConfig = () => {
-  currentConfig.value = {
+  // 提示词设置
+  const isCommaConversionEnabled = ref(
+    localStorage.getItem('weilin_prompt_ui_comma_conversion') === 'true'
+  )
+  const isPeriodConversionEnabled = ref(
+    localStorage.getItem('weilin_prompt_ui_period_conversion') === 'true'
+  )
+  const isBracketConversionEnabled = ref(
+    localStorage.getItem('weilin_prompt_ui_bracket_conversion') === 'true'
+  )
+  const isAngleBracketConversionEnabled = ref(
+    localStorage.getItem('weilin_prompt_ui_angle_bracket_conversion') === 'true'
+  )
+  const isUnderscoreToBracketEnabled = ref(
+    localStorage.getItem('weilin_prompt_ui_underscore_to_bracket') === 'true'
+  )
+  const isCommaCloseAutocompleteEnabled = ref(
+    localStorage.getItem('weilin_prompt_ui_comma_close_autocomplete') === 'true'
+  )
+  const isBracketEscapeEnabled = ref(
+    localStorage.getItem('weilin_prompt_ui_bracket_escape') === 'true'
+  )
+
+  // 功能开关状态
+  const isClearAllEnabled = ref(
+    localStorage.getItem('weilin_function_toggles_clearAll') !== 'false'
+  ) // 默认true
+  const isDeleteButtonEnabled = ref(
+    localStorage.getItem('weilin_function_toggles_deleteButton') !== 'false'
+  ) // 默认true
+  const isRandomTagEnabled = ref(
+    localStorage.getItem('weilin_function_toggles_randomTag') !== 'false'
+  ) // 默认true
+  const isRandomTagSettingsEnabled = ref(
+    localStorage.getItem('weilin_function_toggles_randomTagSettings') !== 'false'
+  ) // 默认true
+  const isTranslateTagEnabled = ref(
+    localStorage.getItem('weilin_function_toggles_translateTag') !== 'false'
+  ) // 默认true
+  const isClearDisabledEnabled = ref(
+    localStorage.getItem('weilin_function_toggles_clearDisabled') !== 'false'
+  ) // 默认true
+
+  const selectedTranslatorService = ref('')
+  const sourceLanguage = ref('')
+  const targetLanguage = ref('')
+
+  // OpenAI 设置相关状态
+  const selectedOpenaiIndex = ref(0)
+  const openaiSettings = ref([])
+  const showOpenaiForm = ref(false)
+  const currentConfig = ref({
     api_key: '',
     base_url: 'https://api.openai.com/v1',
     model: ''
+  })
+  const isEditing = ref(false)
+  const editingIndex = ref(-1)
+  const settingTranslater = ref('')
+
+  // eslint-disable-next-line no-unused-vars
+  const installTranslater = ref(false)
+  // eslint-disable-next-line no-unused-vars
+  const hasTranslaterPackage = ref(false)
+  const testTranslaterInputText = ref('')
+  const testTranslaterOutputText = ref('')
+
+  const saveAutoCompleteLimit = ref(25)
+  const saveAutoCompleteWidth = ref(localStorage.getItem('weilin_prompt_ui_auto_box_width') || 450)
+  const saveAutoCompleteHeight = ref(
+    localStorage.getItem('weilin_prompt_ui_auto_box_height') || 350
+  )
+
+  const selectSetting = (setting) => {
+    selectedSetting.value = setting
+    if (setting === 'setting_auto_complete_limit') {
+      getAutoCompleteSetting()
+    }
   }
-  isEditing.value = false
-  showOpenaiForm.value = true
-}
 
-// 编辑配置
-const editOpenaiConfig = (index) => {
-  currentConfig.value = { ...openaiSettings.value[index] }
-  isEditing.value = true
-  editingIndex.value = index
-  showOpenaiForm.value = true
-}
-
-// 删除配置
-const deleteOpenaiConfig = (index) => {
-  openaiApi
-    .deleteOpenAiSetting({
-      index: index
-    })
-    .then((res) => {
-      loadOpenaiSettings()
-      message({ type: 'success', str: 'message.deleteSuccess' })
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.networkError' })
-    })
-}
-
-// 切换编辑表单
-const toggleEditForm = (index) => {
-  if (editingIndex.value === index) {
-    // 如果点击的是当前正在编辑的项，则取消编辑
-    editingIndex.value = -1
-  } else {
-    // 否则开始编辑该项
-    currentConfig.value = { ...openaiSettings.value[index] }
-    editingIndex.value = index
-  }
-}
-
-// 保存配置
-const saveOpenaiConfig = (index) => {
-  openaiApi
-    .updateOpenAiSetting({
-      index: index,
-      ...currentConfig.value
-    })
-    .then((res) => {
-      loadOpenaiSettings()
-      editingIndex.value = -1 // 保存后关闭编辑表单
-      message({ type: 'success', str: 'message.saveSuccess' })
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.networkError' })
-    })
-}
-
-// 添加新配置
-const addOpenaiNewConfig = () => {
-  openaiApi
-    .addOpenAiSetting({
-      ...currentConfig.value
-    })
-    .then((res) => {
-      loadOpenaiSettings()
-      showOpenaiForm.value = false
-      editingIndex.value = -1
-      message({ type: 'success', str: 'message.saveSuccess' })
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.networkError' })
-    })
-}
-
-// 取消编辑
-const cancelOpenaiConfig = () => {
-  showOpenaiForm.value = false
-  editingIndex.value = -1 // 保存后关闭编辑表单
-}
-
-// 设置选中
-const setOpenAiSelect = () => {
-  openaiApi
-    .setOpenAiSelect({
-      index: selectedOpenaiIndex.value
-    })
-    .then((res) => {
-      message({ type: 'success', str: 'message.saveSuccess' })
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.networkError' })
-    })
-}
-
-const sponsorMe = () => {
-  window.open('https://afdian.com/a/weilin9999', '_blank')
-}
-
-// 启动面板
-const startPanel = () => {
-  languageApi
-    .startPanel()
-    .then((res) => {
-      message({ type: 'success', str: 'message.startPanelSuccess' })
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.startPanelFailed' })
-    })
-}
-
-// const getTranskatePackagesState = () => {
-//   translatorApi.getTranslatePackagesState().then(res => {
-//     // console.log(res)
-//     if (res.info == "ok") {
-//       hasTranslaterPackage.value = true;
-//     } else {
-//       hasTranslaterPackage.value = false;
-//     }
-//   }).catch(err => {
-//     message({ type: "warn", str: 'message.getTranslaterFail' });
-//   })
-// };
-
-const getTranskateSetting = () => {
-  translatorApi
-    .getTranslateSetting()
-    .then((res) => {
-      // console.log(res)
-      localStorage.setItem('weilin_prompt_ui_translater_setting', res.data)
-      settingTranslater.value = res.data
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.getTranslaterFail' })
-    })
-}
-
-const applyTranslaterSetting = () => {
-  translatorApi
-    .applyTranslateSetting(settingTranslater.value)
-    .then((res) => {
-      // console.log(res)
-      if (res.info === 'ok') {
-        localStorage.setItem('weilin_prompt_ui_translater_setting', settingTranslater.value)
-        message({ type: 'success', str: 'message.applyTranslaterSuccess' })
-      } else {
-        message({ type: 'warn', str: 'message.applyToTranslaterFail' })
-      }
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.applyTranslaterFail' })
-    })
-}
-
-const getTranskateBuktSetting = () => {
-  translatorApi
-    .getTranslateBuktSetting()
-    .then((res) => {
-      selectedTranslatorService.value = res.data.translate_service
-      sourceLanguage.value = res.data.translate_source_lang
-      targetLanguage.value = res.data.translate_target_lang
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.getTranslaterFail' })
-    })
-}
-
-const saveTranslaterSetting = () => {
-  translatorApi
-    .saveTranslateSetting(
-      selectedTranslatorService.value,
-      sourceLanguage.value,
-      targetLanguage.value
-    )
-    .then((res) => {
-      // console.log(res)
-      if (res.info === 'ok') {
+  // eslint-disable-next-line no-unused-vars
+  const confirmTranslator = () => {
+    // 处理确认翻译器的逻辑
+    // console.log(`选择的翻译器: ${selectedTranslator.value}`)
+    translatorApi
+      .setTranslatorSetting({})
+      .then(() => {
         message({ type: 'success', str: 'message.saveSuccess' })
-      } else {
-        message({ type: 'warn', str: 'message.saveFailed' })
-      }
-    })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.saveFailed' })
-    })
-}
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.networkError' })
+      })
+  }
 
-// 翻译文本
-const translaterTextTest = () => {
-  // if (settingTranslater.value == 'translater') {
-  translatorApi
-    .translaterInputText('', testTranslaterInputText.value)
-    .then((res) => {
-      // console.log(res)
-      testTranslaterOutputText.value = res.data
+  // eslint-disable-next-line no-unused-vars
+  const translate = () => {
+    // 处理翻译逻辑
+    // console.log(`翻译内容: ${translationText.value}`)
+    translatorApi
+      .translatorText({})
+      .then(() => {
+        message({ type: 'success', str: 'message.saveSuccess' })
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.networkError' })
+      })
+  }
+
+  // eslint-disable-next-line no-unused-vars
+  const saveSettings = () => {
+    dialogVisible.value = false
+  }
+
+  // 保存翻译设置
+  const saveTranslatorSettings = () => {
+    // 将设置存储在 localStorage 中
+    localStorage.setItem('weilin_prompt_ui_sourceLanguage', savedSourceLanguage.value)
+    localStorage.setItem('weilin_prompt_ui_targetLanguage', savedTargetLanguage.value)
+    window.parent.postMessage({ type: 'weilin_prompt_ui_translate_setting' }, '*')
+    // 显示保存成功提示
+    message({ type: 'success', str: 'message.saveSuccess' })
+  }
+
+  // 保存功能开关设置
+  const saveFunctionToggles = () => {
+    localStorage.setItem('weilin_function_toggles_clearAll', isClearAllEnabled.value)
+    localStorage.setItem('weilin_function_toggles_deleteButton', isDeleteButtonEnabled.value)
+    localStorage.setItem('weilin_function_toggles_randomTag', isRandomTagEnabled.value)
+    localStorage.setItem(
+      'weilin_function_toggles_randomTagSettings',
+      isRandomTagSettingsEnabled.value
+    )
+    localStorage.setItem('weilin_function_toggles_translateTag', isTranslateTagEnabled.value)
+    localStorage.setItem('weilin_function_toggles_clearDisabled', isClearDisabledEnabled.value)
+
+    // 通知父组件更新功能开关状态
+    emit('functionTogglesUpdated', {
+      clearAll: isClearAllEnabled.value,
+      deleteButton: isDeleteButtonEnabled.value,
+      randomTag: isRandomTagEnabled.value,
+      randomTagSettings: isRandomTagSettingsEnabled.value,
+      translateTag: isTranslateTagEnabled.value,
+      clearDisabled: isClearDisabledEnabled.value
     })
-    .catch((err) => {
-      message({ type: 'warn', str: 'message.translaterTestFail' })
+
+    message({ type: 'success', str: 'message.saveSuccess' })
+  }
+
+  // 添加皮肤上传处理函数
+  const handleSkinUpload = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        customSkinUrl.value = e.target.result
+        localStorage.setItem('weilin_prompt_ui_customSkinUrl', e.target.result)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const resetGradientColors = () => {
+    gradientColor1.value = '#6a11cb'
+    gradientColor2.value = '#2575fc'
+  }
+
+  // 保存悬浮球设置
+  const saveFloatingBallSettings = () => {
+    if (
+      savedFloatingBallCount.value < 1 ||
+      savedFloatingBallSize.value < 5 ||
+      savedFloatingBallHeight.value < 5
+    ) {
+      message({ type: 'warn', str: 'message.error' })
+      return
+    }
+    // 将设置存储在 localStorage 中
+    localStorage.setItem('weilin_prompt_ui_floatingBallEnabled', isFloatingBallEnabled.value)
+    localStorage.setItem('weilin_prompt_ui_floatingBallCount', savedFloatingBallCount.value)
+    localStorage.setItem('weilin_prompt_ui_floatingBallSize', savedFloatingBallSize.value)
+    localStorage.setItem('weilin_prompt_ui_floatingBallHeightSize', savedFloatingBallHeight.value)
+    localStorage.setItem('weilin_prompt_ui_ballSkinType', ballSkinType.value)
+    localStorage.setItem('weilin_prompt_ui_bgType', bgType.value)
+    localStorage.setItem('weilin_prompt_ui_gradientColor1', gradientColor1.value)
+    localStorage.setItem('weilin_prompt_ui_gradientColor2', gradientColor2.value)
+    localStorage.setItem('weilin_prompt_ui_ballBorderRadius', ballBorderRadius.value)
+    localStorage.setItem('weilin_prompt_ui_floatingBallHeightSize', savedFloatingBallHeight.value)
+
+    window.parent.postMessage({ type: 'weilin_prompt_ui_floating_ball_setting' }, '*')
+    // 显示保存成功提示
+    message({ type: 'success', str: 'message.saveSuccess' })
+  }
+
+  // 保存提示词设置
+  const savePromptBoxSettings = () => {
+    localStorage.setItem('weilin_prompt_ui_comma_conversion', isCommaConversionEnabled.value)
+    localStorage.setItem('weilin_prompt_ui_period_conversion', isPeriodConversionEnabled.value)
+    localStorage.setItem('weilin_prompt_ui_bracket_conversion', isBracketConversionEnabled.value)
+    localStorage.setItem(
+      'weilin_prompt_ui_angle_bracket_conversion',
+      isAngleBracketConversionEnabled.value
+    )
+    localStorage.setItem(
+      'weilin_prompt_ui_underscore_to_bracket',
+      isUnderscoreToBracketEnabled.value
+    )
+    localStorage.setItem(
+      'weilin_prompt_ui_comma_close_autocomplete',
+      isCommaCloseAutocompleteEnabled.value
+    )
+    localStorage.setItem('weilin_prompt_ui_bracket_escape', isBracketEscapeEnabled.value)
+    message({ type: 'success', str: 'message.saveSuccess' })
+  }
+
+  // 加载 OpenAI 设置
+  const loadOpenaiSettings = () => {
+    languageApi.getUserSetting().then((res) => {
+      openaiSettings.value = res.data.openai_settings
+      selectedOpenaiIndex.value = res.data.select_openai
     })
+  }
+
+  // 添加新配置
+  const addOpenaiConfig = () => {
+    currentConfig.value = {
+      api_key: '',
+      base_url: 'https://api.openai.com/v1',
+      model: ''
+    }
+    isEditing.value = false
+    showOpenaiForm.value = true
+  }
+
+  // 编辑配置
+  // eslint-disable-next-line no-unused-vars
+  const editOpenaiConfig = (index) => {
+    currentConfig.value = { ...openaiSettings.value[index] }
+    isEditing.value = true
+    editingIndex.value = index
+    showOpenaiForm.value = true
+  }
+
+  // 删除配置
+  const deleteOpenaiConfig = (index) => {
+    openaiApi
+      .deleteOpenAiSetting({
+        index: index
+      })
+      .then(() => {
+        loadOpenaiSettings()
+        message({ type: 'success', str: 'message.deleteSuccess' })
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.networkError' })
+      })
+  }
+
+  // 切换编辑表单
+  const toggleEditForm = (index) => {
+    if (editingIndex.value === index) {
+      // 如果点击的是当前正在编辑的项，则取消编辑
+      editingIndex.value = -1
+    } else {
+      // 否则开始编辑该项
+      currentConfig.value = { ...openaiSettings.value[index] }
+      editingIndex.value = index
+    }
+  }
+
+  // 保存配置
+  const saveOpenaiConfig = (index) => {
+    openaiApi
+      .updateOpenAiSetting({
+        index: index,
+        ...currentConfig.value
+      })
+      .then(() => {
+        loadOpenaiSettings()
+        editingIndex.value = -1 // 保存后关闭编辑表单
+        message({ type: 'success', str: 'message.saveSuccess' })
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.networkError' })
+      })
+  }
+
+  // 添加新配置
+  const addOpenaiNewConfig = () => {
+    openaiApi
+      .addOpenAiSetting({
+        ...currentConfig.value
+      })
+      .then(() => {
+        loadOpenaiSettings()
+        showOpenaiForm.value = false
+        editingIndex.value = -1
+        message({ type: 'success', str: 'message.saveSuccess' })
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.networkError' })
+      })
+  }
+
+  // 取消编辑
+  const cancelOpenaiConfig = () => {
+    showOpenaiForm.value = false
+    editingIndex.value = -1 // 保存后关闭编辑表单
+  }
+
+  // 设置选中
+  const setOpenAiSelect = () => {
+    openaiApi
+      .setOpenAiSelect({
+        index: selectedOpenaiIndex.value
+      })
+      .then(() => {
+        message({ type: 'success', str: 'message.saveSuccess' })
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.networkError' })
+      })
+  }
+
+  const sponsorMe = () => {
+    window.open('https://afdian.com/a/weilin9999', '_blank')
+  }
+
+  // 启动面板
+  const startPanel = () => {
+    languageApi
+      .startPanel()
+      .then(() => {
+        message({ type: 'success', str: 'message.startPanelSuccess' })
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.startPanelFailed' })
+      })
+  }
+
+  // const getTranskatePackagesState = () => {
+  //   translatorApi.getTranslatePackagesState().then(res => {
+  //     // console.log(res)
+  //     if (res.info == "ok") {
+  //       hasTranslaterPackage.value = true;
+  //     } else {
+  //       hasTranslaterPackage.value = false;
+  //     }
+  //   }).catch(err => {
+  //     message({ type: "warn", str: 'message.getTranslaterFail' });
+  //   })
+  // };
+
+  const getTranskateSetting = () => {
+    translatorApi
+      .getTranslateSetting()
+      .then((res) => {
+        // console.log(res)
+        localStorage.setItem('weilin_prompt_ui_translater_setting', res.data)
+        settingTranslater.value = res.data
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.getTranslaterFail' })
+      })
+  }
+
+  const applyTranslaterSetting = () => {
+    translatorApi
+      .applyTranslateSetting(settingTranslater.value)
+      .then((res) => {
+        // console.log(res)
+        if (res.info === 'ok') {
+          localStorage.setItem('weilin_prompt_ui_translater_setting', settingTranslater.value)
+          message({ type: 'success', str: 'message.applyTranslaterSuccess' })
+        } else {
+          message({ type: 'warn', str: 'message.applyToTranslaterFail' })
+        }
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.applyTranslaterFail' })
+      })
+  }
+
+  const getTranskateBuktSetting = () => {
+    translatorApi
+      .getTranslateBuktSetting()
+      .then((res) => {
+        selectedTranslatorService.value = res.data.translate_service
+        sourceLanguage.value = res.data.translate_source_lang
+        targetLanguage.value = res.data.translate_target_lang
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.getTranslaterFail' })
+      })
+  }
+
+  const saveTranslaterSetting = () => {
+    translatorApi
+      .saveTranslateSetting(
+        selectedTranslatorService.value,
+        sourceLanguage.value,
+        targetLanguage.value
+      )
+      .then((res) => {
+        // console.log(res)
+        if (res.info === 'ok') {
+          message({ type: 'success', str: 'message.saveSuccess' })
+        } else {
+          message({ type: 'warn', str: 'message.saveFailed' })
+        }
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.saveFailed' })
+      })
+  }
+
+  // 翻译文本
+  const translaterTextTest = () => {
+    // if (settingTranslater.value == 'translater') {
+    translatorApi
+      .translaterInputText('', testTranslaterInputText.value)
+      .then((res) => {
+        // console.log(res)
+        testTranslaterOutputText.value = res.data
+      })
+      .catch(() => {
+        message({ type: 'warn', str: 'message.translaterTestFail' })
+      })
     // } else {
     //   translatorApi.translaterInputText(testTranslaterInputText.value).then(res => {
     //     // console.log(res)
@@ -1078,131 +1080,131 @@ const translaterTextTest = () => {
     //     message({ type: "warn", str: 'message.translaterTestFail' });
     //   })
     // }
-}
-
-const installCheckInterval = ref(null)
-
-// const installTranslaterPackage = () => {
-//   installTranslater.value = true;
-//   translatorApi.installTranslatePackage().then(res => {
-//     installTranslater.value = false;
-//     hasTranslaterPackage.value = true;
-//     // console.log(res)
-//     message({ type: "success", str: 'message.tranlaterPackageInstallSuccess' });
-//   }).catch(err => {
-//     installTranslater.value = false;
-//     message({ type: "warn", str: 'message.tranlaterPackageInstallFail' });
-//   })
-//   // 开始定时检查
-//   // installTranslater.value = true;
-//   //   installCheckInterval.value = setInterval(() => {
-//   //     checkTranskatePackagesState();
-//   // }, 1000);
-// };
-
-// const checkTranskatePackagesState = () => {
-//   translatorApi.getTranslatePackagesState().then(res => {
-//     // console.log(res)
-//     if (res.info == "ok") {
-//       hasTranslaterPackage.value = true;
-//       // 停止定时器
-//       if (installCheckInterval.value) {
-//         clearInterval(installCheckInterval.value);
-//         installCheckInterval.value = null;
-//       }
-//       message({ type: "success", str: 'message.tranlaterPackageInstallSuccess' });
-//     } else {
-//       hasTranslaterPackage.value = false;
-//     }
-//   }).catch(err => {
-//     installTranslater.value = false;
-//     // 出错时也停止定时器
-//     if (installCheckInterval.value) {
-//       clearInterval(installCheckInterval.value);
-//       installCheckInterval.value = null;
-//     }
-//     message({ type: "warn", str: 'message.getTranslaterFail' });
-//   })
-// };
-
-const getAutoCompleteSetting = async () => {
-  await autocompleteApi
-    .getAutocompleteLimit()
-    .then((res) => {
-      saveAutoCompleteLimit.value = res.data
-    })
-    .catch((err) => {
-      console.error(err)
-      message({ type: 'warn', str: 'message.networkError' })
-    })
-}
-
-const saveAutoCompleteSetting = async () => {
-  await autocompleteApi
-    .updateAutocompleteLimit(saveAutoCompleteLimit.value)
-    .then((res) => {
-      message({ type: 'success', str: 'message.saveSuccess' })
-      localStorage.setItem('weilin_prompt_ui_auto_box_width', saveAutoCompleteWidth.value)
-      localStorage.setItem('weilin_prompt_ui_auto_box_height', saveAutoCompleteHeight.value)
-    })
-    .catch((err) => {
-      console.error(err)
-      message({ type: 'warn', str: 'message.networkError' })
-    })
-}
-
-const retLanguageName = (code) => {
-  const lang = language.find((lang) => lang.translator === code)
-  return lang ? lang.language : code
-}
-
-// 初始化时加载设置
-onMounted(() => {
-  getTranskateBuktSetting()
-  // getTranskatePackagesState();
-  getTranskateSetting()
-  loadOpenaiSettings()
-})
-
-// 在组件卸载时清理定时器
-onUnmounted(() => {
-  if (installCheckInterval.value) {
-    clearInterval(installCheckInterval.value)
   }
-})
 
-defineExpose({
-  open: () => {
-    selectedSetting.value = 'translator'
-    selectedTranslator.value = 'baidu' // 默认选择的翻译器
-    translationText.value = '' // 输入框内容
-    // 新增语言选择相关状态
-    savedSourceLanguage.value =
+  const installCheckInterval = ref(null)
+
+  // const installTranslaterPackage = () => {
+  //   installTranslater.value = true;
+  //   translatorApi.installTranslatePackage().then(res => {
+  //     installTranslater.value = false;
+  //     hasTranslaterPackage.value = true;
+  //     // console.log(res)
+  //     message({ type: "success", str: 'message.tranlaterPackageInstallSuccess' });
+  //   }).catch(err => {
+  //     installTranslater.value = false;
+  //     message({ type: "warn", str: 'message.tranlaterPackageInstallFail' });
+  //   })
+  //   // 开始定时检查
+  //   // installTranslater.value = true;
+  //   //   installCheckInterval.value = setInterval(() => {
+  //   //     checkTranskatePackagesState();
+  //   // }, 1000);
+  // };
+
+  // const checkTranskatePackagesState = () => {
+  //   translatorApi.getTranslatePackagesState().then(res => {
+  //     // console.log(res)
+  //     if (res.info == "ok") {
+  //       hasTranslaterPackage.value = true;
+  //       // 停止定时器
+  //       if (installCheckInterval.value) {
+  //         clearInterval(installCheckInterval.value);
+  //         installCheckInterval.value = null;
+  //       }
+  //       message({ type: "success", str: 'message.tranlaterPackageInstallSuccess' });
+  //     } else {
+  //       hasTranslaterPackage.value = false;
+  //     }
+  //   }).catch(err => {
+  //     installTranslater.value = false;
+  //     // 出错时也停止定时器
+  //     if (installCheckInterval.value) {
+  //       clearInterval(installCheckInterval.value);
+  //       installCheckInterval.value = null;
+  //     }
+  //     message({ type: "warn", str: 'message.getTranslaterFail' });
+  //   })
+  // };
+
+  const getAutoCompleteSetting = async () => {
+    await autocompleteApi
+      .getAutocompleteLimit()
+      .then((res) => {
+        saveAutoCompleteLimit.value = res.data
+      })
+      .catch((err) => {
+        console.error(err)
+        message({ type: 'warn', str: 'message.networkError' })
+      })
+  }
+
+  const saveAutoCompleteSetting = async () => {
+    await autocompleteApi
+      .updateAutocompleteLimit(saveAutoCompleteLimit.value)
+      .then(() => {
+        message({ type: 'success', str: 'message.saveSuccess' })
+        localStorage.setItem('weilin_prompt_ui_auto_box_width', saveAutoCompleteWidth.value)
+        localStorage.setItem('weilin_prompt_ui_auto_box_height', saveAutoCompleteHeight.value)
+      })
+      .catch((err) => {
+        console.error(err)
+        message({ type: 'warn', str: 'message.networkError' })
+      })
+  }
+
+  const retLanguageName = (code) => {
+    const lang = language.find((lang) => lang.translator === code)
+    return lang ? lang.language : code
+  }
+
+  // 初始化时加载设置
+  onMounted(() => {
+    getTranskateBuktSetting()
+    // getTranskatePackagesState();
+    getTranskateSetting()
+    loadOpenaiSettings()
+  })
+
+  // 在组件卸载时清理定时器
+  onUnmounted(() => {
+    if (installCheckInterval.value) {
+      clearInterval(installCheckInterval.value)
+    }
+  })
+
+  defineExpose({
+    open: () => {
+      selectedSetting.value = 'translator'
+      selectedTranslator.value = 'baidu' // 默认选择的翻译器
+      translationText.value = '' // 输入框内容
+      // 新增语言选择相关状态
+      savedSourceLanguage.value =
         localStorage.getItem('weilin_prompt_ui_sourceLanguage') || 'english'
-    savedTargetLanguage.value =
+      savedTargetLanguage.value =
         localStorage.getItem('weilin_prompt_ui_targetLanguage') || 'chinese_simplified'
-    // 新增悬浮球设置相关状态
-    savedFloatingBallCount.value = localStorage.getItem('weilin_prompt_ui_floatingBallCount') || 1
-    savedFloatingBallSize.value = localStorage.getItem('weilin_prompt_ui_floatingBallSize') || 5
-    isFloatingBallEnabled.value =
+      // 新增悬浮球设置相关状态
+      savedFloatingBallCount.value = localStorage.getItem('weilin_prompt_ui_floatingBallCount') || 1
+      savedFloatingBallSize.value = localStorage.getItem('weilin_prompt_ui_floatingBallSize') || 5
+      isFloatingBallEnabled.value =
         localStorage.getItem('weilin_prompt_ui_floatingBallEnabled') === 'true'
-    // 提示词设置
-    isCommaConversionEnabled.value =
+      // 提示词设置
+      isCommaConversionEnabled.value =
         localStorage.getItem('weilin_prompt_ui_comma_conversion') === 'true'
-    isPeriodConversionEnabled.value =
+      isPeriodConversionEnabled.value =
         localStorage.getItem('weilin_prompt_ui_period_conversion') === 'true'
-    isBracketConversionEnabled.value =
+      isBracketConversionEnabled.value =
         localStorage.getItem('weilin_prompt_ui_bracket_conversion') === 'true'
-    isAngleBracketConversionEnabled.value =
+      isAngleBracketConversionEnabled.value =
         localStorage.getItem('weilin_prompt_ui_angle_bracket_conversion') === 'true'
-    isUnderscoreToBracketEnabled.value =
+      isUnderscoreToBracketEnabled.value =
         localStorage.getItem('weilin_prompt_ui_underscore_to_bracket') === 'true'
-    isCommaCloseAutocompleteEnabled.value =
+      isCommaCloseAutocompleteEnabled.value =
         localStorage.getItem('weilin_prompt_ui_comma_close_autocomplete') === 'true'
 
-    dialogVisible.value = true
-  }
-})
+      dialogVisible.value = true
+    }
+  })
 </script>
 
 <style scoped>

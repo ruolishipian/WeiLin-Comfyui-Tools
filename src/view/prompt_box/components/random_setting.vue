@@ -101,9 +101,7 @@
               <div v-for="(rule, index) in settings.rules" :key="index" class="rule-item">
                 <div class="rule-header">
                   <h4>{{ t('randomUtils.rule') }} #{{ index + 1 }}</h4>
-                  <button class="delete-rule-btn" @click="deleteRule(index)">
-×
-</button>
+                  <button class="delete-rule-btn" @click="deleteRule(index)">×</button>
                 </div>
                 <div class="rule-content">
                   <div class="form-group">
@@ -154,8 +152,8 @@
                           </div>
                           <div class="selected-items">
                             <div
-                              v-for="(item, index) in primaryCategories(rule.tagGroupList)"
-                              :key="'primary-' + index"
+                              v-for="(item, itemIndex) in primaryCategories(rule.tagGroupList)"
+                              :key="'primary-' + itemIndex"
                               class="selected-item"
                             >
                               <span class="category-name">{{ item.group.name }}</span>
@@ -173,8 +171,8 @@
                           </div>
                           <div class="selected-items">
                             <div
-                              v-for="(item, index) in subCategories(rule.tagGroupList)"
-                              :key="'sub-' + index"
+                              v-for="(item, subItemIndex) in subCategories(rule.tagGroupList)"
+                              :key="'sub-' + subItemIndex"
                               class="selected-item"
                             >
                               <span class="category-name">{{ item.group.name }}</span>
@@ -208,9 +206,7 @@
                         class="tag-chip"
                       >
                         {{ tag }}
-                        <button class="remove-tag-btn" @click="removeTag(rule, tagIndex)">
-×
-</button>
+                        <button class="remove-tag-btn" @click="removeTag(rule, tagIndex)">×</button>
                       </div>
                       <input
                         type="text"
@@ -244,447 +240,487 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { useI18n } from 'vue-i18n'
-import DraggableWindow from '@/components/DraggableWindow.vue'
-import { windowManager } from '@/utils/windowManager'
-import message from '@/utils/message'
-import TagGroupSelect from './tag_group_select.vue'
-import { randomTagApi } from '@/api/random_tag'
+  import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+  import { useI18n } from 'vue-i18n'
+  import DraggableWindow from '@/components/DraggableWindow.vue'
+  import { windowManager } from '@/utils/windowManager'
+  import message from '@/utils/message'
+  import TagGroupSelect from './tag_group_select.vue'
+  import { randomTagApi } from '@/api/random_tag'
 
-const emit = defineEmits(['close', 'update', 'generateRandomTags'])
-const { t } = useI18n()
-const isOpen = ref(false)
+  // eslint-disable-next-line no-unused-vars
+  const emit = defineEmits(['close', 'update', 'generateRandomTags'])
+  const { t } = useI18n()
+  const isOpen = ref(false)
 
-const tagGroupSelectItem = ref(null)
-const STORAGE_PREFIX = 'weilin_tools_'
-const loadingFinish = ref(false)
-const promptMode = ref('')
-const nodeLocalTemplateId = ref('')
+  const tagGroupSelectItem = ref(null)
+  const STORAGE_PREFIX = 'weilin_tools_'
+  const loadingFinish = ref(false)
+  const promptMode = ref('')
+  const nodeLocalTemplateId = ref('')
 
-// 默认窗口配置
-const DEFAULT_WINDOWS = {
-  randomRuleSetting: {
-    visible: false,
-    position: { x: 150, y: 150 },
-    size: { width: 800, height: 600 }
+  // 默认窗口配置
+  const DEFAULT_WINDOWS = {
+    randomRuleSetting: {
+      visible: false,
+      position: { x: 150, y: 150 },
+      size: { width: 800, height: 600 }
+    }
   }
-}
 
-// 默认设置
-const DEFAULT_SETTINGS = {
-  file_name: 'new_random_template',
-  rules: [
-    {
-      range: { min: 1, max: 3 },
+  // 默认设置
+  const DEFAULT_SETTINGS = {
+    file_name: 'new_random_template',
+    rules: [
+      {
+        range: { min: 1, max: 3 },
+        type: 'category',
+        categoryId: 1,
+        specificTags: [],
+        tagGroupList: [],
+        tagInput: ''
+      },
+      {
+        range: { min: 4, max: 6 },
+        type: 'category',
+        categoryId: 2,
+        specificTags: [],
+        tagGroupList: [],
+        tagInput: ''
+      }
+    ]
+  }
+
+  // 设置状态
+  const settings = ref({})
+  // console.log(settings)
+
+  // 从 localStorage 加载设置
+  async function loadSettings() {
+    try {
+      if (promptMode.value === 'prompt_global') {
+        await randomTagApi
+          .getRandomTemplateApple()
+          .then((res) => {
+            // console.log(res);
+            if (res.data === '') {
+              settings.value = DEFAULT_SETTINGS
+            } else {
+              randomTagApi
+                .getTemplateData(res.data)
+                .then((resData) => {
+                  selectedTemplate.value = res.data // 选中新创建的模板
+                  settings.value = resData.data
+                  loadingFinish.value = true
+                })
+                .catch((err) => {
+                  console.error('加载模板失败:', err)
+                  message({ type: 'warn', str: 'randomUtils.errorLoadingTemplate' })
+                })
+            }
+          })
+          .catch((err) => {
+            console.error(err)
+            message({ type: 'warn', str: 'message.networkError' })
+          })
+      } else {
+        if (nodeLocalTemplateId.value === '') {
+          settings.value = DEFAULT_SETTINGS
+        } else {
+          randomTagApi
+            .getTemplateData(nodeLocalTemplateId.value)
+            .then((resData) => {
+              selectedTemplate.value = nodeLocalTemplateId.value // 选中新创建的模板
+              settings.value = resData.data
+              loadingFinish.value = true
+            })
+            .catch((err) => {
+              console.error('加载模板失败:', err)
+              message({ type: 'warn', str: 'randomUtils.errorLoadingTemplate' })
+            })
+        }
+      }
+    } catch (error) {
+      message({ type: 'warn', str: 'message.networkError' })
+      console.error('Error loading random tag settings:', error)
+    }
+  }
+
+  // 保存设置到 localStorage
+  function saveSettings() {
+    try {
+      // 使用settings中的数据
+      const templateData = JSON.parse(JSON.stringify(settings.value))
+
+      // 移除每个规则中的tagInput字段
+      if (templateData.rules) {
+        templateData.rules.forEach((rule) => {
+          delete rule.tagInput
+        })
+      }
+
+      // 更新模板信息
+      randomTagApi
+        .updateTemplateData(selectedTemplate.value, templateData)
+        .then((res) => {
+          randomTagApi
+            .getTemplateData(res.path_name)
+            .then((resData) => {
+              settings.value = resData.data
+              message({ type: 'success', str: 'randomUtils.templateSaved' })
+            })
+            .catch((err) => {
+              console.error('加载模板失败:', err)
+              message({ type: 'warn', str: 'randomUtils.errorLoadingTemplate' })
+            })
+        })
+        .catch((err) => {
+          console.error('更新模板失败:', err)
+          message({ type: 'warn', str: 'randomUtils.errorSavingTemplate' })
+        })
+    } catch (error) {
+      console.error('Error saving random tag settings:', error)
+      message({ type: 'warn', str: 'randomUtils.errorSavingSettings' })
+    }
+  }
+
+  // 添加新规则
+  function addRule() {
+    settings.value.rules.push({
+      range: {
+        min:
+          settings.value.rules.length > 0
+            ? settings.value.rules[settings.value.rules.length - 1].range.max + 1
+            : 1,
+        max:
+          settings.value.rules.length > 0
+            ? settings.value.rules[settings.value.rules.length - 1].range.max + 3
+            : 3
+      },
       type: 'category',
       categoryId: 1,
       specificTags: [],
       tagGroupList: [],
       tagInput: ''
-    },
-    {
-      range: { min: 4, max: 6 },
-      type: 'category',
-      categoryId: 2,
-      specificTags: [],
-      tagGroupList: [],
-      tagInput: ''
+    })
+  }
+
+  // 删除规则
+  function deleteRule(index) {
+    settings.value.rules.splice(index, 1)
+  }
+
+  // 添加标签
+  function addTag(rule) {
+    if (rule.tagInput && rule.tagInput.trim()) {
+      rule.specificTags.push(rule.tagInput.trim())
+      rule.tagInput = ''
     }
-  ]
-}
+  }
 
-// 设置状态
-const settings = ref({})
-// console.log(settings)
+  // 移除标签
+  function removeTag(rule, tagIndex) {
+    rule.specificTags.splice(tagIndex, 1)
+  }
 
-// 从 localStorage 加载设置
-async function loadSettings() {
-  try {
-    if (promptMode.value === 'prompt_global') {
+  // 测试随机标签生成
+  // eslint-disable-next-line no-unused-vars
+  function testRandomTags() {
+    const randomTags = generateRandomTags()
+    message.success(`${t('randomUtils.generatedTags')}: ${randomTags.join(', ')}`)
+  }
+
+  // 生成随机标签
+  function generateRandomTags() {
+    // 这里是简化的实现，实际应用中需要根据真实标签数据生成
+    // eslint-disable-next-line no-unused-vars
+    const result = []
+  }
+
+  // 从 localStorage 获取窗口状态
+  const getInitialWindowState = () => {
+    try {
+      const savedState = localStorage.getItem(`${STORAGE_PREFIX}randomRuleSettingState`)
+      if (savedState) {
+        const parsedState = JSON.parse(savedState)
+
+        // 检查并补充缺失的窗口配置
+        const mergedState = { ...DEFAULT_WINDOWS }
+
+        // 将保存的状态合并到默认配置中
+        if (parsedState.randomRuleSetting) {
+          mergedState.randomRuleSetting = {
+            ...DEFAULT_WINDOWS.randomRuleSetting, // 默认值
+            ...parsedState.randomRuleSetting // 保存的值
+          }
+        }
+
+        return mergedState
+      }
+    } catch (error) {
+      console.error('Error loading window states:', error)
+    }
+
+    return { ...DEFAULT_WINDOWS }
+  }
+
+  // 窗口状态管理
+  const windows = ref(getInitialWindowState())
+
+  // 监听窗口状态变化并保存
+  watch(
+    windows,
+    (newState) => {
+      try {
+        localStorage.setItem(`${STORAGE_PREFIX}randomRuleSettingState`, JSON.stringify(newState))
+      } catch (error) {
+        console.error('Error saving window states:', error)
+      }
+    },
+    { deep: true }
+  )
+
+  // 关闭窗口
+  const closeWindow = () => {
+    isOpen.value = false
+  }
+
+  // 更新窗口位置
+  const updatePosition = (windowName, newPosition) => {
+    if (windows.value[windowName]) {
+      windows.value[windowName].position = { ...newPosition }
+    }
+  }
+
+  // 更新窗口大小
+  const updateSize = (windowName, newSize) => {
+    if (windows.value[windowName]) {
+      windows.value[windowName].size = { ...newSize }
+    }
+  }
+
+  // 打开窗口
+  const open = (mode) => {
+    isOpen.value = true
+    // console.log(mode)
+    promptMode.value = mode
+    windowManager.registerWindow('randomRuleSetting')
+    nextTick(() => {
+      windowManager.setActiveWindow('randomRuleSetting')
+      if (mode === 'prompt_global') {
+        loadTemplates(1)
+      } else {
+        getNodeTagTemplateIdAndReGet()
+      }
+    })
+  }
+
+  const selectTagGroup = (index, data) => {
+    tagGroupSelectItem.value.open(index, data)
+  }
+
+  // 对外暴露生成随机标签的方法
+  const getRandomTags = () => {
+    return generateRandomTags()
+  }
+
+  // 计算属性：获取一级分类（没有子分类的选择）
+  const primaryCategories = (data) => {
+    if (!data || !Array.isArray(data) || data.length <= 0) {
+      return []
+    }
+    return data.filter((item) => !item.sub)
+  }
+
+  // 计算属性：获取二级分类（有子分类的选择）
+  const subCategories = (data) => {
+    if (!data || !Array.isArray(data) || data.length <= 0) {
+      return []
+    }
+    return data.filter((item) => item.sub)
+  }
+
+  const sureSelectThis = (data) => {
+    // 确保 data.data 是一个数组，并且具有正确的结构
+    if (data && data.data && Array.isArray(data.data)) {
+      settings.value.rules[data.index].tagGroupList = data.data
+    } else {
+      // 初始化为空数组
+      settings.value.rules[data.index].tagGroupList = []
+    }
+  }
+
+  // 规则模板相关
+  const templates = ref([])
+  const selectedTemplate = ref('')
+  const newTemplateName = ref('')
+  const showTemplateNameInput = ref(false)
+  const isEditingTemplate = ref(false) // 新增：是否正在编辑模板
+
+  // 加载规则模板
+  async function loadTemplates(loadSetting = 0) {
+    try {
       await randomTagApi
-        .getRandomTemplateApple()
-        .then(async (res) => {
+        .getTemplateList()
+        .then((res) => {
           // console.log(res);
-          if (res.data === '') {
-            settings.value = DEFAULT_SETTINGS
-          } else {
-            await randomTagApi
-              .getTemplateData(res.data)
-              .then(async (resData) => {
-                selectedTemplate.value = res.data // 选中新创建的模板
-                settings.value = resData.data
-                loadingFinish.value = true
-              })
-              .catch((err) => {
-                console.error('加载模板失败:', err)
-                message({ type: 'warn', str: 'randomUtils.errorLoadingTemplate' })
-              })
+          templates.value = res.data
+          if (loadSetting === 1) {
+            loadSettings()
           }
         })
         .catch((err) => {
           console.error(err)
           message({ type: 'warn', str: 'message.networkError' })
         })
-    } else {
-      if (nodeLocalTemplateId.value === '') {
-        settings.value = DEFAULT_SETTINGS
-      } else {
-        await randomTagApi
-          .getTemplateData(nodeLocalTemplateId.value)
-          .then(async (resData) => {
-            selectedTemplate.value = nodeLocalTemplateId.value // 选中新创建的模板
-            settings.value = resData.data
-            loadingFinish.value = true
-          })
-          .catch((err) => {
-            console.error('加载模板失败:', err)
-            message({ type: 'warn', str: 'randomUtils.errorLoadingTemplate' })
-          })
-      }
-    }
-  } catch (error) {
-    message({ type: 'warn', str: 'message.networkError' })
-    console.error('Error loading random tag settings:', error)
-  }
-}
-
-// 保存设置到 localStorage
-function saveSettings() {
-  try {
-    // 使用settings中的数据
-    const templateData = JSON.parse(JSON.stringify(settings.value))
-
-    // 移除每个规则中的tagInput字段
-    if (templateData.rules) {
-      templateData.rules.forEach((rule) => {
-        delete rule.tagInput
-      })
-    }
-
-    // 更新模板信息
-    randomTagApi
-      .updateTemplateData(selectedTemplate.value, templateData)
-      .then(async (res) => {
-        await randomTagApi
-          .getTemplateData(res.path_name)
-          .then(async (resData) => {
-            settings.value = resData.data
-            message({ type: 'success', str: 'randomUtils.templateSaved' })
-          })
-          .catch((err) => {
-            console.error('加载模板失败:', err)
-            message({ type: 'warn', str: 'randomUtils.errorLoadingTemplate' })
-          })
-      })
-      .catch((err) => {
-        console.error('更新模板失败:', err)
-        message({ type: 'warn', str: 'randomUtils.errorSavingTemplate' })
-      })
-  } catch (error) {
-    console.error('Error saving random tag settings:', error)
-    message({ type: 'warn', str: 'randomUtils.errorSavingSettings' })
-  }
-}
-
-// 添加新规则
-function addRule() {
-  settings.value.rules.push({
-    range: {
-      min:
-          settings.value.rules.length > 0
-            ? settings.value.rules[settings.value.rules.length - 1].range.max + 1
-            : 1,
-      max:
-          settings.value.rules.length > 0
-            ? settings.value.rules[settings.value.rules.length - 1].range.max + 3
-            : 3
-    },
-    type: 'category',
-    categoryId: 1,
-    specificTags: [],
-    tagGroupList: [],
-    tagInput: ''
-  })
-}
-
-// 删除规则
-function deleteRule(index) {
-  settings.value.rules.splice(index, 1)
-}
-
-// 添加标签
-function addTag(rule) {
-  if (rule.tagInput && rule.tagInput.trim()) {
-    rule.specificTags.push(rule.tagInput.trim())
-    rule.tagInput = ''
-  }
-}
-
-// 移除标签
-function removeTag(rule, tagIndex) {
-  rule.specificTags.splice(tagIndex, 1)
-}
-
-// 测试随机标签生成
-function testRandomTags() {
-  const randomTags = generateRandomTags()
-  message.success(`${ t('randomUtils.generatedTags') }: ${ randomTags.join(', ') }`)
-}
-
-// 生成随机标签
-function generateRandomTags() {
-  // 这里是简化的实现，实际应用中需要根据真实标签数据生成
-  const result = []
-}
-
-// 从 localStorage 获取窗口状态
-const getInitialWindowState = () => {
-  try {
-    const savedState = localStorage.getItem(`${ STORAGE_PREFIX }randomRuleSettingState`)
-    if (savedState) {
-      const parsedState = JSON.parse(savedState)
-
-      // 检查并补充缺失的窗口配置
-      const mergedState = { ...DEFAULT_WINDOWS }
-
-      // 将保存的状态合并到默认配置中
-      if (parsedState.randomRuleSetting) {
-        mergedState.randomRuleSetting = {
-          ...DEFAULT_WINDOWS.randomRuleSetting, // 默认值
-          ...parsedState.randomRuleSetting // 保存的值
-        }
-      }
-
-      return mergedState
-    }
-  } catch (error) {
-    console.error('Error loading window states:', error)
-  }
-
-  return { ...DEFAULT_WINDOWS }
-}
-
-// 窗口状态管理
-const windows = ref(getInitialWindowState())
-
-// 监听窗口状态变化并保存
-watch(
-  windows,
-  (newState) => {
-    try {
-      localStorage.setItem(`${ STORAGE_PREFIX }randomRuleSettingState`, JSON.stringify(newState))
     } catch (error) {
-      console.error('Error saving window states:', error)
+      message({ type: 'warn', str: 'message.networkError' })
+      console.error('RandomTemplate获取列表失败:', error)
     }
-  },
-  { deep: true }
-)
 
-// 关闭窗口
-const closeWindow = (windowName) => {
-  isOpen.value = false
-}
-
-// 更新窗口位置
-const updatePosition = (windowName, newPosition) => {
-  if (windows.value[windowName]) {
-    windows.value[windowName].position = { ...newPosition }
+    // try {
+    //     const savedTemplates = localStorage.getItem(`${STORAGE_PREFIX}ruleTemplates`)
+    //     if (savedTemplates) {
+    //         templates.value = JSON.parse(savedTemplates)
+    //     }
+    // } catch (error) {
+    //     console.error('Error loading rule templates:', error)
+    //     templates.value = []
+    // }
   }
-}
 
-// 更新窗口大小
-const updateSize = (windowName, newSize) => {
-  if (windows.value[windowName]) {
-    windows.value[windowName].size = { ...newSize }
+  // 显示保存模板输入框
+  function saveAsNewTemplate() {
+    showTemplateNameInput.value = true
+    newTemplateName.value = ''
   }
-}
 
-// 打开窗口
-const open = (mode) => {
-  isOpen.value = true
-  // console.log(mode)
-  promptMode.value = mode
-  windowManager.registerWindow('randomRuleSetting')
-  nextTick(() => {
-    windowManager.setActiveWindow('randomRuleSetting')
-    if (mode === 'prompt_global') {
-      loadTemplates(1)
+  // 取消保存模板
+  function cancelSaveTemplate() {
+    showTemplateNameInput.value = false
+    newTemplateName.value = ''
+  }
+
+  // 应用模板
+  function applyTemplate() {
+    if (!selectedTemplate.value) {
+      message.warm(t('randomUtils.pleaseChooseTemplate'))
+      return
+    }
+    if (promptMode.value === 'prompt_global') {
+      // 获取选中的模板
+      randomTagApi
+        .updateRandomTemplateApple(selectedTemplate.value)
+        .then(() => {
+          message({ type: 'success', str: 'randomUtils.templateApplied' })
+        })
+        .catch((err) => {
+          console.error('获取模板失败:', err)
+          message({ type: 'warn', str: 'randomUtils.errorApplyingTemplate' })
+        })
     } else {
-      getNodeTagTemplateIdAndReGet()
+      window.postMessage(
+        {
+          type: 'weilin_prompt_ui_prompt_inner_update_node_tag_template_id',
+          data: selectedTemplate.value
+        },
+        '*'
+      )
+      message({ type: 'success', str: 'randomUtils.templateApplied' })
     }
-  })
-}
-
-const selectTagGroup = (index, data) => {
-  tagGroupSelectItem.value.open(index, data)
-}
-
-// 对外暴露生成随机标签的方法
-const getRandomTags = () => {
-  return generateRandomTags()
-}
-
-// 计算属性：获取一级分类（没有子分类的选择）
-const primaryCategories = (data) => {
-  if (!data || !Array.isArray(data) || data.length <= 0) {
-    return []
-  }
-  return data.filter((item) => !item.sub)
-}
-
-// 计算属性：获取二级分类（有子分类的选择）
-const subCategories = (data) => {
-  if (!data || !Array.isArray(data) || data.length <= 0) {
-    return []
-  }
-  return data.filter((item) => item.sub)
-}
-
-const sureSelectThis = (data) => {
-  // 确保 data.data 是一个数组，并且具有正确的结构
-  if (data && data.data && Array.isArray(data.data)) {
-    settings.value.rules[data.index].tagGroupList = data.data
-  } else {
-    // 初始化为空数组
-    settings.value.rules[data.index].tagGroupList = []
-  }
-}
-
-// 规则模板相关
-const templates = ref([])
-const selectedTemplate = ref('')
-const newTemplateName = ref('')
-const showTemplateNameInput = ref(false)
-const isEditingTemplate = ref(false) // 新增：是否正在编辑模板
-
-// 加载规则模板
-async function loadTemplates(loadSetting = 0) {
-  try {
-    await randomTagApi
-      .getTemplateList()
-      .then((res) => {
-        // console.log(res);
-        templates.value = res.data
-        if (loadSetting === 1) {
-          loadSettings()
-        }
-      })
-      .catch((err) => {
-        console.error(err)
-        message({ type: 'warn', str: 'message.networkError' })
-      })
-  } catch (error) {
-    message({ type: 'warn', str: 'message.networkError' })
-    console.error('RandomTemplate获取列表失败:', error)
   }
 
-  // try {
-  //     const savedTemplates = localStorage.getItem(`${STORAGE_PREFIX}ruleTemplates`)
-  //     if (savedTemplates) {
-  //         templates.value = JSON.parse(savedTemplates)
-  //     }
-  // } catch (error) {
-  //     console.error('Error loading rule templates:', error)
-  //     templates.value = []
-  // }
-}
+  // 删除模板
+  function deleteTemplate() {
+    if (!selectedTemplate.value) {
+      return
+    }
 
-// 显示保存模板输入框
-function saveAsNewTemplate() {
-  showTemplateNameInput.value = true
-  newTemplateName.value = ''
-}
-
-// 取消保存模板
-function cancelSaveTemplate() {
-  showTemplateNameInput.value = false
-  newTemplateName.value = ''
-}
-
-// 应用模板
-function applyTemplate() {
-  if (!selectedTemplate.value) {
-    message.warm(t('randomUtils.pleaseChooseTemplate'))
-    return
-  }
-  if (promptMode.value === 'prompt_global') {
-    // 获取选中的模板
+    // 确认删除
     randomTagApi
-      .updateRandomTemplateApple(selectedTemplate.value)
-      .then((res) => {
-        message({ type: 'success', str: 'randomUtils.templateApplied' })
+      .deleteTemplateData(selectedTemplate.value)
+      .then(() => {
+        message({ type: 'success', str: 'randomUtils.templateDeleted' })
+        loadTemplates() // 重新加载模板列表
+        selectedTemplate.value = '' // 清空选择
       })
       .catch((err) => {
-        console.error('获取模板失败:', err)
-        message({ type: 'warn', str: 'randomUtils.errorApplyingTemplate' })
+        console.error('删除模板失败:', err)
+        message({ type: 'warn', str: 'randomUtils.errorDeletingTemplate' })
       })
-  } else {
-    window.postMessage(
-      {
-        type: 'weilin_prompt_ui_prompt_inner_update_node_tag_template_id',
-        data: selectedTemplate.value
-      },
-      '*'
-    )
-    message({ type: 'success', str: 'randomUtils.templateApplied' })
-  }
-}
-
-// 删除模板
-function deleteTemplate() {
-  if (!selectedTemplate.value) {
-    return
   }
 
-  // 确认删除
-  randomTagApi
-    .deleteTemplateData(selectedTemplate.value)
-    .then(() => {
-      message({ type: 'success', str: 'randomUtils.templateDeleted' })
-      loadTemplates() // 重新加载模板列表
-      selectedTemplate.value = '' // 清空选择
-    })
-    .catch((err) => {
-      console.error('删除模板失败:', err)
-      message({ type: 'warn', str: 'randomUtils.errorDeletingTemplate' })
-    })
-}
+  // 编辑模板名称
+  function editTemplateName() {
+    if (!selectedTemplate.value) {
+      return
+    }
 
-// 编辑模板名称
-function editTemplateName() {
-  if (!selectedTemplate.value) {
-    return
-  }
-
-  const template = templates.value.find((t) => t.path_name === selectedTemplate.value)
-  if (!template) {
-    return
-  }
-
-  // 显示编辑界面并设置当前模板名称
-  showTemplateNameInput.value = true
-  newTemplateName.value = template.file_name
-  isEditingTemplate.value = true
-}
-
-// 修改确认保存模板函数
-function confirmSaveTemplate() {
-  if (!newTemplateName.value.trim()) {
-    message({ type: 'warn', str: 'randomUtils.templateNameRequired' })
-    return
-  }
-
-  // 更新当前设置的文件名
-  settings.value.file_name = newTemplateName.value.trim()
-
-  if (isEditingTemplate.value) {
-    // 编辑现有模板
     const template = templates.value.find((t) => t.path_name === selectedTemplate.value)
-    if (template) {
-      template.file_name = newTemplateName.value.trim()
+    if (!template) {
+      return
+    }
 
-      // 使用settings中的数据
+    // 显示编辑界面并设置当前模板名称
+    showTemplateNameInput.value = true
+    newTemplateName.value = template.file_name
+    isEditingTemplate.value = true
+  }
+
+  // 修改确认保存模板函数
+  function confirmSaveTemplate() {
+    if (!newTemplateName.value.trim()) {
+      message({ type: 'warn', str: 'randomUtils.templateNameRequired' })
+      return
+    }
+
+    // 更新当前设置的文件名
+    settings.value.file_name = newTemplateName.value.trim()
+
+    if (isEditingTemplate.value) {
+      // 编辑现有模板
+      const template = templates.value.find((t) => t.path_name === selectedTemplate.value)
+      if (template) {
+        template.file_name = newTemplateName.value.trim()
+
+        // 使用settings中的数据
+        const templateData = JSON.parse(JSON.stringify(settings.value))
+
+        // 移除每个规则中的tagInput字段
+        if (templateData.rules) {
+          templateData.rules.forEach((rule) => {
+            delete rule.tagInput
+          })
+        }
+
+        // 调用API保存新模板
+        randomTagApi
+          .updateTemplateData(template.path_name, templateData)
+          .then((res) => {
+            message({ type: 'success', str: 'randomUtils.templateSaved' })
+            loadTemplates().then(() => {
+              randomTagApi
+                .getTemplateData(res.path_name)
+                .then((resData) => {
+                  selectedTemplate.value = res.path_name // 选中新创建的模板
+                  settings.value = resData.data
+                  message({ type: 'success', str: 'randomUtils.templateSaved' })
+                })
+                .catch((err) => {
+                  console.error('加载模板失败:', err)
+                  message({ type: 'warn', str: 'randomUtils.errorLoadingTemplate' })
+                })
+            }) // 重新加载模板列表
+          })
+          .catch((err) => {
+            console.error('保存模板失败:', err)
+            message({ type: 'warn', str: 'randomUtils.errorSavingTemplate' })
+          })
+      }
+    } else {
+      // 创建新模板 - 使用settings中的数据
+      settings.value = DEFAULT_SETTINGS
+      settings.value.file_name = newTemplateName.value.trim()
       const templateData = JSON.parse(JSON.stringify(settings.value))
 
       // 移除每个规则中的tagInput字段
@@ -696,13 +732,12 @@ function confirmSaveTemplate() {
 
       // 调用API保存新模板
       randomTagApi
-        .updateTemplateData(template.path_name, templateData)
-        .then(async (res) => {
-          message({ type: 'success', str: 'randomUtils.templateSaved' })
-          await loadTemplates().then(async () => {
-            await randomTagApi
+        .saveTemplateData(templateData)
+        .then((res) => {
+          loadTemplates().then(() => {
+            randomTagApi
               .getTemplateData(res.path_name)
-              .then(async (resData) => {
+              .then((resData) => {
                 selectedTemplate.value = res.path_name // 选中新创建的模板
                 settings.value = resData.data
                 message({ type: 'success', str: 'randomUtils.templateSaved' })
@@ -718,107 +753,71 @@ function confirmSaveTemplate() {
           message({ type: 'warn', str: 'randomUtils.errorSavingTemplate' })
         })
     }
-  } else {
-    // 创建新模板 - 使用settings中的数据
-    settings.value = DEFAULT_SETTINGS
-    settings.value.file_name = newTemplateName.value.trim()
-    const templateData = JSON.parse(JSON.stringify(settings.value))
 
-    // 移除每个规则中的tagInput字段
-    if (templateData.rules) {
-      templateData.rules.forEach((rule) => {
-        delete rule.tagInput
-      })
+    // 重置UI状态
+    showTemplateNameInput.value = false
+    newTemplateName.value = ''
+    isEditingTemplate.value = false
+  }
+
+  const changeSelectTemplate = (event) => {
+    // console.log(event.target.value);
+    if (event.target.value === '') {
+      return
     }
-
-    // 调用API保存新模板
-    randomTagApi
-      .saveTemplateData(templateData)
-      .then(async (res) => {
-        await loadTemplates().then(async () => {
-          await randomTagApi
-            .getTemplateData(res.path_name)
-            .then(async (resData) => {
-              selectedTemplate.value = res.path_name // 选中新创建的模板
-              settings.value = resData.data
-              message({ type: 'success', str: 'randomUtils.templateSaved' })
-            })
-            .catch((err) => {
-              console.error('加载模板失败:', err)
-              message({ type: 'warn', str: 'randomUtils.errorLoadingTemplate' })
-            })
-        }) // 重新加载模板列表
-      })
-      .catch((err) => {
-        console.error('保存模板失败:', err)
-        message({ type: 'warn', str: 'randomUtils.errorSavingTemplate' })
-      })
+    try {
+      randomTagApi
+        .getTemplateData(event.target.value)
+        .then((res) => {
+          selectedTemplate.value = res.path_name // 选中新创建的模板
+          settings.value = res.data
+          loadingFinish.value = true
+        })
+        .catch((err) => {
+          console.error('加载模板失败:', err)
+          message({ type: 'warn', str: 'randomUtils.errorLoadingTemplate' })
+        })
+    } catch (error) {
+      message({ type: 'warn', str: 'message.networkError' })
+      console.error('Error loading random tag settings:', error)
+    }
   }
 
-  // 重置UI状态
-  showTemplateNameInput.value = false
-  newTemplateName.value = ''
-  isEditingTemplate.value = false
-}
-
-const changeSelectTemplate = async (event) => {
-  // console.log(event.target.value);
-  if (event.target.value === '') {
-    return
+  const getNodeTagTemplateIdAndReGet = () => {
+    window.postMessage(
+      {
+        type: 'weilin_prompt_ui_prompt_inner_get_node_tag_template_id'
+      },
+      '*'
+    )
   }
-  try {
-    await randomTagApi
-      .getTemplateData(event.target.value)
-      .then(async (res) => {
-        selectedTemplate.value = res.path_name // 选中新创建的模板
-        settings.value = res.data
-        loadingFinish.value = true
-      })
-      .catch((err) => {
-        console.error('加载模板失败:', err)
-        message({ type: 'warn', str: 'randomUtils.errorLoadingTemplate' })
-      })
-  } catch (error) {
-    message({ type: 'warn', str: 'message.networkError' })
-    console.error('Error loading random tag settings:', error)
+
+  // 处理消息
+  const handleMessage = (event) => {
+    if (event.data.type === 'weilin_prompt_ui_prompt_inner_get_node_tag_template_id_response') {
+      // console.log(event.data.data)
+      nodeLocalTemplateId.value = event.data.data
+      // 继续执行
+      loadTemplates(1)
+    }
   }
-}
 
-const getNodeTagTemplateIdAndReGet = () => {
-  window.postMessage(
-    {
-      type: 'weilin_prompt_ui_prompt_inner_get_node_tag_template_id'
-    },
-    '*'
-  )
-}
+  // 组件挂载时注册所有窗口
+  onMounted(() => {
+    // 添加消息监听
+    window.addEventListener('message', handleMessage)
+  })
+  // 组件卸载时注销所有窗口
+  onUnmounted(() => {
+    windowManager.unregisterWindow('randomRuleSetting')
+    // 移除消息监听
+    window.removeEventListener('message', handleMessage)
+  })
 
-// 处理消息
-const handleMessage = (event) => {
-  if (event.data.type === 'weilin_prompt_ui_prompt_inner_get_node_tag_template_id_response') {
-    // console.log(event.data.data)
-    nodeLocalTemplateId.value = event.data.data
-    // 继续执行
-    loadTemplates(1)
-  }
-}
-
-// 组件挂载时注册所有窗口
-onMounted(() => {
-  // 添加消息监听
-  window.addEventListener('message', handleMessage)
-})
-// 组件卸载时注销所有窗口
-onUnmounted(() => {
-  windowManager.unregisterWindow('randomRuleSetting')
-  // 移除消息监听
-  window.removeEventListener('message', handleMessage)
-})
-
-defineExpose({
-  open,
-  getRandomTags
-})
+  defineExpose({
+    open,
+    getRandomTags
+  })
 </script>
 <style scoped>
   .random-rule-container {
@@ -906,7 +905,7 @@ defineExpose({
   .add-rule-btn,
   .add-tag-btn {
     background-color: var(--weilin-prompt-ui-primary-color);
-    color: #ffffff;
+    color: #fff;
     border: none;
     border-radius: 4px;
     padding: 6px 12px;
@@ -1230,13 +1229,13 @@ defineExpose({
     margin-bottom: 10px;
     padding: 8px 12px;
     background-color: #fff7e6;
-    border-left: 4px solid #ffbb33;
+    border-left: 4px solid #fb3;
     border-radius: 4px;
   }
 
   .rules-reminder p {
     margin: 0;
     font-size: 0.9em;
-    color: #996600;
+    color: #960;
   }
 </style>

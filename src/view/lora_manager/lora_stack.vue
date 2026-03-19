@@ -114,218 +114,255 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue'
-import { useI18n } from 'vue-i18n'
-import loraDetail from '@/view/lora_manager/lora_detail.vue'
-import message from '@/utils/message'
-import LoraCard from '@/view/lora_manager/lora_card.vue'
+  import { ref, watch, nextTick, onMounted } from 'vue'
+  import { useI18n } from 'vue-i18n'
+  import loraDetail from '@/view/lora_manager/lora_detail.vue'
+  import message from '@/utils/message'
+  import LoraCard from '@/view/lora_manager/lora_card.vue'
 
-const prefix = 'weilin_prompt_ui_'
-const { t } = useI18n()
+  const prefix = 'weilin_prompt_ui_'
+  const { t } = useI18n()
 
-const selectedLoras = ref([])
-const seed = ref('')
+  const selectedLoras = ref([])
+  const seed = ref('')
 
-const showCard = ref(false)
-const hoveFileName = ref('')
-const paddingLeftValue = ref(100)
-const paddingTopValue = ref(0)
-const loraStackItemRef = ref()
-const isEnterCatd = ref(false)
-const isHovering = ref(false)
-const loraCardItem = ref()
-
-// 打开Lora管理器
-const openLoraManager = () => {
-  window.postMessage(
-    { type: 'weilin_prompt_ui_openLoraManager_addLora_stack', seed: seed.value },
-    '*'
-  )
-}
-
-// 添加切换隐藏状态的方法
-const toggleHideLora = (lora) => {
-  lora.hidden = !lora.hidden
-}
-
-const handleMouseHover = (fileName, event) => {
-  isHovering.value = true
-  if (hoveFileName.value === fileName && showCard.value) {
-    return
+  // 生成随机 seed
+  const generateRandomSeed = () => {
+    return `lora_stack_${Math.random().toString(36).substring(2, 15)}`
   }
 
-  const hoveredCard = event.currentTarget
-  const cardRect = hoveredCard.getBoundingClientRect()
-  const viewportWidth = window.innerWidth
-  const cardWidth = 450
-
-  // 默认显示在左侧
-  const position = {
-    left: cardRect.left - cardWidth - 10,
-    top: cardRect.top
-  }
-
-  // 如果左侧空间不足(小于10px)，则显示在右侧
-  if (position.left < 10) {
-    position.left = cardRect.right + 10
-  }
-
-  // 确保不会超出视口顶部和底部
-  position.top = Math.max(10, Math.min(position.top, window.innerHeight - 310))
-
-  paddingLeftValue.value = position.left
-  paddingTopValue.value = position.top
-
-  showCard.value = true
-  hoveFileName.value = fileName
-  // console.log(fileName)
-  nextTick(() => {
-    loraCardItem.value.refresh()
-  })
-}
-
-const handleMouseLeave = () => {
-  isHovering.value = false
-  setTimeout(() => {
-    if (!isEnterCatd.value && !isHovering.value) {
-      showCard.value = false
-      hoveFileName.value = ''
-      isEnterCatd.value = false
+  // 组件挂载时，如果没有 seed，生成一个
+  onMounted(() => {
+    if (!seed.value) {
+      seed.value = generateRandomSeed()
     }
-  }, 200)
-}
+  })
 
-const handEnterCard = () => {
-  // console.log("enter")
-  isEnterCatd.value = true
-  isHovering.value = true
-}
+  const showCard = ref(false)
+  const hoveFileName = ref('')
+  const paddingLeftValue = ref(100)
+  const paddingTopValue = ref(0)
+  const loraStackItemRef = ref()
+  const isEnterCatd = ref(false)
+  const isHovering = ref(false)
+  const loraCardItem = ref()
 
-const handleEnterLeave = () => {
-  showCard.value = false
-  hoveFileName.value = ''
-  isEnterCatd.value = false
-}
+  // 打开Lora管理器
+  const openLoraManager = () => {
+    window.postMessage(
+      { type: 'weilin_prompt_ui_openLoraManager_addLora_stack', seed: seed.value },
+      '*'
+    )
+  }
 
-// 添加Lora
-const addLora = (lora) => {
-  // 检查是否已存在
-  if (!selectedLoras.value.find((item) => item.name === lora.name)) {
-    selectedLoras.value.push({
-      name: lora.name,
-      weight: 1,
-      text_encoder_weight: 1,
-      ...lora
+  // 添加切换隐藏状态的方法
+  const toggleHideLora = (lora) => {
+    lora.hidden = !lora.hidden
+  }
+
+  const handleMouseHover = (fileName, event) => {
+    isHovering.value = true
+    if (hoveFileName.value === fileName && showCard.value) {
+      return
+    }
+
+    const hoveredCard = event.currentTarget
+    const cardRect = hoveredCard.getBoundingClientRect()
+    const cardWidth = 450
+
+    // 默认显示在左侧
+    const position = {
+      left: cardRect.left - cardWidth - 10,
+      top: cardRect.top
+    }
+
+    // 如果左侧空间不足(小于10px)，则显示在右侧
+    if (position.left < 10) {
+      position.left = cardRect.right + 10
+    }
+
+    // 确保不会超出视口顶部和底部
+    position.top = Math.max(10, Math.min(position.top, window.innerHeight - 310))
+
+    paddingLeftValue.value = position.left
+    paddingTopValue.value = position.top
+
+    showCard.value = true
+    hoveFileName.value = fileName
+    // console.log(fileName)
+    nextTick(() => {
+      loraCardItem.value.refresh()
     })
   }
-}
 
-// 移除Lora
-const removeLora = (lora) => {
-  const index = selectedLoras.value.findIndex((item) => item.name === lora.name)
-  if (index > -1) {
-    selectedLoras.value.splice(index, 1)
-  }
-}
-
-const loraDetailLoraStackRef = ref()
-
-const lookOnLora = (loraData) => {
-  // console.log('lookOnLora', loraData)
-  loraDetailLoraStackRef.value.open({ name: loraData.lora })
-}
-
-// 监听来自Lora管理器的消息
-window.addEventListener('message', (event) => {
-  if (event.data.type === `weilin_prompt_ui_selectLora_stack_${ seed.value }`) {
-    addLora(event.data.lora)
-  }
-})
-
-const initLoraStack = (text, newSeed) => {
-  // 初始化Lora列表
-  seed.value = newSeed
-
-  // console.log(text)
-  if (text.length > 0) {
-    try {
-      const jsonStr = JSON.parse(text)
-
-      if (jsonStr.lora && jsonStr.lora !== '') {
-        selectedLoras.value = jsonStr.lora
+  const handleMouseLeave = () => {
+    isHovering.value = false
+    setTimeout(() => {
+      if (!isEnterCatd.value && !isHovering.value) {
+        showCard.value = false
+        hoveFileName.value = ''
+        isEnterCatd.value = false
       }
+    }, 200)
+  }
 
-      if (jsonStr.temp_lora && jsonStr.temp_lora.length > 0 && jsonStr.temp_lora !== '') {
-        const tempDataJson = jsonStr.temp_lora
-        selectedLoras.value = tempDataJson
+  const handEnterCard = () => {
+    // console.log("enter")
+    isEnterCatd.value = true
+    isHovering.value = true
+  }
+
+  const handleEnterLeave = () => {
+    showCard.value = false
+    hoveFileName.value = ''
+    isEnterCatd.value = false
+  }
+
+  // 添加Lora
+  const addLora = (lora) => {
+    // 检查是否已存在（兼容堆节点场景的重复添加）
+    const existingIndex = selectedLoras.value.findIndex((item) => item.name === lora.name)
+
+    // 场景1：首次添加LoRA
+    if (existingIndex === -1) {
+      selectedLoras.value.push({
+        name: lora.name,
+        weight: 1,
+        text_encoder_weight: 1,
+        ...lora
+      })
+    } else {
+      // 场景2：LoRA已存在（堆节点复用/重新加载），更新信息
+      selectedLoras.value[existingIndex] = {
+        ...selectedLoras.value[existingIndex],
+        ...lora,
+        weight: selectedLoras.value[existingIndex].weight, // 保留用户设置的权重
+        text_encoder_weight: selectedLoras.value[existingIndex].text_encoder_weight
       }
-    } catch (error) {
-      // console.log('读取数据错误：', error)
-      message({ type: 'warn', str: 'promptBox.settings.errorPrompt' })
+    }
+
+    // 触发词不再自动添加，用户可以在LoRA详情中手动复制使用
+  }
+
+  // 移除Lora
+  const removeLora = (lora) => {
+    const index = selectedLoras.value.findIndex((item) => item.name === lora.name)
+    if (index > -1) {
+      selectedLoras.value.splice(index, 1)
     }
   }
-}
 
-watch(
-  selectedLoras,
-  (newLoras) => {
-    updateLoraStackInfoToWindows()
-  },
-  { deep: true }
-)
+  const loraDetailLoraStackRef = ref()
 
-const updateLoraStackInfoToWindows = () => {
-  if (selectedLoras.value.length > 0) {
+  const lookOnLora = (loraData) => {
+    // console.log('lookOnLora', loraData)
+    loraDetailLoraStackRef.value.open({ name: loraData.lora })
+  }
+
+  // 监听来自Lora管理器的消息（动态监听，支持seed变化）
+  // 添加标志避免循环更新
+  let isUpdatingFromNode = false
+
+  const messageHandler = (event) => {
+    if (event.data.type === `weilin_prompt_ui_selectLora_stack_${seed.value}`) {
+      addLora(event.data.lora)
+    } else if (event.data.type === `weilin_prompt_ui_prompt_node_finish_lora_stack_${seed.value}`) {
+      // 监听来自节点的更新消息，实现双向同步
+      try {
+        const jsonStr = JSON.parse(event.data.data)
+        // 设置标志，避免循环更新
+        isUpdatingFromNode = true
+        // 更新 selectedLoras，保持与节点数据同步
+        if (jsonStr.temp_lora && jsonStr.temp_lora.length > 0 && jsonStr.temp_lora !== '') {
+          selectedLoras.value = jsonStr.temp_lora
+        } else if (jsonStr.lora && jsonStr.lora !== '') {
+          selectedLoras.value = jsonStr.lora
+        } else {
+          selectedLoras.value = []
+        }
+        // 下一个tick后重置标志
+        nextTick(() => {
+          isUpdatingFromNode = false
+        })
+      } catch (e) {
+        console.error('解析节点lora数据失败:', e)
+        isUpdatingFromNode = false
+      }
+    }
+  }
+
+  // 注册消息监听器
+  window.addEventListener('message', messageHandler)
+
+  const initLoraStack = (text, newSeed) => {
+    // 初始化Lora列表
+    seed.value = newSeed
+
+    // console.log(text)
+    if (text.length > 0) {
+      try {
+        const jsonStr = JSON.parse(text)
+
+        if (jsonStr.lora && jsonStr.lora !== '') {
+          selectedLoras.value = jsonStr.lora
+        }
+
+        if (jsonStr.temp_lora && jsonStr.temp_lora.length > 0 && jsonStr.temp_lora !== '') {
+          const tempDataJson = jsonStr.temp_lora
+          selectedLoras.value = tempDataJson
+        }
+      } catch (error) {
+        // console.log('读取数据错误：', error)
+        message({ type: 'warn', str: 'promptBox.settings.errorPrompt' })
+      }
+    }
+  }
+
+  watch(
+    selectedLoras,
+    () => {
+      // 如果是从节点更新触发的，不发送消息回节点，避免循环
+      if (!isUpdatingFromNode) {
+        updateLoraStackInfoToWindows()
+      }
+    },
+    { deep: true }
+  )
+
+  const updateLoraStackInfoToWindows = () => {
     const tempLora = selectedLoras.value.filter((lora) => !lora.hidden)
     const putJson = {
-      lora: '',
-      temp_lora: selectedLoras.value
-    }
-    if (tempLora.length > 0) {
-      putJson.lora = tempLora
+      lora: tempLora.length > 0 ? tempLora : '',
+      temp_lora: selectedLoras.value.length > 0 ? selectedLoras.value : []
     }
     const jsonStr = JSON.stringify(putJson)
     window.postMessage(
       {
-        type: `weilin_prompt_ui_prompt_finish_lora_stack_${ seed.value }`,
-        data: jsonStr
-      },
-      '*'
-    )
-  } else {
-    const putJson = {
-      lora: '',
-      temp_lora: ''
-    }
-    const jsonStr = JSON.stringify(putJson)
-    window.postMessage(
-      {
-        type: `weilin_prompt_ui_prompt_finish_lora_stack_${ seed.value }`,
+        type: `weilin_prompt_ui_prompt_node_finish_lora_stack_${seed.value}`,
         data: jsonStr
       },
       '*'
     )
   }
-}
 
-// 拖拽相关
-const dragIndex = ref(null)
-const handleDragStart = (idx) => {
-  dragIndex.value = idx
-}
-const handleDrop = (idx) => {
-  if (dragIndex.value === null || dragIndex.value === idx) {
-    return
+  // 拖拽相关
+  const dragIndex = ref(null)
+  const handleDragStart = (idx) => {
+    dragIndex.value = idx
   }
-  const moved = selectedLoras.value.splice(dragIndex.value, 1)[0]
-  selectedLoras.value.splice(idx, 0, moved)
-  dragIndex.value = null
-  updateLoraStackInfoToWindows()
-}
+  const handleDrop = (idx) => {
+    if (dragIndex.value === null || dragIndex.value === idx) {
+      return
+    }
+    const moved = selectedLoras.value.splice(dragIndex.value, 1)[0]
+    selectedLoras.value.splice(idx, 0, moved)
+    dragIndex.value = null
+    updateLoraStackInfoToWindows()
+  }
 
-defineExpose({
-  initLoraStack
-})
+  defineExpose({
+    initLoraStack
+  })
 </script>
 
 <style scoped>
@@ -448,9 +485,11 @@ defineExpose({
   }
 
   .hidden-lora {
-    background: rgba(255, 200, 200, 0.2) !important;
+    background: rgb(255 200 200 / 0.2) !important;
+
     /* 淡红色背景 */
-    border-color: rgba(255, 150, 150, 0.5) !important;
+    border-color: rgb(255 150 150 / 0.5) !important;
+
     /* 可选：淡红色边框 */
   }
 
@@ -589,23 +628,20 @@ defineExpose({
     height: 0;
   }
 
-  .switch input:checked + .slider:before {
+  .switch input:checked + .slider::before {
     transform: translateX(16px);
   }
 
   .slider {
     position: absolute;
     cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background-color: #ccc;
     transition: 0.4s;
     border-radius: 20px;
   }
 
-  .slider:before {
+  .slider::before {
     position: absolute;
     content: '';
     height: 16px;

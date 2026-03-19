@@ -1,24 +1,24 @@
 import request from './request'
 
 export const aiServerApi = {
-  getAiServerSetting: async (path) => {
-    return await request({
+  getAiServerSetting: () => {
+    return request({
       url: '/ai_server/get_settings',
       method: 'post',
       data: {}
     })
   },
 
-  updateAiServerSetting: async (data) => {
-    return await request({
+  updateAiServerSetting: (data) => {
+    return request({
       url: '/ai_server/update_settings',
       method: 'post',
       data
     })
   },
 
-  getAiModels: async () => {
-    return await request({
+  getAiModels: () => {
+    return request({
       url: '/ai_server/get_ai_models',
       method: 'post',
       data: {}
