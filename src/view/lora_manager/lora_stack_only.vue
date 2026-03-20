@@ -2,6 +2,9 @@
   <div :class="`${prefix}lora-stack`">
     <div :class="`${prefix}lora-content`">
       <div :class="`${prefix}lora-header`">
+        <h3 :class="`${prefix}lora-title`">
+          {{ t('controls.loraStack') }} (WeiLinPromptUIOnlyLoraStack)
+        </h3>
         <div class="header-actions">
           <button
             :class="`${prefix}add-btn`"
@@ -17,7 +20,7 @@
       <div :class="`${prefix}lora-body`">
         <div :class="`${prefix}lora-list`">
           <div
-            v-for="(lora, idx) in selectedLoras"
+            v-for="(lora, idx) in props.selectedLoras"
             ref="loraStackItemRef"
             :key="lora.name"
             class="lora-item"
@@ -123,7 +126,7 @@
 </template>
 
 <script setup>
-  import { ref, watch, nextTick, onMounted } from 'vue'
+  import { ref, onMounted, nextTick } from 'vue'
   import { useI18n } from 'vue-i18n'
   import loraDetail from '@/view/lora_manager/lora_detail.vue'
   import message from '@/utils/message'
@@ -132,104 +135,30 @@
   const prefix = 'weilin_prompt_ui_'
   const { t } = useI18n()
 
-  const selectedLoras = ref([])
-  const seed = ref('')
+  const props = defineProps({
+    selectedLoras: {
+      type: Array,
+      default: () => []
+    },
+    seed: {
+      type: String,
+      default: ''
+    }
+  })
+
+  const emit = defineEmits(['update:selectedLoras', 'update:seed'])
 
   // 生成随机 seed
   const generateRandomSeed = () => {
-    return `lora_stack_${Math.random().toString(36).substring(2, 15)}`
+    return `lora_stack_only_${Math.random().toString(36).substring(2, 15)}`
   }
 
   // 组件挂载时，如果没有 seed，生成一个
   onMounted(() => {
-    if (!seed.value) {
-      seed.value = generateRandomSeed()
+    if (!props.seed) {
+      emit('update:seed', generateRandomSeed())
     }
   })
-
-  // 监听来自Lora管理器的消息（动态监听，支持seed变化）
-  // 添加标志避免循环更新
-  let isUpdatingFromNode = false
-
-  const messageHandler = (event) => {
-    if (event.data.type === `weilin_prompt_ui_selectLora_stack_${seed.value}`) {
-      addLora(event.data.lora)
-    } else if (event.data.type === `weilin_prompt_ui_prompt_node_finish_lora_stack_${seed.value}`) {
-      // 监听来自节点的更新消息，实现双向同步
-      try {
-        const jsonStr = JSON.parse(event.data.data)
-        // 设置标志，避免循环更新
-        isUpdatingFromNode = true
-        // 更新 selectedLoras，保持与节点数据同步
-        if (jsonStr.temp_lora && jsonStr.temp_lora.length > 0 && jsonStr.temp_lora !== '') {
-          selectedLoras.value = jsonStr.temp_lora
-        } else if (jsonStr.lora && jsonStr.lora !== '') {
-          selectedLoras.value = jsonStr.lora
-        } else {
-          selectedLoras.value = []
-        }
-        // 下一个tick后重置标志
-        nextTick(() => {
-          isUpdatingFromNode = false
-        })
-      } catch (e) {
-        console.error('解析节点lora数据失败:', e)
-        isUpdatingFromNode = false
-      }
-    } else if (event.data.type === `weilin_prompt_ui_query_lora_stack_response_${seed.value}`) {
-      // 监听来自节点的查询响应，组件打开时获取最新数据
-      try {
-        const jsonStr = JSON.parse(event.data.data)
-        isUpdatingFromNode = true
-        if (jsonStr.temp_lora && jsonStr.temp_lora.length > 0) {
-          selectedLoras.value = jsonStr.temp_lora
-        } else {
-          selectedLoras.value = []
-        }
-        nextTick(() => {
-          isUpdatingFromNode = false
-        })
-      } catch (e) {
-        console.error('解析节点查询响应失败:', e)
-        isUpdatingFromNode = false
-      }
-    }
-  }
-
-  // 注册消息监听器
-  window.addEventListener('message', messageHandler)
-
-  const initLoraStack = (text, newSeed) => {
-    // 初始化Lora列表
-    seed.value = newSeed
-
-    // 主动查询节点获取最新数据（查询方式）
-    window.postMessage(
-      {
-        type: `weilin_prompt_ui_query_lora_stack_${seed.value}`
-      },
-      '*'
-    )
-
-    // 如果有text，也处理text中的数据（兼容旧逻辑）
-    if (text.length > 0) {
-      try {
-        const jsonStr = JSON.parse(text)
-
-        if (jsonStr.lora && jsonStr.lora !== '') {
-          selectedLoras.value = jsonStr.lora
-        }
-
-        if (jsonStr.temp_lora && jsonStr.temp_lora.length > 0 && jsonStr.temp_lora !== '') {
-          const tempDataJson = jsonStr.temp_lora
-          selectedLoras.value = tempDataJson
-        }
-      } catch (error) {
-        // console.log('读取数据错误：', error)
-        message({ type: 'warn', str: 'promptBox.settings.errorPrompt' })
-      }
-    }
-  }
 
   const showCard = ref(false)
   const hoveFileName = ref('')
@@ -243,7 +172,7 @@
   // 打开Lora管理器
   const openLoraManager = () => {
     window.postMessage(
-      { type: 'weilin_prompt_ui_openLoraManager_addLora_stack', seed: seed.value },
+      { type: 'weilin_prompt_ui_openLoraManager_addLora_stack_only', seed: props.seed },
       '*'
     )
   }
@@ -314,24 +243,30 @@
   // 添加Lora
   const addLora = (lora) => {
     // 检查是否已存在（兼容堆节点场景的重复添加）
-    const existingIndex = selectedLoras.value.findIndex((item) => item.name === lora.name)
+    const existingIndex = props.selectedLoras.findIndex((item) => item.name === lora.name)
 
     // 场景1：首次添加LoRA
     if (existingIndex === -1) {
-      selectedLoras.value.push({
-        name: lora.name,
-        weight: 1,
-        text_encoder_weight: 1,
-        ...lora
-      })
+      const newLoras = [
+        ...props.selectedLoras,
+        {
+          name: lora.name,
+          weight: 1,
+          text_encoder_weight: 1,
+          ...lora
+        }
+      ]
+      emit('update:selectedLoras', newLoras)
     } else {
       // 场景2：LoRA已存在（堆节点复用/重新加载），更新信息
-      selectedLoras.value[existingIndex] = {
-        ...selectedLoras.value[existingIndex],
+      const newLoras = [...props.selectedLoras]
+      newLoras[existingIndex] = {
+        ...newLoras[existingIndex],
         ...lora,
-        weight: selectedLoras.value[existingIndex].weight, // 保留用户设置的权重
-        text_encoder_weight: selectedLoras.value[existingIndex].text_encoder_weight
+        weight: newLoras[existingIndex].weight, // 保留用户设置的权重
+        text_encoder_weight: newLoras[existingIndex].text_encoder_weight
       }
+      emit('update:selectedLoras', newLoras)
     }
 
     // 触发词不再自动添加，用户可以在LoRA详情中手动复制使用
@@ -339,10 +274,8 @@
 
   // 移除Lora
   const removeLora = (lora) => {
-    const index = selectedLoras.value.findIndex((item) => item.name === lora.name)
-    if (index > -1) {
-      selectedLoras.value.splice(index, 1)
-    }
+    const newLoras = props.selectedLoras.filter((item) => item.name !== lora.name)
+    emit('update:selectedLoras', newLoras)
   }
 
   const loraDetailLoraStackRef = ref()
@@ -352,48 +285,57 @@
     loraDetailLoraStackRef.value.open({ name: loraData.lora })
   }
 
-  watch(
-    selectedLoras,
-    () => {
-      // 如果是从节点更新触发的，不发送消息回节点，避免循环
-      if (!isUpdatingFromNode) {
-        updateLoraStackInfoToWindows()
+  // 监听来自Lora管理器的消息（动态监听，支持seed变化）
+  const messageHandler = (event) => {
+    if (event.data.type === `weilin_prompt_ui_selectLora_stack_only_${props.seed}`) {
+      addLora(event.data.lora)
+    } else if (
+      event.data.type === `weilin_prompt_ui_prompt_node_finish_lora_stack_only_${props.seed}`
+    ) {
+      // 监听来自节点的更新消息，实现双向同步
+      try {
+        const jsonStr = JSON.parse(event.data.data)
+        // 更新 selectedLoras，保持与节点数据同步
+        if (jsonStr.temp_lora && jsonStr.temp_lora.length > 0 && jsonStr.temp_lora !== '') {
+          emit('update:selectedLoras', jsonStr.temp_lora)
+        } else if (jsonStr.lora && jsonStr.lora !== '') {
+          emit('update:selectedLoras', jsonStr.lora)
+        } else {
+          emit('update:selectedLoras', [])
+        }
+      } catch (e) {
+        console.error('解析节点lora数据失败:', e)
       }
-    },
-    { deep: true }
-  )
-
-  const updateLoraStackInfoToWindows = () => {
-    // 1. 更新Lora数据
-    const tempLora = selectedLoras.value.filter((lora) => !lora.hidden)
-    const putJson = {
-      lora: tempLora.length > 0 ? tempLora : '',
-      temp_lora: selectedLoras.value.length > 0 ? selectedLoras.value : []
     }
-    const jsonStr = JSON.stringify(putJson)
+  }
 
-    // 发送Lora数据到节点
-    window.postMessage(
-      {
-        type: `weilin_prompt_ui_prompt_node_finish_lora_stack_${seed.value}`,
-        data: jsonStr
-      },
-      '*'
-    )
+  // 注册消息监听器
+  window.addEventListener('message', messageHandler)
 
-    // 2. 发送Lora标签到节点（新增）
-    const loraTags = tempLora.map((lora) => {
-      const loraName = lora.lora ? lora.lora.replace('.safetensors', '') : lora.name
-      return `<wlr:${loraName}:${lora.weight || 1}:${lora.text_encoder_weight || 1}:${lora.trigger_weight || 1}>`
-    })
+  const initLoraStack = (text) => {
+    // 初始化Lora列表 - 不再直接设置seed,由父组件管理
 
-    window.postMessage(
-      {
-        type: `weilin_prompt_ui_update_lora_tags_${seed.value}`,
-        tags: loraTags
-      },
-      '*'
-    )
+    // console.log(text)
+    if (text.length > 0) {
+      try {
+        const jsonStr = JSON.parse(text)
+
+        if (jsonStr.lora && jsonStr.lora !== '') {
+          emit('update:selectedLoras', jsonStr.lora)
+        }
+
+        if (jsonStr.temp_lora && jsonStr.temp_lora.length > 0 && jsonStr.temp_lora !== '') {
+          const tempDataJson = jsonStr.temp_lora
+          emit('update:selectedLoras', tempDataJson)
+        }
+      } catch (error) {
+        // console.log('读取数据错误：', error)
+        message({ type: 'warn', str: 'promptBox.settings.errorPrompt' })
+      }
+    } else {
+      // 如果text为空,清空selectedLoras
+      emit('update:selectedLoras', [])
+    }
   }
 
   // 拖拽相关
@@ -405,10 +347,11 @@
     if (dragIndex.value === null || dragIndex.value === idx) {
       return
     }
-    const moved = selectedLoras.value.splice(dragIndex.value, 1)[0]
-    selectedLoras.value.splice(idx, 0, moved)
+    const newLoras = [...props.selectedLoras]
+    const moved = newLoras.splice(dragIndex.value, 1)[0]
+    newLoras.splice(idx, 0, moved)
     dragIndex.value = null
-    updateLoraStackInfoToWindows()
+    emit('update:selectedLoras', newLoras)
   }
 
   defineExpose({
@@ -438,7 +381,7 @@
     padding: 8px 16px;
     border-bottom: 1px solid var(--weilin-prompt-ui-border-color);
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
     align-items: center;
     border-top-right-radius: 8px;
     border-top-left-radius: 8px;

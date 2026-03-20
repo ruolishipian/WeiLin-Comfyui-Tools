@@ -696,6 +696,63 @@ waitForApp((app) => {
               }
               // 重新渲染节点上的Lora堆
               renderAllLoras(thisNodeSeed)
+              // 广播消息给所有组件（包括内嵌Lora堆和独立窗口）
+              updateLoraStackInfoToWindows(thisNodeSeed)
+            }
+          }else if (event.data.type === `weilin_prompt_ui_update_lora_tags_${thisNodeSeed}`) {
+            // 处理来自独立窗口的Lora标签更新消息
+            const loraTags = event.data.tags
+            const currentPrompt = nodeTextAreaList[0].value
+            
+            // 使用与编辑器相同的逻辑处理提示词文本
+            if (loraTags && loraTags.length > 0) {
+              // 移除所有现有的 <wlr:...> 标签
+              const wlrPattern = /<wlr:[^>]+>/g
+              let cleanText = currentPrompt.replace(wlrPattern, '')
+              
+              // 清理连续的逗号和空格
+              cleanText = cleanText
+                .replace(/,\s*,/g, ',')      // 连续逗号替换为单个逗号
+                .replace(/,\s*$/g, '')       // 移除末尾的逗号和空格
+                .replace(/^\s*,/g, '')       // 移除开头的逗号和空格
+                .trim()
+              
+              // 添加新的标签到开头
+              const newTags = loraTags.join(', ')
+              if (cleanText) {
+                nodeTextAreaList[0].value = `${newTags}, ${cleanText}`
+              } else {
+                nodeTextAreaList[0].value = newTags
+              }
+            } else {
+              // 当 loraTags 为空数组时，清空提示词中的所有 LoRA 标签
+              const wlrPattern = /<wlr:[^>]+>/g
+              let cleanText = currentPrompt.replace(wlrPattern, '')
+              
+              // 清理连续的逗号和空格
+              cleanText = cleanText
+                .replace(/,\s*,/g, ',')
+                .replace(/,\s*$/g, '')
+                .replace(/^\s*,/g, '')
+                .trim()
+              
+              nodeTextAreaList[0].value = cleanText
+            }
+            
+            // 同步更新Widget
+            if (nodeWidgetList[0]) nodeWidgetList[0].value = nodeTextAreaList[0].value
+          }else if (event.data.type === "weilin_prompt_ui_query_lora_stack_" + thisNodeSeed) {
+            // 查询Lora堆数据 - 组件打开时主动查询
+            if (nodeData.name === "WeiLinPromptUI" || nodeData.name === "WeiLinPromptUIOnlyLoraStack") {
+              const currentLoras = window.weilinGlobalSelectedLoras[thisNodeSeed] || [];
+              const putJson = {
+                lora: currentLoras.filter(lora => !lora.hidden),
+                temp_lora: currentLoras
+              };
+              window.postMessage({
+                type: 'weilin_prompt_ui_query_lora_stack_response_' + thisNodeSeed,
+                data: JSON.stringify(putJson)
+              }, '*');
             }
           }else if (event.data.type === "weilin_prompt_ui_selectLora_stack_node_"+thisNodeSeed) {
             addLora(thisNodeSeed,event.data.lora)
