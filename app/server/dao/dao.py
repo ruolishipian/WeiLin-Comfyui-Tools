@@ -185,8 +185,7 @@ def create_tables():
         # 创建tags数据库表
         conn = sqlite3.connect(tags_db_path)
         cursor = conn.cursor()
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS tag_groups (
                 id_index INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT,
@@ -194,10 +193,8 @@ def create_tables():
                 create_time INTEGER,
                 p_uuid TEXT(128)
             )
-        """
-        )
-        cursor.execute(
-            """
+        """)
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS tag_subgroups (
                 id_index INTEGER PRIMARY KEY AUTOINCREMENT,
                 group_id INTEGER,
@@ -207,10 +204,8 @@ def create_tables():
                 p_uuid TEXT(128),
                 g_uuid TEXT(128)
             )
-        """
-        )
-        cursor.execute(
-            """
+        """)
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS tag_tags (
                 id_index INTEGER PRIMARY KEY AUTOINCREMENT,
                 subgroup_id INTEGER,
@@ -221,60 +216,45 @@ def create_tables():
                 t_uuid TEXT(128),
                 g_uuid TEXT(128)
             )
-        """
-        )
+        """)
         # 添加update_info表
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS update_info (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 update_at INTEGER
             )
-        """
-        )
+        """)
         # 插入默认数据
-        cursor.execute(
-            """
+        cursor.execute("""
             INSERT OR IGNORE INTO update_info (id, update_at)
             VALUES (1, 1743405726)
-        """
-        )
-        cursor.execute(
-            """
+        """)
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS schema_version (
                 version INTEGER PRIMARY KEY
             )
-        """
-        )
+        """)
 
         # 添加性能优化索引
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_tag_tags_g_uuid
             ON tag_tags(g_uuid)
-        """
-        )
+        """)
 
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_tag_subgroups_p_uuid
             ON tag_subgroups(p_uuid)
-        """
-        )
+        """)
 
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_tag_tags_text
             ON tag_tags(text)
-        """
-        )
+        """)
 
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_tag_tags_create_time
             ON tag_tags(create_time)
-        """
-        )
+        """)
 
         conn.commit()
         conn.close()
@@ -282,8 +262,7 @@ def create_tables():
         # 创建history数据库表
         conn = sqlite3.connect(history_db_path)
         cursor = conn.cursor()
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS history (
                 id_index INTEGER PRIMARY KEY AUTOINCREMENT,
                 tag TEXT,
@@ -292,10 +271,8 @@ def create_tables():
                 create_time INTEGER,
                 is_deleted INTEGER DEFAULT 0
             )
-        """
-        )
-        cursor.execute(
-            """
+        """)
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS collect_history (
                 id_index INTEGER PRIMARY KEY AUTOINCREMENT,
                 tag TEXT,
@@ -304,23 +281,19 @@ def create_tables():
                 create_time INTEGER,
                 is_deleted INTEGER DEFAULT 0
             )
-        """
-        )
-        cursor.execute(
-            """
+        """)
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS schema_version (
                 version INTEGER PRIMARY KEY
             )
-        """
-        )
+        """)
         conn.commit()
         conn.close()
 
         # 创建danbooru数据库表
         conn = sqlite3.connect(danbooru_db_path)
         cursor = conn.cursor()
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS danbooru_tag (
                 id_index INTEGER PRIMARY KEY AUTOINCREMENT,
                 tag TEXT,
@@ -329,31 +302,24 @@ def create_tables():
                 hot INTEGER DEFAULT 0,
                 aliases INTEGER DEFAULT 0
             )
-        """
-        )
+        """)
         # 添加update_info表
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS update_info (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 update_at INTEGER
             )
-        """
-        )
+        """)
         # 插入默认数据
-        cursor.execute(
-            """
+        cursor.execute("""
             INSERT OR IGNORE INTO update_info (id, update_at)
             VALUES (1, 1743405726)
-        """
-        )
-        cursor.execute(
-            """
+        """)
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS schema_version (
                 version INTEGER PRIMARY KEY
             )
-        """
-        )
+        """)
         conn.commit()
         conn.close()
     except sqlite3.Error as e:
@@ -408,13 +374,11 @@ def migrate_db():
         conn = sqlite3.connect(tags_db_path)
         cursor = conn.cursor()
         # 创建schema_version表
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS schema_version (
                 version INTEGER PRIMARY KEY
             )
-        """
-        )
+        """)
         # 其他迁移操作
         update_version("tags", 1)
         conn.commit()
@@ -482,13 +446,11 @@ def migrate_db():
     if current_version < 1:
         conn = sqlite3.connect(history_db_path)
         cursor = conn.cursor()
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS schema_version (
                 version INTEGER PRIMARY KEY
             )
-        """
-        )
+        """)
         update_version("history", 1)
         conn.commit()
         conn.close()
@@ -498,13 +460,11 @@ def migrate_db():
     if current_version < 1:
         conn = sqlite3.connect(danbooru_db_path)
         cursor = conn.cursor()
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS schema_version (
                 version INTEGER PRIMARY KEY
             )
-        """
-        )
+        """)
         update_version("danbooru", 1)
         conn.commit()
         conn.close()
@@ -518,18 +478,14 @@ def migrate_db():
         columns = [info[1] for info in cursor.fetchall()]
         if "hot" not in columns:
             # 添加hot字段
-            cursor.execute(
-                """
+            cursor.execute("""
                 ALTER TABLE danbooru_tag ADD COLUMN hot INTEGER DEFAULT 0
-            """
-            )
+            """)
         if "aliases" not in columns:
             # 添加hot字段
-            cursor.execute(
-                """
+            cursor.execute("""
                 ALTER TABLE danbooru_tag ADD COLUMN aliases INTEGER DEFAULT 0
-            """
-            )
+            """)
         update_version("danbooru", 2)
         conn.commit()
         conn.close()
@@ -564,14 +520,12 @@ def update_uuids(conn):
             )
 
         # 2. 更新tag_subgroups的p_uuid和g_uuid
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT sg.id_index, g.p_uuid
             FROM tag_subgroups sg
             JOIN tag_groups g ON sg.group_id = g.id_index
             WHERE sg.p_uuid IS NULL OR sg.p_uuid = '' OR sg.g_uuid IS NULL OR sg.g_uuid = ''
-        """
-        )
+        """)
         subgroups = cursor.fetchall()
         for subgroup in subgroups:
             subgroup_id, group_p_uuid = subgroup
@@ -586,14 +540,12 @@ def update_uuids(conn):
             )
 
         # 3. 更新tag_tags的g_uuid和t_uuid
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT t.id_index, sg.g_uuid
             FROM tag_tags t
             JOIN tag_subgroups sg ON t.subgroup_id = sg.id_index
             WHERE t.g_uuid IS NULL OR t.g_uuid = '' OR t.t_uuid IS NULL OR t.t_uuid = ''
-        """
-        )
+        """)
         tags = cursor.fetchall()
         for tag in tags:
             tag_id, subgroup_g_uuid = tag
@@ -635,14 +587,12 @@ def update_uuids_v3(conn):
             )
 
         # 2. 更新tag_subgroups的p_uuid和g_uuid
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT sg.id_index, g.p_uuid
             FROM tag_subgroups sg
             LEFT JOIN tag_groups g ON sg.group_id = g.id_index
             WHERE sg.p_uuid IS NULL OR sg.p_uuid = '' OR sg.g_uuid IS NULL OR sg.g_uuid = ''
-        """
-        )
+        """)
         subgroups = cursor.fetchall()
         for subgroup in subgroups:
             subgroup_id, group_p_uuid = subgroup
@@ -667,14 +617,12 @@ def update_uuids_v3(conn):
                 )
 
         # 3. 更新tag_tags的g_uuid和t_uuid
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT t.id_index, sg.g_uuid
             FROM tag_tags t
             LEFT JOIN tag_subgroups sg ON t.subgroup_id = sg.id_index
             WHERE t.g_uuid IS NULL OR t.g_uuid = '' OR t.t_uuid IS NULL OR t.t_uuid = ''
-        """
-        )
+        """)
         tags = cursor.fetchall()
         for tag in tags:
             tag_id, subgroup_g_uuid = tag
@@ -706,15 +654,13 @@ def update_uuids_v3(conn):
 
         # 处理重复的t_uuid值
         print("检查并修复重复的UUID...")
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT t_uuid, COUNT(*) as count
             FROM tag_tags
             WHERE t_uuid IS NOT NULL
             GROUP BY t_uuid
             HAVING count > 1
-        """
-        )
+        """)
 
         duplicates = cursor.fetchall()
         for dup in duplicates:
@@ -734,15 +680,13 @@ def update_uuids_v3(conn):
                 )
 
         # 处理重复的p_uuid值（tag_groups表）
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT p_uuid, COUNT(*) as count
             FROM tag_groups
             WHERE p_uuid IS NOT NULL
             GROUP BY p_uuid
             HAVING count > 1
-        """
-        )
+        """)
 
         duplicates = cursor.fetchall()
         for dup in duplicates:
@@ -762,15 +706,13 @@ def update_uuids_v3(conn):
                 )
 
         # 处理重复的g_uuid值（tag_subgroups表）
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT g_uuid, COUNT(*) as count
             FROM tag_subgroups
             WHERE g_uuid IS NOT NULL
             GROUP BY g_uuid
             HAVING count > 1
-        """
-        )
+        """)
 
         duplicates = cursor.fetchall()
         for dup in duplicates:
@@ -1215,8 +1157,7 @@ def _create_history_tables():
     """创建history数据库表"""
     conn = sqlite3.connect(history_db_path)
     cursor = conn.cursor()
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS history (
             id_index INTEGER PRIMARY KEY AUTOINCREMENT,
             tag TEXT,
@@ -1225,10 +1166,8 @@ def _create_history_tables():
             create_time INTEGER,
             is_deleted INTEGER DEFAULT 0
         )
-    """
-    )
-    cursor.execute(
-        """
+    """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS collect_history (
             id_index INTEGER PRIMARY KEY AUTOINCREMENT,
             tag TEXT,
@@ -1237,8 +1176,7 @@ def _create_history_tables():
             create_time INTEGER,
             is_deleted INTEGER DEFAULT 0
         )
-    """
-    )
+    """)
     conn.commit()
     conn.close()
 

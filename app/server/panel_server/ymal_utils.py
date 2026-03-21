@@ -10,18 +10,15 @@ from ..dao.dao import get_db_path
 def create_tables_for_json_util(db_path):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS tag_groups (
             id_index INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
             color TEXT,
             create_time INTEGER
         )
-    """
-    )
-    cursor.execute(
-        """
+    """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS tag_subgroups (
             id_index INTEGER PRIMARY KEY AUTOINCREMENT,
             group_id INTEGER,
@@ -30,10 +27,8 @@ def create_tables_for_json_util(db_path):
             create_time INTEGER,
             FOREIGN KEY (group_id) REFERENCES tag_groups (id_index)
         )
-    """
-    )
-    cursor.execute(
-        """
+    """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS tag_tags (
             id_index INTEGER PRIMARY KEY AUTOINCREMENT,
             subgroup_id INTEGER,
@@ -43,15 +38,12 @@ def create_tables_for_json_util(db_path):
             create_time INTEGER,
             FOREIGN KEY (subgroup_id) REFERENCES tag_subgroups (id_index)
         )
-    """
-    )
-    cursor.execute(
-        """
+    """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS schema_version (
             version INTEGER PRIMARY KEY
         )
-    """
-    )
+    """)
     conn.commit()
     conn.close()
 

@@ -1,4 +1,5 @@
 from ..dao.dao import fetch_one
+from .lru_cache import get_translation_cache
 
 
 async def get_translation_from_tag_tags(word):
@@ -20,11 +21,23 @@ async def get_translation_from_danbooru_tag(word):
 
 
 async def get_translation(word):
-    """从数据库中获取单词的翻译，优先从 tag_tags 表中获取"""
+    """从数据库中获取单词的翻译，优先从 tag_tags 表中获取，使用LRU缓存"""
+    # 先查缓存
+    cache = get_translation_cache()
+    cached_result = cache.get(word)
+    if cached_result is not None:
+        return cached_result
+
+    # 缓存未命中，查询数据库
     translation = await get_translation_from_tag_tags(word)
     if translation:
+        cache.set(word, translation)
         return translation
-    return await get_translation_from_danbooru_tag(word)
+
+    translation = await get_translation_from_danbooru_tag(word)
+    if translation:
+        cache.set(word, translation)
+    return translation
 
 
 async def translate_phrase(phrase):

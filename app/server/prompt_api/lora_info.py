@@ -193,14 +193,14 @@ def _update_data(info_data: dict) -> bool:
     # 自动关联 trainedWords 到 loraWorks（解决触发词自动填充问题）
     # 处理 loraWorks 不存在、为空、或包含多个词的情况
     should_update_loraWorks = False
-    
+
     if "loraWorks" not in info_data or not info_data["loraWorks"]:
         # loraWorks不存在或为空
         should_update_loraWorks = True
     elif isinstance(info_data["loraWorks"], str) and "," in info_data["loraWorks"]:
         # loraWorks包含多个词（用逗号分隔），需要更新为只取第一个
         should_update_loraWorks = True
-    
+
     if should_update_loraWorks:
         # 从 trainedWords 中提取第一个训练词作为默认触发词
         if (
@@ -372,46 +372,161 @@ def download_image(url, filename, directory):
 def _is_common_tag(tag: str) -> bool:
     """
     判断是否为常见通用标签（非触发词）
-    
+
     这些标签通常出现在训练数据中，但不是真正的触发词
     """
     # 常见通用标签列表（小写）
     common_tags = {
         # 人物相关
-        '1girl', '1boy', '2girls', '2boys', '3girls', '3boys', 'multiple girls', 'multiple boys',
-        'solo', 'couple', 'group',
+        "1girl",
+        "1boy",
+        "2girls",
+        "2boys",
+        "3girls",
+        "3boys",
+        "multiple girls",
+        "multiple boys",
+        "solo",
+        "couple",
+        "group",
         # 身体特征
-        'long hair', 'short hair', 'white hair', 'black hair', 'blonde hair', 'brown hair',
-        'red hair', 'blue hair', 'green hair', 'pink hair', 'purple hair', 'silver hair',
-        'gradient hair', 'multicolored hair', 'two-tone hair',
-        'blue eyes', 'green eyes', 'brown eyes', 'red eyes', 'yellow eyes', 'purple eyes',
-        'black eyes', 'white eyes', 'orange eyes', 'pink eyes',
-        'small breasts', 'medium breasts', 'large breasts', 'huge breasts',
+        "long hair",
+        "short hair",
+        "white hair",
+        "black hair",
+        "blonde hair",
+        "brown hair",
+        "red hair",
+        "blue hair",
+        "green hair",
+        "pink hair",
+        "purple hair",
+        "silver hair",
+        "gradient hair",
+        "multicolored hair",
+        "two-tone hair",
+        "blue eyes",
+        "green eyes",
+        "brown eyes",
+        "red eyes",
+        "yellow eyes",
+        "purple eyes",
+        "black eyes",
+        "white eyes",
+        "orange eyes",
+        "pink eyes",
+        "small breasts",
+        "medium breasts",
+        "large breasts",
+        "huge breasts",
         # 服装相关
-        'dress', 'white dress', 'black dress', 'red dress', 'blue dress', 'green dress',
-        'school uniform', 'swimsuit', 'bikini', 'maid', 'nurse', 'waitress',
-        'skirt', 'shorts', 'pants', 'jeans', 'shirt', 'blouse', 'jacket', 'coat',
+        "dress",
+        "white dress",
+        "black dress",
+        "red dress",
+        "blue dress",
+        "green dress",
+        "school uniform",
+        "swimsuit",
+        "bikini",
+        "maid",
+        "nurse",
+        "waitress",
+        "skirt",
+        "shorts",
+        "pants",
+        "jeans",
+        "shirt",
+        "blouse",
+        "jacket",
+        "coat",
         # 姿势相关
-        'standing', 'sitting', 'lying', 'walking', 'running', 'jumping',
-        'looking at viewer', 'looking away', 'from behind', 'from side', 'from above', 'from below',
+        "standing",
+        "sitting",
+        "lying",
+        "walking",
+        "running",
+        "jumping",
+        "looking at viewer",
+        "looking away",
+        "from behind",
+        "from side",
+        "from above",
+        "from below",
         # 背景相关
-        'simple background', 'white background', 'black background', 'grey background',
-        'outdoors', 'indoors', 'sky', 'cloud', 'tree', 'flower', 'water', 'building',
+        "simple background",
+        "white background",
+        "black background",
+        "grey background",
+        "outdoors",
+        "indoors",
+        "sky",
+        "cloud",
+        "tree",
+        "flower",
+        "water",
+        "building",
         # 画面风格
-        'highres', 'absurdres', 'best quality', 'high quality', 'normal quality', 'low quality',
-        'masterpiece', 'great quality', 'good quality', 'average quality', 'bad quality',
-        'worst quality', 'very bad quality',
+        "highres",
+        "absurdres",
+        "best quality",
+        "high quality",
+        "normal quality",
+        "low quality",
+        "masterpiece",
+        "great quality",
+        "good quality",
+        "average quality",
+        "bad quality",
+        "worst quality",
+        "very bad quality",
         # 其他常见标签
-        'smile', 'open mouth', 'closed mouth', 'blush', 'tears', 'sweat',
-        'gloves', 'shoes', 'boots', 'socks', 'stockings', 'pantyhose',
-        'hat', 'headwear', 'hair ornament', 'ribbon', 'bow', 'flower', 'jewelry',
-        'bangs', 'ponytail', 'twintails', 'braid', 'ahoge', 'sidelocks',
-        'pointy ears', 'animal ears', 'cat ears', 'dog ears', 'rabbit ears', 'fox ears',
-        'tail', 'cat tail', 'dog tail', 'fox tail', 'rabbit tail',
-        'wings', 'angel wings', 'demon wings', 'fairy wings',
-        'no humans', 'scenery', 'landscape', 'cityscape', 'seascape',
+        "smile",
+        "open mouth",
+        "closed mouth",
+        "blush",
+        "tears",
+        "sweat",
+        "gloves",
+        "shoes",
+        "boots",
+        "socks",
+        "stockings",
+        "pantyhose",
+        "hat",
+        "headwear",
+        "hair ornament",
+        "ribbon",
+        "bow",
+        "jewelry",
+        "bangs",
+        "ponytail",
+        "twintails",
+        "braid",
+        "ahoge",
+        "sidelocks",
+        "pointy ears",
+        "animal ears",
+        "cat ears",
+        "dog ears",
+        "rabbit ears",
+        "fox ears",
+        "tail",
+        "cat tail",
+        "dog tail",
+        "fox tail",
+        "rabbit tail",
+        "wings",
+        "angel wings",
+        "demon wings",
+        "fairy wings",
+        "no humans",
+        "scenery",
+        "landscape",
+        "cityscape",
+        "seascape",
     }
-    
+
     tag_lower = tag.lower().strip()
     return tag_lower in common_tags
 
@@ -419,9 +534,9 @@ def _is_common_tag(tag: str) -> bool:
 def _merge_metadata(info_data: dict, data_meta: dict) -> bool:
     """
     合并模型元数据到info_data
-    
+
     优化版：按训练频率排序触发词，与 ComfyUI-Lora-Auto-Trigger-Words 保持一致
-    
+
     Returns true if data was saved.
     """
     should_save = False
@@ -434,14 +549,14 @@ def _merge_metadata(info_data: dict, data_meta: dict) -> bool:
     trained_words = {}
     if "ss_tag_frequency" in data_meta:
         tag_freq_data = data_meta["ss_tag_frequency"]
-        
+
         # 如果是字符串，需要解析JSON（某些模型存储为JSON字符串）
         if isinstance(tag_freq_data, str):
             try:
                 tag_freq_data = json.loads(tag_freq_data)
             except json.JSONDecodeError:
                 tag_freq_data = {}
-        
+
         if isinstance(tag_freq_data, dict):
             for bucket_value in tag_freq_data.values():
                 if isinstance(bucket_value, dict):
@@ -449,30 +564,38 @@ def _merge_metadata(info_data: dict, data_meta: dict) -> bool:
                         tag = str(tag).strip()
                         if tag:
                             if tag not in trained_words:
-                                trained_words[tag] = {"word": tag, "count": 0, "metadata": True}
-                            trained_words[tag]["count"] = trained_words[tag]["count"] + count
+                                trained_words[tag] = {
+                                    "word": tag,
+                                    "count": 0,
+                                    "metadata": True,
+                                }
+                            trained_words[tag]["count"] = (
+                                trained_words[tag]["count"] + count
+                            )
 
     if "trainedWords" not in info_data:
         # 按训练次数降序排序（与 ComfyUI-Lora-Auto-Trigger-Words 保持一致）
-        sorted_words = sorted(trained_words.values(), key=lambda x: x["count"], reverse=True)
-        
+        sorted_words = sorted(
+            trained_words.values(), key=lambda x: x["count"], reverse=True
+        )
+
         # 智能过滤：优先保留非通用标签
         # 如果前几个标签都是通用标签，尝试找到第一个非通用标签放在最前面
         filtered_words = []
         non_common_words = []
-        
+
         for word_data in sorted_words:
             if not _is_common_tag(word_data["word"]):
                 non_common_words.append(word_data)
             else:
                 filtered_words.append(word_data)
-        
+
         # 如果有非通用标签，将它们放在前面
         if non_common_words:
             info_data["trainedWords"] = non_common_words + filtered_words
         else:
             info_data["trainedWords"] = sorted_words
-        
+
         should_save = True
     else:
         # We can't merge, because the list may have other data, like it's part of civitaidata.
@@ -483,27 +606,27 @@ def _merge_metadata(info_data: dict, data_meta: dict) -> bool:
             if new_key not in merged_dict:
                 merged_dict[new_key] = {}
             merged_dict[new_key] = {**merged_dict[new_key], **new_word_data}
-        
+
         # 按训练次数排序（有count的排前面，没有count的保持原顺序）
         merged_list = list(merged_dict.values())
         merged_list.sort(key=lambda x: x.get("count", 99999), reverse=True)
-        
+
         # 智能过滤：优先保留非通用标签
         filtered_words = []
         non_common_words = []
-        
+
         for word_data in merged_list:
             if not _is_common_tag(word_data.get("word", "")):
                 non_common_words.append(word_data)
             else:
                 filtered_words.append(word_data)
-        
+
         # 如果有非通用标签，将它们放在前面
         if non_common_words:
             info_data["trainedWords"] = non_common_words + filtered_words
         else:
             info_data["trainedWords"] = merged_list
-        
+
         should_save = True
 
     # trained_words = list(trained_words.values())
@@ -521,9 +644,9 @@ def _merge_metadata(info_data: dict, data_meta: dict) -> bool:
 def _merge_civitai_data(info_data: dict, data_civitai: dict) -> bool:
     """
     合并Civitai数据到info_data
-    
+
     优化版：Civitai触发词作为最高优先级，放在trainedWords列表最前面
-    
+
     Returns true if data was saved.
     """
     should_save = False
@@ -555,10 +678,10 @@ def _merge_civitai_data(info_data: dict, data_civitai: dict) -> bool:
             civitai_words_list = civitai_words.split(",")
             if "trainedWords" not in info_data:
                 info_data["trainedWords"] = []
-            
+
             # 创建一个有序字典来保持Civitai触发词的顺序
             existing_words = {data["word"]: data for data in info_data["trainedWords"]}
-            
+
             # 将Civitai触发词插入到列表开头（最高优先级）
             civitai_word_data_list = []
             for trigger_word in civitai_words_list:
@@ -570,16 +693,25 @@ def _merge_civitai_data(info_data: dict, data_civitai: dict) -> bool:
                     existing_words[trigger_word]["civitai"] = True
                 else:
                     # 创建新条目
-                    civitai_word_data_list.append({"word": trigger_word, "civitai": True})
-            
+                    civitai_word_data_list.append(
+                        {"word": trigger_word, "civitai": True}
+                    )
+
             # 合并：Civitai触发词在前，其他触发词在后
-            non_civitai_words = [data for data in info_data["trainedWords"] if not data.get("civitai", False)]
-            civitai_existing_words = [
-                existing_words.get(data["word"], data) 
-                for data in info_data["trainedWords"] 
-                if data.get("civitai", False) and data["word"] not in {w["word"] for w in civitai_word_data_list}
+            non_civitai_words = [
+                data
+                for data in info_data["trainedWords"]
+                if not data.get("civitai", False)
             ]
-            info_data["trainedWords"] = civitai_word_data_list + civitai_existing_words + non_civitai_words
+            civitai_existing_words = [
+                existing_words.get(data["word"], data)
+                for data in info_data["trainedWords"]
+                if data.get("civitai", False)
+                and data["word"] not in {w["word"] for w in civitai_word_data_list}
+            ]
+            info_data["trainedWords"] = (
+                civitai_word_data_list + civitai_existing_words + non_civitai_words
+            )
             should_save = True
 
     if "sha256" not in info_data:
