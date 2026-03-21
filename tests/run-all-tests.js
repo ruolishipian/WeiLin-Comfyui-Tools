@@ -18,7 +18,8 @@ const testFiles = [
   { name: '核心功能测试', file: 'core-functions.test.js' },
   { name: 'API 接口测试', file: 'api-interfaces.test.js' },
   { name: '数据处理测试', file: 'data-processing.test.js' },
-  { name: '节点输出格式测试', file: 'node-output-format.test.js' }
+  { name: '节点输出格式测试', file: 'node-output-format.test.js' },
+  { name: '节点初始化场景测试', file: 'node-initialization.test.js' }
 ];
 
 let totalPass = 0;

@@ -12,6 +12,7 @@
       v-if="props.promptManager === 'prompt'"
       ref="loraStackRef"
       :is-open="loraOpen"
+      :seed="currentEditNodeId"
       :selected-loras="selectedLoras"
       @update:selected-loras="selectedLoras = $event"
       @close="closeLora"
@@ -569,8 +570,140 @@
         </button>
       </div>
 
-      <!-- 词组显示区域 -->
-      <div class="tokens-container" v-if="tokens.length > 0">
+      <!-- 词组显示区域 - 优化：使用虚拟滚动 -->
+      <VirtualScrollContainer
+        v-if="tokens.length > 50"
+        :items="tokensWithId"
+        :item-height="40"
+        :buffer-size="5"
+        :threshold="50"
+        class="tokens-container"
+      >
+        <template #default="{ item: token, index }">
+          <div
+            class="token-item-box"
+            :draggable="!token.isEditing"
+            @dragstart="handleDragStart(index, $event)"
+            @dragover.prevent="handleDragOver(index, $event)"
+            @drop="handleDrop(index, $event)"
+            @dblclick="toggleHidden(index)"
+            :style="{ backgroundColor: token.color }"
+            :class="{ 'token-item-box-disabled': token.isHidden }"
+          >
+            <!-- 换行标记 -->
+            <div v-if="token.text === '\n'" class="newline-token">
+              <span class="token-symbol" :title="t('promptBox.newline')">↵</span>
+            </div>
+
+            <!-- Tab标记 -->
+            <div
+              v-else-if="token.text === '\t'"
+              class="token-item tab-token"
+              @mouseenter="showControls(index, $event)"
+              @mouseleave="handleMouseLeave(index)"
+            >
+              <span class="token-symbol" :title="t('promptBox.tab')">→</span>
+            </div>
+
+            <!-- 为Lora标签添加特殊图标 -->
+            <div
+              v-else-if="token.isLoraTag"
+              class="lora-tag-icon"
+              :title="t('promptBox.loraTag')"
+              @mouseenter="showControls(index, $event)"
+              @mouseleave="handleMouseLeave(index)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15">
+                <path
+                  d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z"
+                />
+              </svg>
+              <span style="margin-left: 5px">{{ token.text }}</span>
+            </div>
+
+            <!-- 普通词组 -->
+            <div
+              v-else-if="token.text && !token.isLoraTag"
+              class="token-item"
+              @mouseenter="showControls(index, $event)"
+              @mouseleave="handleMouseLeave(index)"
+              :class="{
+                punctuation: token.isPunctuation
+              }"
+            >
+              <span
+                v-if="!token.isEditing || token.isPunctuation"
+                @click="!token.isPunctuation && startEditing(index)"
+                >{{ token.text }}</span
+              >
+              <input
+                v-else-if="!token.isPunctuation"
+                :value="token.text"
+                @input="handleTokenEdit(index, $event)"
+                @blur="finishEditing(index)"
+                @keyup.enter="finishEditing(index)"
+                :ref="
+                  (el) => {
+                    if (el) tokenInputRefs[index] = el
+                  }
+                "
+              />
+              <!-- 右侧快捷删除按钮 -->
+              <button
+                v-if="showDeleteButton"
+                class="quick-delete-btn"
+                @click.stop="deleteToken(index)"
+                :title="t('promptBox.delete')"
+                style="margin-left: 4px"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+                    fill="#ff4d4f70"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <!-- 翻译结果显示 -->
+            <div
+              class="translation-result"
+              v-if="token.text !== '\n' && token.text !== '\t' && !token.isLoraTag"
+            >
+              <div
+                v-if="isTextTranslatable(token.text)"
+                @click="translateFunction(token.text, token)"
+                class="translate-button"
+                :title="t('promptBox.translate')"
+              >
+                <svg
+                  viewBox="0 0 1024 1024"
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="token-item-icon"
+                  width="24"
+                  height="24"
+                >
+                  <path
+                    d="M677.676657 294.6142c19.165116 57.5433 44.715939 102.2992 89.431879 147.0551 38.322239-38.3622 63.873063-89.5118 83.038178-147.0551h-172.470057z m-421.56861 319.685h166.076358l-83.038179-223.7795-83.038179 223.7795z"
+                    p-id="2419"
+                  />
+                  <path
+                    d="M894.854661 0.504H128.353929C58.095158 0.504 0.607803 58.0473 0.607803 128.378v767.244c0 70.3307 57.487355 127.874 127.746126 127.874h766.500733c70.258771 0 127.746126-57.5433 127.746126-127.874V128.378c0-70.3307-51.101647-127.874-127.746126-127.874zM581.867062 825.2913c-12.771416 12.7874-25.550824 12.7874-38.322239 12.7874-6.3937 0-19.165116 0-25.550824-6.3937-6.3937-6.3937-12.779408 0-12.779408-6.3937s-6.385708-12.7874-12.771415-25.5748c-6.3937-12.7874-6.3937-19.1811-12.779408-31.9685l-25.542832-70.3307H230.557224L205.0064 767.748c-12.771416 25.5748-19.165116 44.7559-25.550824 57.5433-6.3937 12.7874-19.165116 12.7874-38.322239 12.7874-12.779408 0-25.550824-6.3937-38.330231-12.7874-12.771416-12.7874-19.157124-19.1811-19.157124-31.9685 0-6.3937 0-12.7874 6.385708-25.5748 6.3937-12.7874 6.3937-19.1811 12.771416-31.9685l140.525533-358.0472c6.3937-12.7874 6.3937-25.5748 12.779408-38.3622 6.385708-12.7874 12.771416-25.5748 19.157124-31.9685 6.3937-6.3937 12.779408-19.1811 25.550823-25.5748 12.779408-6.3937 25.550824-6.3937 38.330232-6.3937 12.771416 0 25.542832 0 38.322239 6.3937 12.771416 6.3937 19.165116 12.7874 25.550824 25.5748 6.385708 6.3937 12.771416 19.1811 19.157124 31.9685 6.3937 12.7874 12.779408 25.5748 19.165115 44.7559l140.525534 351.6535c12.771416 25.5748 19.165116 44.7559 19.165116 57.5433-6.3937 6.3937-12.779408 19.1811-19.165116 31.9685zM933.176901 575.937c-70.258771-25.5748-121.360418-57.5433-166.076358-95.9055-44.707947 44.7559-102.195302 76.7244-172.462065 95.9055l-19.157124-31.9685c70.258771-19.1811 127.746126-44.7559 172.462066-89.5118C703.22748 409.7008 664.905241 352.1575 652.125833 288.2205h-63.873063v-25.5748h172.470058c-12.7874-19.1811-25.558816-44.7559-38.330232-63.937l19.157124-6.3937c12.779408 19.1811 31.944524 44.7559 44.715939 70.3307h159.682658v31.9685h-63.873063c-19.157124 63.937-51.093655 121.4803-89.423887 159.8425 44.715939 38.3622 95.809594 70.3307 166.076358 89.5118l-25.550824 31.9685z"
+                    p-id="2420"
+                  />
+                </svg>
+              </div>
+              <span class="translated-text">{{ token.translate ? token.translate : '' }}</span>
+            </div>
+          </div>
+
+          <!-- 如果是 换行，插入换行占位元素 -->
+          <div v-if="token.text === '\n'" class="line-break"></div>
+        </template>
+      </VirtualScrollContainer>
+
+      <!-- 少量标签时使用普通渲染 -->
+      <div v-else-if="tokens.length > 0" class="tokens-container">
         <template v-for="(token, index) in tokens" :key="'tag-item-' + index">
           <div
             class="token-item-box"
@@ -996,6 +1129,17 @@
   import pako from 'pako'
   import favourItem from './components/favour.vue'
 
+  // 性能优化模块导入
+  import { watchManager } from '@/utils/performance/watch/watch-manager'
+  import {
+    debounceController,
+    createDynamicDebounce
+  } from '@/utils/performance/debounce/debounce-controller'
+  import { cacheManager } from '@/utils/performance/cache/cache-manager'
+  import { webWorkerManager } from '@/utils/performance/worker/web-worker-manager'
+  import { batchUpdater } from '@/utils/performance/batch/batch-updater'
+  import VirtualScrollContainer from '@/utils/performance/virtual-scroll/VirtualScrollContainer.vue'
+
   const randomSettingItem = ref(null)
 
   const prefix = 'weilin_prompt_ui_'
@@ -1024,6 +1168,13 @@
   // 输入prompt信息
   const inputText = ref('')
   const tokens = ref([])
+  // 为虚拟滚动添加带ID的tokens
+  const tokensWithId = computed(() => {
+    return tokens.value.map((token, index) => ({
+      ...token,
+      id: `token-${index}-${token.text}`
+    }))
+  })
   const tokenInputRefs = {}
   const activeControls = ref(null)
   const isOverControls = ref(false)
@@ -1150,7 +1301,9 @@
   )
 
   // 监听功能开关变化并保存到 localStorage
-  watch(
+  // 优化：使用批量更新优化localStorage操作
+  watchManager.register(
+    'function-toggles',
     [
       isClearAllEnabled,
       isDeleteButtonEnabled,
@@ -1160,12 +1313,15 @@
       isClearDisabledEnabled
     ],
     ([clearAll, deleteButton, randomTag, randomTagSettings, translateTag, clearDisabled]) => {
-      localStorage.setItem('weilin_function_toggles_clearAll', String(clearAll))
-      localStorage.setItem('weilin_function_toggles_deleteButton', String(deleteButton))
-      localStorage.setItem('weilin_function_toggles_randomTag', String(randomTag))
-      localStorage.setItem('weilin_function_toggles_randomTagSettings', String(randomTagSettings))
-      localStorage.setItem('weilin_function_toggles_translateTag', String(translateTag))
-      localStorage.setItem('weilin_function_toggles_clearDisabled', String(clearDisabled))
+      // 使用批量更新
+      batchUpdater.batchLocalStorage([
+        { key: 'weilin_function_toggles_clearAll', value: String(clearAll) },
+        { key: 'weilin_function_toggles_deleteButton', value: String(deleteButton) },
+        { key: 'weilin_function_toggles_randomTag', value: String(randomTag) },
+        { key: 'weilin_function_toggles_randomTagSettings', value: String(randomTagSettings) },
+        { key: 'weilin_function_toggles_translateTag', value: String(translateTag) },
+        { key: 'weilin_function_toggles_clearDisabled', value: String(clearDisabled) }
+      ])
     }
   )
 
@@ -1275,15 +1431,16 @@
     unsavedChanges.value = true
   })
   // 在标签 tokens 序列变更时标记为有未保存变更（初始化期间除外）
-  // 优化：使用浅层watch减少性能开销
-  watch(
-    tokens,
+  // 优化：使用WatchManager注册浅层watch,只监听数组长度变化
+  watchManager.register(
+    'tokens-change',
+    () => tokens.value.length, // 只监听数组长度变化
     () => {
       if (!suppressUnsavedOnce) {
         unsavedChanges.value = true
       }
     },
-    { deep: false } // 改为浅层watch，提升性能
+    { shallow: true }
   )
 
   // 监听并持久化最后选中的主标签 ID
@@ -1666,17 +1823,23 @@
     return match ? match[1] : input
   }
 
-  // 缓存计算样式,减少getComputedStyle调用
-  let cachedStyles = null
+  // 缓存计算样式,减少getComputedStyle调用 - 优化：使用LRU缓存
+  const styleCache = cacheManager.getCache('style')
+
   const getCachedStyles = (textarea) => {
-    if (!cachedStyles) {
-      cachedStyles = {
+    const cacheKey = `${textarea.className}-${textarea.offsetWidth}`
+    let cached = styleCache.get(cacheKey)
+
+    if (!cached) {
+      cached = {
         width: window.getComputedStyle(textarea).width,
         font: window.getComputedStyle(textarea).font,
         padding: window.getComputedStyle(textarea).padding
       }
+      styleCache.set(cacheKey, cached)
     }
-    return cachedStyles
+
+    return cached
   }
 
   let debounceTimer = null
@@ -1761,7 +1924,7 @@
   // 监听textarea样式变化,清除缓存
   onMounted(() => {
     const observer = new MutationObserver(() => {
-      cachedStyles = null
+      styleCache.clear()
     })
     if (inputAreaRef.value) {
       observer.observe(inputAreaRef.value, {
@@ -1941,17 +2104,6 @@
   }
 
   // 处理输入事件 ========== 主事件处理 ==========
-  // 防抖处理processInput
-  let processInputDebounceTimer = null
-  const debouncedProcessInput = () => {
-    if (processInputDebounceTimer) {
-      clearTimeout(processInputDebounceTimer)
-    }
-    processInputDebounceTimer = setTimeout(() => {
-      processInput()
-    }, 50) // 50ms防抖,让UI先更新
-  }
-
   // 缓存localStorage设置,避免频繁读取
   const cachedSettings = {
     isCommaConversionEnabled: localStorage.getItem('weilin_prompt_ui_comma_conversion') !== 'false',
@@ -2375,6 +2527,13 @@
     // 计算token数量（简单实现，可根据实际分词算法调整）
     tokenCount.value = calculateTokens(inputText.value)
   }
+
+  // 防抖处理processInput - 优化：使用动态防抖,根据输入速度自动调整防抖时间
+  const debouncedProcessInput = createDynamicDebounce(processInput, {
+    minDelay: 100, // 最小100ms
+    maxDelay: 200, // 最大200ms
+    adaptive: true // 启用自适应
+  })
 
   const oneClickTranslatePrompt = async () => {
     // if (localStorage.getItem('weilin_prompt_ui_translater_setting') == 'translater') {
@@ -3720,6 +3879,9 @@
   onMounted(() => {
     // 添加点击事件监听，点击空白处或文本框时清除框选状态
     document.addEventListener('click', handleClickToClearSelection)
+
+    // 性能优化：初始化翻译Worker
+    // webWorkerManager.init('/src/workers/translator.worker.js')
   })
 
   // 组件卸载时清理事件监听
@@ -3744,6 +3906,13 @@
       tokensContainerRef.value.removeEventListener('mouseup', handleMouseUp)
       tokensContainerRef.value.removeEventListener('mouseleave', handleMouseUp)
     }
+
+    // 性能优化：清理所有优化模块
+    watchManager.cleanup() // 清理Watch
+    debounceController.clear() // 清理防抖
+    // cacheManager.clearAll() // 清理缓存(可选)
+    webWorkerManager.terminate() // 终止Worker
+    batchUpdater.clear() // 清理批量更新队列
     // 清理选择框
     removeSelectionBox()
   })
@@ -4821,9 +4990,11 @@
   })
 </script>
 
-<style scoped>
+<style>
   @import url('./prompt_index.css');
+</style>
 
+<style scoped>
   /* 内部小提示框样式（优化版） */
   .weilin-toast {
     position: fixed;

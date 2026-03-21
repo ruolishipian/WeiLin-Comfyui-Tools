@@ -3,26 +3,6 @@
 
 console.log('[WeiLin] JavaScript file loaded: weilin_prompt_ui_node.js');
 
-// 加载CSS修复文件
-(function() {
-    // 尝试多个可能的路径
-    const possiblePaths = [
-        './extensions/weilin-comfyui-tools/weilin_fix.css',
-        './extensions/weilin-comfyui-tools/js_node/weilin_fix.css',
-        './weilin_fix.css'
-    ];
-    
-    possiblePaths.forEach(path => {
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.type = 'text/css';
-        link.href = path;
-        document.head.appendChild(link);
-    });
-    
-    console.log('[WeiLin] CSS fix files loaded');
-})();
-
 // 防止重复注册
 if (window.weilinExtensionRegistered) {
   console.log('[WeiLin] Extension already registered, skipping...');
@@ -456,6 +436,11 @@ waitForApp((app) => {
         
         // 通知UI窗口lora数据变化的函数
         function notifyLoraDataChange() {
+          // 如果是从消息处理中触发的更新,不发送消息,避免循环
+          if (isUpdatingFromMessage) {
+            return;
+          }
+          
           if (promptBoxRandomID) {
             let jsonData = {
               prompt: nodeTextAreaList[0] ? nodeTextAreaList[0].value : "",
@@ -497,15 +482,17 @@ waitForApp((app) => {
 
         if (nodeData.name === "WeiLinPromptUI" ||
           nodeData.name === "WeiLinPromptUIWithoutLora") {
-          globalNodeList.push({ seed: thisNodeSeed, text: nodeTextAreaList[0].value, id: this.id })
+          if (nodeTextAreaList[0]) {
+            globalNodeList.push({ seed: thisNodeSeed, text: nodeTextAreaList[0].value, id: this.id })
 
-          const textarea = nodeTextAreaList[0];
+            const textarea = nodeTextAreaList[0];
 
-          textarea.addEventListener('input', (event) => {
-            const newValue = event.target.value;
-            updateNodeTextBySeed(newValue);
-            window.parent.postMessage({ type: 'weilin_prompt_ui_update_node_list_info', nodeList: globalNodeList }, '*')
-          });
+            textarea.addEventListener('input', (event) => {
+              const newValue = event.target.value;
+              updateNodeTextBySeed(newValue);
+              window.parent.postMessage({ type: 'weilin_prompt_ui_update_node_list_info', nodeList: globalNodeList }, '*')
+            });
+          }
         }
 
         // 监听节点ID
@@ -563,6 +550,9 @@ waitForApp((app) => {
 
         //console.log(globalNodeList)
 
+        // 添加标志防止循环触发
+        let isUpdatingFromMessage = false;
+
         // 定义消息处理函数，保存引用以便后续移除
         const messageHandler = (event) => {
           // console.log(e)
@@ -571,8 +561,12 @@ waitForApp((app) => {
 
             const jsonReponse = JSON.parse(event.data.data)
             // console.log(jsonReponse)
-            nodeTextAreaList[0].value = jsonReponse.prompt;
+            isUpdatingFromMessage = true;
+            if (nodeTextAreaList[0]) {
+              nodeTextAreaList[0].value = jsonReponse.prompt;
+            }
             if (nodeWidgetList[0]) nodeWidgetList[0].value = jsonReponse.prompt;
+            isUpdatingFromMessage = false;
 
             if (nodeData.name === "WeiLinPromptUI") {
               // console.log(jsonReponse.lora.length)
@@ -611,7 +605,9 @@ waitForApp((app) => {
           } else if (event.data.type === 'weilin_prompt_ui_prompt_get_node_list_info') {
             // 获取节点导航信息
             if (nodeData.name === "WeiLinPromptUI" || nodeData.name === "WeiLinPromptUIWithoutLora") {
-              updateNodeTextBySeed(thisNodeSeed, nodeTextAreaList[0].value);
+              if (nodeTextAreaList[0]) {
+                updateNodeTextBySeed(thisNodeSeed, nodeTextAreaList[0].value);
+              }
               window.parent.postMessage({ type: 'weilin_prompt_ui_update_node_list_info', nodeList: globalNodeList }, '*')
             }
 
@@ -622,7 +618,7 @@ waitForApp((app) => {
               promptBoxRandomID = generateUUID();
               // console.log("register====>",promptBoxRandomID)
               let jsonData = {
-                prompt: nodeTextAreaList[0].value,
+                prompt: nodeTextAreaList[0] ? nodeTextAreaList[0].value : '',
                 lora: [],
                 temp_prompt: {},
                 temp_lora: {},
@@ -675,6 +671,8 @@ waitForApp((app) => {
             // 接收到更新LoraStack内容消息
             const jsonReponse = JSON.parse(event.data.data)
             if (nodeData.name === "WeiLinPromptUI" || nodeData.name === "WeiLinPromptUIOnlyLoraStack") {
+              // 设置标志防止循环触发
+              isUpdatingFromMessage = true;
               // 处理 lora 数据
               if (jsonReponse.lora && Array.isArray(jsonReponse.lora) && jsonReponse.lora.length > 0) {
                 if (nodeTextAreaList[1]) nodeTextAreaList[1].value = JSON.stringify(jsonReponse.lora);
@@ -694,6 +692,8 @@ waitForApp((app) => {
                 if (nodeWidgetList[3]) nodeWidgetList[3].value = "";
                 window.weilinGlobalSelectedLoras[thisNodeSeed] = [];
               }
+              // 重置标志
+              isUpdatingFromMessage = false;
               // 重新渲染节点上的Lora堆
               renderAllLoras(thisNodeSeed)
               // 广播消息给所有组件（包括内嵌Lora堆和独立窗口）
@@ -702,21 +702,28 @@ waitForApp((app) => {
           }else if (event.data.type === `weilin_prompt_ui_update_lora_tags_${thisNodeSeed}`) {
             // 处理来自独立窗口的Lora标签更新消息
             const loraTags = event.data.tags
+
+            // 检查 nodeTextAreaList[0] 是否存在
+            if (!nodeTextAreaList[0]) {
+              console.warn('[WeiLin] nodeTextAreaList[0] is not available')
+              return
+            }
+
             const currentPrompt = nodeTextAreaList[0].value
-            
+
             // 使用与编辑器相同的逻辑处理提示词文本
             if (loraTags && loraTags.length > 0) {
               // 移除所有现有的 <wlr:...> 标签
               const wlrPattern = /<wlr:[^>]+>/g
               let cleanText = currentPrompt.replace(wlrPattern, '')
-              
+
               // 清理连续的逗号和空格
               cleanText = cleanText
                 .replace(/,\s*,/g, ',')      // 连续逗号替换为单个逗号
                 .replace(/,\s*$/g, '')       // 移除末尾的逗号和空格
                 .replace(/^\s*,/g, '')       // 移除开头的逗号和空格
                 .trim()
-              
+
               // 添加新的标签到开头
               const newTags = loraTags.join(', ')
               if (cleanText) {
@@ -728,17 +735,17 @@ waitForApp((app) => {
               // 当 loraTags 为空数组时，清空提示词中的所有 LoRA 标签
               const wlrPattern = /<wlr:[^>]+>/g
               let cleanText = currentPrompt.replace(wlrPattern, '')
-              
+
               // 清理连续的逗号和空格
               cleanText = cleanText
                 .replace(/,\s*,/g, ',')
                 .replace(/,\s*$/g, '')
                 .replace(/^\s*,/g, '')
                 .trim()
-              
+
               nodeTextAreaList[0].value = cleanText
             }
-            
+
             // 同步更新Widget
             if (nodeWidgetList[0]) nodeWidgetList[0].value = nodeTextAreaList[0].value
           }else if (event.data.type === "weilin_prompt_ui_query_lora_stack_" + thisNodeSeed) {
@@ -757,12 +764,16 @@ waitForApp((app) => {
           }else if (event.data.type === "weilin_prompt_ui_selectLora_stack_node_"+thisNodeSeed) {
             addLora(thisNodeSeed,event.data.lora)
           }else if (event.data.type === "weilin_prompt_ui_update_template_"+promptBoxRandomID) {
-            nodeTextAreaList[4].value = event.data.data
+            if (nodeTextAreaList[4]) nodeTextAreaList[4].value = event.data.data
             if (nodeWidgetList[4]) nodeWidgetList[4].value = event.data.data
           }else if (event.data.type === "weilin_prompt_ui_get_template_"+promptBoxRandomID) {
-            window.parent.postMessage({ type: 'weilin_prompt_ui_get_template_response', id: promptBoxRandomID, data: nodeTextAreaList[4].value }, '*')
+            if (nodeTextAreaList[4]) {
+              window.parent.postMessage({ type: 'weilin_prompt_ui_get_template_response', id: promptBoxRandomID, data: nodeTextAreaList[4].value }, '*')
+            }
           }else if (event.data.type === "weilin_prompt_ui_get_template_go_random_"+promptBoxRandomID) {
-            window.parent.postMessage({ type: 'weilin_prompt_ui_get_template_go_random_response', id: promptBoxRandomID, data: nodeTextAreaList[4].value }, '*')
+            if (nodeTextAreaList[4]) {
+              window.parent.postMessage({ type: 'weilin_prompt_ui_get_template_go_random_response', id: promptBoxRandomID, data: nodeTextAreaList[4].value }, '*')
+            }
           }
 
         };
@@ -776,14 +787,14 @@ waitForApp((app) => {
           this.addWidget("button", localLanguage, '', async ($e) => {
             // 先加载资源（如果还未加载）
             await loadResourcesOnDemand();
-            
+
             // console.log(thisNodeName)
             // 发送消息给父窗口
             // console.log(global_randomID)
             promptBoxRandomID = generateUUID();
             // console.log("register====>",promptBoxRandomID)
             let jsonData = {
-              prompt: nodeTextAreaList[0].value,
+              prompt: nodeTextAreaList[0] ? nodeTextAreaList[0].value : '',
               lora: [],
               temp_prompt: {},
               temp_lora: {},
@@ -881,7 +892,7 @@ waitForApp((app) => {
       nodeType.prototype.onExecuted = function (message) {
         onExecuted?.apply(this, arguments);
         const positiveWidget = this.widgets.find(w => w.name === "positive");
-        if (positiveWidget && message.positive) {
+        if (positiveWidget && message && message.positive) {
           positiveWidget.element.value = message.positive;
           // 触发input事件以更新全局状态
           const event = new Event('input', { bubbles: true });

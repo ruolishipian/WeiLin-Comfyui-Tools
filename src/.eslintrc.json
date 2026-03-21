@@ -11,6 +11,14 @@
     "sourceType": "module"
   },
   "plugins": ["vue"],
+  "overrides": [
+    {
+      "files": ["*.ts", "*.vue"],
+      "rules": {
+        "no-undef": "off"
+      }
+    }
+  ],
   "rules": {
     "vue/multi-word-component-names": "off",
     "vue/singleline-html-element-content-newline": "off",
@@ -28,6 +36,8 @@
     "no-multiple-empty-lines": ["warn", { "max": 1 }],
     "eol-last": ["warn", "always"],
     "no-trailing-spaces": "warn",
+    "no-unsafe-optional-chaining": ["error", { "disallowArithmeticOperators": true }],
+    "no-implicit-globals": "warn",
     "space-before-function-paren": [
       "warn",
       {

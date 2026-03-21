@@ -331,27 +331,33 @@
               // 处理二级分类
               subGroupSql.value = `${statement};`
               // 提取g_uuid，使用更灵活的正则表达式
-              const valuesPart = statement.split('VALUES')[1].trim()
-              const lastValue = valuesPart.match(/,\s*'([^']+)'\)$/)
-              if (lastValue) {
-                subGroupUUID.value = lastValue[1]
-              }
-              const nameMatch = statement.match(/VALUES\s*\([^'"]*['"]([^'"]+)['"]/)
-              if (nameMatch) {
-                subGroupName.value = nameMatch[1].replace(/''/g, "'")
+              const parts = statement.split('VALUES')
+              if (parts.length > 1) {
+                const valuesPart = parts[1].trim()
+                const lastValue = valuesPart.match(/,\s*'([^']+)'\)$/)
+                if (lastValue) {
+                  subGroupUUID.value = lastValue[1]
+                }
+                const nameMatch = statement.match(/VALUES\s*\([^'"]*['"]([^'"]+)['"]/)
+                if (nameMatch) {
+                  subGroupName.value = nameMatch[1].replace(/''/g, "'")
+                }
               }
             } else {
               // 处理一级分类
               groupSql.value = `${statement};`
               // 提取p_uuid，使用更灵活的正则表达式
-              const valuesPart = statement.split('VALUES')[1].trim()
-              const lastValue = valuesPart.match(/,\s*'([^']+)'\)$/)
-              if (lastValue) {
-                mainClassUUID.value = lastValue[1]
-              }
-              const nameMatch = statement.match(/VALUES\s*\([^'"]*['"]([^'"]+)['"]/)
-              if (nameMatch) {
-                groupName.value = nameMatch[1].replace(/''/g, "'")
+              const parts = statement.split('VALUES')
+              if (parts.length > 1) {
+                const valuesPart = parts[1].trim()
+                const lastValue = valuesPart.match(/,\s*'([^']+)'\)$/)
+                if (lastValue) {
+                  mainClassUUID.value = lastValue[1]
+                }
+                const nameMatch = statement.match(/VALUES\s*\([^'"]*['"]([^'"]+)['"]/)
+                if (nameMatch) {
+                  groupName.value = nameMatch[1].replace(/''/g, "'")
+                }
               }
             }
           } else if (statement.includes('tag_tags')) {
