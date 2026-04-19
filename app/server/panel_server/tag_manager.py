@@ -4,6 +4,7 @@ import time
 import uuid
 
 from ..dao.dao import execute_query, fetch_all, fetch_one, get_db_path
+from ..fast_autocomplete.pinyin_index import compute_pinyin
 
 
 def generate_unique_timestamp():
@@ -103,13 +104,15 @@ def get_tag_subgroups(group_id):
 
 # 标签操作
 def add_tag(subgroup_id, text, desc, color):
-    query = "INSERT INTO tag_tags (subgroup_id, text, desc, color, create_time) VALUES (?, ?, ?, ?, ?)"
-    execute_query(query, (subgroup_id, text, desc, color, generate_unique_timestamp()))
+    pinyin = compute_pinyin(desc)
+    query = "INSERT INTO tag_tags (subgroup_id, text, desc, color, create_time, pinyin) VALUES (?, ?, ?, ?, ?, ?)"
+    execute_query(query, (subgroup_id, text, desc, color, generate_unique_timestamp(), pinyin))
 
 
 def edit_tag(id_index, text, desc, color):
-    query = "UPDATE tag_tags SET text = ?, desc = ?, color = ? WHERE id_index = ?"
-    execute_query(query, (text, desc, color, id_index))
+    pinyin = compute_pinyin(desc)
+    query = "UPDATE tag_tags SET text = ?, desc = ?, color = ?, pinyin = ? WHERE id_index = ?"
+    execute_query(query, (text, desc, color, pinyin, id_index))
 
 
 def delete_tag(id_index):

@@ -4,6 +4,7 @@ from typing import Any
 import aiosqlite
 
 from ..dao.dao import danbooru_db_path
+from ..fast_autocomplete.pinyin_index import compute_pinyin
 
 
 async def get_danbooru_tags(
@@ -68,20 +69,23 @@ async def get_danbooru_tags(
 
 async def add_danbooru_tag(tag_data: dict) -> int:
     """添加新标签"""
+    translate = tag_data.get("translate", "")
+    pinyin = compute_pinyin(translate)
     async with aiosqlite.connect(danbooru_db_path) as db:
         cursor = await db.cursor()
         query = """
-        INSERT INTO danbooru_tag (tag, color_id, translate, hot, aliases)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO danbooru_tag (tag, color_id, translate, hot, aliases, pinyin)
+        VALUES (?, ?, ?, ?, ?, ?)
         """
         await cursor.execute(
             query,
             (
                 tag_data["tag"],
                 tag_data.get("color_id", 0),
-                tag_data.get("translate", ""),
+                translate,
                 tag_data.get("hot", 0),
                 tag_data.get("aliases", 0),
+                pinyin,
             ),
         )
         await db.commit()
@@ -90,6 +94,10 @@ async def add_danbooru_tag(tag_data: dict) -> int:
 
 async def update_danbooru_tag(tag_id: int, update_data: dict) -> bool:
     """更新标签信息"""
+    # 如果更新了 translate，同时计算拼音
+    if "translate" in update_data:
+        update_data["pinyin"] = compute_pinyin(update_data["translate"])
+
     async with aiosqlite.connect(danbooru_db_path) as db:
         cursor = await db.cursor()
 
@@ -179,6 +187,10 @@ def run_danbooru_sql_text(sql_array):
             cursor.execute(sql)
         # 提交事务
         conn.commit()
+        # SQL执行后补充拼音列
+        from ..fast_autocomplete.pinyin_index import fill_pinyin_columns
+        from ..dao.dao import tags_db_path
+        fill_pinyin_columns(danbooru_db_path, tags_db_path, background=True)
         print("SQL执行成功")
         return {"code": 200, "message": "SQL执行成功"}
     except Exception as e:

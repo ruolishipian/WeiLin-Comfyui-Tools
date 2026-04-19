@@ -26,14 +26,25 @@ _connection_lock = asyncio.Lock()
 current_dir = os.path.dirname(os.path.abspath(__file__))
 db_prefix = "userdatas_"
 db_suffix = "default"
-localLang = locale.getdefaultlocale()[0]
+# 检测系统语言（兼容 Python 3.10~3.15+）
+try:
+    localLang = locale.getlocale()[0] or ""
+except (ValueError, TypeError):
+    localLang = ""
+if not localLang:
+    localLang = os.environ.get("LANG", "").split(".")[0] or "en_US"
 
 # 读取配置文件中的语言设置来决定加载什么数据库文件
 userSetting = read_init_file() or {}
 # print(userSetting)
 if userSetting == {}:
     # 根据系统语言设置数据库文件
-    system_lang = locale.getdefaultlocale()[0]
+    try:
+        system_lang = locale.getlocale()[0] or ""
+    except (ValueError, TypeError):
+        system_lang = ""
+    if not system_lang:
+        system_lang = os.environ.get("LANG", "").split(".")[0] or "en_US"
     if system_lang.startswith("zh"):
         localLang = "zh_CN"
     else:
@@ -214,7 +225,8 @@ def create_tables():
                 color TEXT,
                 create_time INTEGER,
                 t_uuid TEXT(128),
-                g_uuid TEXT(128)
+                g_uuid TEXT(128),
+                pinyin TEXT DEFAULT ''
             )
         """)
         # 添加update_info表
@@ -254,6 +266,17 @@ def create_tables():
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_tag_tags_create_time
             ON tag_tags(create_time)
+        """)
+
+        # 确保 pinyin 列存在（旧数据库可能没有）
+        cursor.execute("PRAGMA table_info(tag_tags)")
+        tag_tags_columns = [info[1] for info in cursor.fetchall()]
+        if "pinyin" not in tag_tags_columns:
+            cursor.execute("ALTER TABLE tag_tags ADD COLUMN pinyin TEXT DEFAULT ''")
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_tag_tags_pinyin
+            ON tag_tags(pinyin)
         """)
 
         conn.commit()
@@ -300,7 +323,8 @@ def create_tables():
                 color_id INTEGER,
                 translate TEXT,
                 hot INTEGER DEFAULT 0,
-                aliases INTEGER DEFAULT 0
+                aliases INTEGER DEFAULT 0,
+                pinyin TEXT DEFAULT ''
             )
         """)
         # 添加update_info表
@@ -319,6 +343,16 @@ def create_tables():
             CREATE TABLE IF NOT EXISTS schema_version (
                 version INTEGER PRIMARY KEY
             )
+        """)
+        # 确保 pinyin 列存在（旧数据库可能没有）
+        cursor.execute("PRAGMA table_info(danbooru_tag)")
+        danbooru_columns = [info[1] for info in cursor.fetchall()]
+        if "pinyin" not in danbooru_columns:
+            cursor.execute("ALTER TABLE danbooru_tag ADD COLUMN pinyin TEXT DEFAULT ''")
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_danbooru_pinyin
+            ON danbooru_tag(pinyin)
         """)
         conn.commit()
         conn.close()
@@ -1009,6 +1043,13 @@ def install_cloud_file_db(db_type, paths):
 
             conn.commit()
             print(f"{db_type} 已完成数据安装。")
+            # 云端数据安装后补充拼音列
+            try:
+                from ..fast_autocomplete.pinyin_index import fill_pinyin_columns
+
+                fill_pinyin_columns(danbooru_db_path, tags_db_path)
+            except Exception as e:
+                print(f"[pinyin_index] Failed to fill pinyin after install: {e}")
     except sqlite3.OperationalError as e:
         print(f"执行SQL脚本时出错: {e}")
     except requests.RequestException as e:
@@ -1204,6 +1245,14 @@ def set_language(lang):
     if lang == "zh_CN":
         check_and_initialize_db("tags")
         check_and_initialize_db("danbooru")
+
+    # 初始化拼音列（支持中文拼音搜索）
+    try:
+        from ..fast_autocomplete.pinyin_index import fill_pinyin_columns
+
+        fill_pinyin_columns(danbooru_db_path, tags_db_path)
+    except Exception as e:
+        print(f"[pinyin_index] Failed to fill pinyin columns: {e}")
 
 
 # 获取数据库路径

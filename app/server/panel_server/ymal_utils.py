@@ -5,6 +5,7 @@ import uuid
 from ruamel.yaml import YAML
 
 from ..dao.dao import get_db_path
+from ..fast_autocomplete.pinyin_index import compute_pinyin
 
 
 def create_tables_for_json_util(db_path):
@@ -126,9 +127,10 @@ def insert_tag_if_not_exists(db_path, subgroup_id, tag):
     cursor.execute(query, (tag["text"], subgroup_id))
     result = cursor.fetchone()
     if not result:
+        pinyin = compute_pinyin(tag.get("desc", ""))
         query = """
-            INSERT INTO tag_tags (subgroup_id, text, desc, color, create_time)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO tag_tags (subgroup_id, text, desc, color, create_time, pinyin)
+            VALUES (?, ?, ?, ?, ?, ?)
         """
         cursor.execute(
             query,
@@ -138,6 +140,7 @@ def insert_tag_if_not_exists(db_path, subgroup_id, tag):
                 tag["desc"],
                 tag["color"],
                 get_current_timestamp_for_json_util(),
+                pinyin,
             ),
         )
     conn.commit()

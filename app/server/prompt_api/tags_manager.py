@@ -5,6 +5,7 @@ import uuid
 from uuid_extensions import uuid7
 
 from ..dao.dao import execute_query, fetch_all, fetch_one, tags_db_path
+from ..fast_autocomplete.pinyin_index import compute_pinyin
 
 # 全局缓存变量
 _tags_cache = None
@@ -24,9 +25,10 @@ def generate_unique_timestamp():
 
 
 async def add_group_tag(text, desc, subgroup_id, color, g_uuid):
+    pinyin = compute_pinyin(desc)
     query = """
-        INSERT INTO tag_tags (subgroup_id, text, desc, color, create_time, t_uuid, g_uuid)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO tag_tags (subgroup_id, text, desc, color, create_time, t_uuid, g_uuid, pinyin)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """
     await execute_query(
         "tags",
@@ -39,18 +41,20 @@ async def add_group_tag(text, desc, subgroup_id, color, g_uuid):
             generate_unique_timestamp(),
             str(uuid7()),
             g_uuid,
+            pinyin,
         ),
     )
     _invalidate_cache()
 
 
 async def edit_group_tag(text, desc, id_index, color):
+    pinyin = compute_pinyin(desc)
     query = """
         UPDATE tag_tags
-        SET text = ?, desc = ?, color = ?
+        SET text = ?, desc = ?, color = ?, pinyin = ?
         WHERE id_index = ?
     """
-    await execute_query("tags", query, (text, desc, color, id_index))
+    await execute_query("tags", query, (text, desc, color, pinyin, id_index))
     _invalidate_cache()
 
 
@@ -544,6 +548,10 @@ def run_sql_text(sql_array):
         # 提交事务
         conn.commit()
         _invalidate_cache()
+        # SQL执行后补充拼音列
+        from ..fast_autocomplete.pinyin_index import fill_pinyin_columns
+        from ..dao.dao import danbooru_db_path
+        fill_pinyin_columns(danbooru_db_path, tags_db_path, background=True)
         print("SQL执行成功")
         return {"code": 200, "message": "SQL执行成功"}
     except Exception as e:
